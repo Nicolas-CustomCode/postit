@@ -42,7 +42,7 @@
     "eslint": "9.39.5",
     "globals": "17.12.0",
     "turbo": "2.10.13",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "typescript-eslint": "8.70.0"
   },
   "//devDependencies": "TypeScript fica na 5.x: a 7.x (compilador nativo) ainda não é suportada por ts-jest e pela CLI do Nest. Versões exatas, sem ^, para a CI instalar sempre o mesmo.",
