@@ -99,7 +99,9 @@ Query nem Vitest. Justificativa de cada escolha em [docs/06-stack.md](docs/06-st
 integrações atrás de porta (como `storage/`); erros próprios traduzidos por filtro global.
 
 **No Next:** leituras em `lib/data/` (Server Components), escritas em `lib/actions/` (Server Actions),
-toda chamada à API por `lib/api/client.ts`.
+toda chamada à API por `lib/api/client.ts`. O Next 16 mudou APIs e convenções — `proxy.ts` no lugar de
+`middleware.ts`, por exemplo. Antes de escrever código do Next, consulte o guia da versão instalada em
+`node_modules/next/dist/docs/`.
 
 **Monorepo:** escopo `@repo/*`; `tsconfig.base.json` sem `paths`; `.env` único na raiz, validado com
 zod por cada app no boot; client do Prisma gerado fora do git; comentários explicativos em

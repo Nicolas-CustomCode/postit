@@ -1,0 +1,56 @@
+{
+  "name": "postit",
+  "version": "0.1.1",
+  "//version": "Versão única do projeto. scripts/version.mjs propaga para os pacotes e para packages/shared/src/version.ts. O pre-commit sobe o patch; minor e major são manuais. Ver docs/15.",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "//workspaces": "npm workspaces + Turborepo. Escopo @repo/*. Ver docs/adr/0010.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "//engines": "O pg-boss 12.x exige Node 22.12 ou mais novo.",
+  "packageManager": "npm@10.8.2",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "npm run dev -w @repo/web",
+    "dev:api": "npm run dev -w @repo/api",
+    "dev:worker": "npm run dev:worker -w @repo/api",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "npm run test:e2e -w @repo/web",
+    "db:generate": "npm run generate -w @repo/database",
+    "db:migrate": "npm run migrate -w @repo/database",
+    "db:deploy": "npm run deploy -w @repo/database",
+    "db:studio": "npm run studio -w @repo/database",
+    "db:seed": "npm run seed -w @repo/database",
+    "tunnel": "node scripts/tunnel.cjs",
+    "media:setup": "docker compose run --rm media-init",
+    "version:patch": "node scripts/version.mjs patch",
+    "version:minor": "node scripts/version.mjs minor",
+    "version:major": "node scripts/version.mjs major",
+    "postinstall": "node scripts/install-hooks.mjs"
+  },
+  "//scripts": "db:deploy é o único comando de banco para produção: nunca db:push nem reset lá. tunnel abre os dois túneis rápidos do desenvolvimento (docs/adr/0022). postinstall liga os hooks de .githooks quando a pasta é um repositório git. Nomes de comando em inglês (docs/adr/0023).",
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.2",
+    "eslint": "9.39.5",
+    "globals": "17.12.0",
+    "turbo": "2.10.13",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0"
+  },
+  "//devDependencies": "TypeScript fica na 5.x: a 7.x (compilador nativo) ainda não é suportada por ts-jest e pela CLI do Nest. Versões exatas, sem ^, para a CI instalar sempre o mesmo.",
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.4",
+    "fastify": "5.12.4",
+    "browserslist": "4.29.0"
+  },
+  "//overrides": "Correções de segurança em dependências de dependências, sem trocar de versão principal do Prisma nem do NestJS (npm audit fix --force rebaixaria para o Prisma 6 e subiria para o Nest 12). deepmerge-ts 7.1.5 (GHSA-ggr8-5vv4-36mx) vem do @prisma/config; a 8.x exporta a mesma função deepmerge que ele usa. mysql2 3.15.3 (GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3) vem da CLI do Prisma, só para MySQL, que não usamos. fastify 5.11.3 (GHSA-w2qp-rph6-63g4, GHSA-3m5p-2c4r-xxw2) vem do @nestjs/platform-fastify 11. browserslist 4.28.6 (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g) vem fixado pelo @serwist/turbopack 9.5.12; a 4.29 é da mesma versão principal. Retirar cada override quando a dependência de origem publicar versão corrigida."
+}

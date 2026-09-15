@@ -1,0 +1,40 @@
+{
+  "name": "@repo/web",
+  "version": "0.1.1",
+  "private": true,
+  "//": "Next.js 16 — telas e BFF. É a única parte que o navegador enxerga; nunca acessa banco nem MinIO direto (AGENTS.md, regra 4).",
+  "scripts": {
+    "dev": "node scripts/next.cjs dev",
+    "build": "next build",
+    "start": "node scripts/next.cjs start",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "//scripts": "dev e start passam por scripts/next.cjs, que lê o .env da raiz e traduz WEB_PORT para a porta do Next. O Next não lê a porta do .env: o servidor HTTP sobe antes de qualquer código do projeto (dor registrada no nossobuncker). typecheck roda next typegen antes, para o tsc conferir as rotas da árvore atual e não as da última build.",
+  "dependencies": {
+    "@repo/shared": "*",
+    "@serwist/turbopack": "9.5.12",
+    "clsx": "2.1.1",
+    "dotenv": "17.4.2",
+    "lucide-react": "1.46.0",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "tailwind-merge": "3.7.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "serwist": "9.5.12",
+    "tailwindcss": "4.3.3"
+  },
+  "//devDependencies": "esbuild e serwist compilam o service worker de app/sw.ts durante o next build. ESLint fica na 9, a versão dos docs; o eslint-config-next aceita a 10, mas os plugins dele ainda são testados na 9."
+}

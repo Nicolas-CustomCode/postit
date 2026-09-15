@@ -1,0 +1,20 @@
+# Atualizações de dependências toda semana (docs/15). Correções pequenas vêm
+# juntas num pedido só; versão principal nova vem separada, para ser lida com calma.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

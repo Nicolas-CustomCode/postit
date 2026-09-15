@@ -1,0 +1,35 @@
+{
+  "name": "@repo/database",
+  "version": "0.1.1",
+  "private": true,
+  "//": "Schema Prisma, migrations e seed. Só a API e o worker usam; o Next nunca acessa o banco (docs/07). O client gerado fica em src/generated, fora do git.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "prisma"
+  ],
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "migrate": "prisma migrate dev",
+    "deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "seed": "prisma db seed"
+  },
+  "//scripts": "deploy (prisma migrate deploy) é o único que roda em produção. Nunca db push nem migrate reset lá — regra herdada do nossobuncker.",
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "dotenv": "17.4.2",
+    "pg": "8.23.0",
+    "prisma": "7.10.0"
+  },
+  "//dependencies": "A CLI do prisma fica em dependencies, e não em devDependencies: a imagem Docker de produção descarta as de desenvolvimento, e a API roda prisma migrate deploy ao iniciar (docs/10, lição do openreply).",
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "tsx": "4.23.13"
+  }
+}

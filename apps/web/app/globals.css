@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/*
+ * Identidade visual aprovada — docs/13, "Identidade visual". Nenhuma cor nem
+ * fonte fora de lá. Os nomes são os do shadcn/ui; --highlight é a lima, que o
+ * doc chama de --destaque.
+ *
+ * O tema escuro segue a configuração do aparelho. Quando a troca manual no
+ * Perfil existir, o variant `dark` passa a olhar uma classe no <html>.
+ */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+:root {
+  /* 12px de base: dá 10px em botões e campos (md) e 16px em cartões (xl). */
+  --radius: 0.75rem;
+
+  --background: #f6f7fb;
+  --foreground: #10131c;
+  --card: #ffffff;
+  --card-foreground: #10131c;
+  --popover: #ffffff;
+  --popover-foreground: #10131c;
+  --muted: #eef1f8;
+  --muted-foreground: #5a6275;
+  --secondary: #eef1f8;
+  --secondary-foreground: #10131c;
+  --border: #e1e5ef;
+  --input: #e1e5ef;
+  --primary: #3544e6;
+  --primary-foreground: #ffffff;
+  --ring: #3544e6;
+  --accent: #e4e8ff;
+  --accent-foreground: #10131c;
+  --destructive: #dc2626;
+  --highlight: #c6f432;
+  --highlight-foreground: #182000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c0e16;
+    --foreground: #eef0f8;
+    --card: #151826;
+    --card-foreground: #eef0f8;
+    --popover: #151826;
+    --popover-foreground: #eef0f8;
+    --muted: #1d2133;
+    --muted-foreground: #9aa2ba;
+    --secondary: #1d2133;
+    --secondary-foreground: #eef0f8;
+    --border: #2a2f45;
+    --input: #2a2f45;
+    --primary: #6d86ff;
+    --primary-foreground: #0c0e16;
+    --ring: #6d86ff;
+    --accent: #232a5c;
+    --accent-foreground: #eef0f8;
+    --destructive: #f87171;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Variáveis criadas pelo next/font no layout. */
+  --font-sans: var(--font-figtree);
+  --font-heading: var(--font-bricolage);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-heading;
+  }
+}

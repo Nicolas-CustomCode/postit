@@ -35,3 +35,6 @@ apps/web/public/swe-worker-*.js
 .DS_Store
 Thumbs.db
 *.log
+
+# Tipos gerados pelo Next
+apps/web/next-env.d.ts

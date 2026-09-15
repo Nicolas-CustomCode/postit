@@ -88,11 +88,12 @@ flowchart LR
 | Etapa | O quê | Por quê |
 |---|---|---|
 | Instalação | `npm ci`, Node 22.12+, cache do npm | Instalação idêntica ao lockfile |
-| Prisma | `npm run build -w @repo/database` | Client gerado antes de tudo |
+| Prisma | Gerado pelo Turborepo antes do typecheck | Client gerado antes de tudo |
 | Typecheck | `tsc --noEmit` em todos os pacotes | — |
 | Lint | ESLint 9 | — |
 | Varredura de segredos | Busca por padrões de chave e token no código versionado, como no `alivio-crm` | Segredo commitado por engano é pego antes de ficar no histórico por muito tempo |
 | Auditoria | `npm audit --omit=dev --audit-level=high` | Vulnerabilidade alta ou crítica em dependência de produção |
+| Migrations | `npm run db:deploy` no Postgres vazio da CI | Migration quebrada aparece aqui, e não no deploy |
 | Testes da API | Jest, com **Postgres em container** | Ver abaixo |
 | Build | `turbo build` | — |
 | Testes de tela | Playwright, com Postgres e MinIO em container | Ver abaixo |
@@ -135,7 +136,11 @@ motivo de cada uma no comentário ao lado, e retiradas quando a dependência de 
 Testes que abrem o navegador e usam o PostIt como uma pessoa usaria. Rodam com `npm run test:e2e`.
 
 **Rodam em dois tamanhos de tela**, computador e celular, porque o sistema funciona por completo nos dois
-([13](13-telas-e-navegacao.md)).
+([13](13-telas-e-navegacao.md)). O celular imita um Pixel, que usa o mesmo Chromium: um navegador só para instalar na CI.
+
+**Rodam contra o build de produção** (`next start`), na porta 3100, e não contra o `npm run dev`: a CSP de produção é
+mais estrita, e é ela que precisa passar. Antes de `npm run test:e2e`, rode `npm run build`. A Meta falsa sobe junto,
+na porta 3199.
 
 **Nunca falam com a Meta real.** Na CI, uma **Meta falsa** — um pequeno servidor que imita as respostas da Graph
 API, inclusive os erros — ocupa o lugar dela. O endereço da API da Meta só pode ser trocado quando

@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    // `paths` fica AQUI e nunca no tsconfig.base.json: num arquivo base, o
+    // caminho é resolvido a partir dele, e `@/*` apontaria para a raiz do
+    // monorepo.
+    "paths": { "@/*": ["./*"] }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    // `.next/dev/types` fica fora: o `next dev` gera tipos só das rotas que já
+    // compilou, e o tsc acusaria erro falso num arquivo gerado. O conjunto
+    // completo vem do `next typegen`, que o typecheck roda antes.
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

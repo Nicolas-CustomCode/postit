@@ -1,0 +1,108 @@
+# Integração contínua (docs/15, "Integração contínua"). Roda a cada push na main e
+# avisa quando algo quebra — não bloqueia o commit, e não faz deploy.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Um push novo cancela a execução anterior ainda em andamento (padrão do hotclone).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postit
+          POSTGRES_PASSWORD: postit
+          POSTGRES_DB: postit_test
+          TZ: UTC
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postit -d postit_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Valores falsos, só para os processos passarem na validação de ambiente. A CI
+    # nunca tem segredo de verdade nem credencial de app da Meta (docs/11).
+    env:
+      APP_URL: http://localhost:3010
+      INTERNAL_API_URL: http://127.0.0.1:3011
+      INTERNAL_API_KEY: ci-internal-key-not-a-secret-000000000000
+      API_HOST: 127.0.0.1
+      API_PORT: 3011
+      DATABASE_URL: postgresql://postit:postit@127.0.0.1:5432/postit_test
+      TEST_DATABASE_URL: postgresql://postit:postit@127.0.0.1:5432/postit_test
+      MINIO_ENDPOINT: http://127.0.0.1:9000
+      MINIO_ROOT_USER: postit
+      MINIO_ROOT_PASSWORD: postit-ci
+      MINIO_BUCKET: postit
+      MINIO_PUBLIC_URL: http://localhost:9000
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      STATE_SECRET: "1111111111111111111111111111111111111111111111111111111111111111"
+      NEXT_TELEMETRY_DISABLED: 1
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.19
+          cache: npm
+
+      - run: npm ci
+
+      # Segredo commitado por engano: chave privada, chave da AWS, chave de API no
+      # formato sk-, e tokens da Meta (IGAA… do Instagram, EAA… do Facebook).
+      - name: Varredura de segredos
+        shell: bash
+        run: |
+          if git grep -nE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9_-]{20,}|IGAA[A-Za-z0-9_-]{40,}|EAA[A-Za-z0-9]{60,}' -- ':!package-lock.json' ':!.env.example'; then
+            echo "Possível segredo commitado."
+            exit 1
+          fi
+
+      - name: Auditoria de dependências de produção
+        run: npm audit --omit=dev --audit-level=high
+
+      - run: npm run typecheck
+      - run: npm run lint
+
+      # Todas as migrations num Postgres vazio: uma migration quebrada aparece aqui,
+      # e não no deploy (docs/adr/0019).
+      - name: Migrations no banco de teste
+        run: npm run db:deploy
+
+      - name: Testes da API e do shared
+        run: npm run test
+
+      - run: npm run build
+
+      - name: Navegador do Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Testes de tela
+        run: npm run test:e2e
+
+      - name: Relatório do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

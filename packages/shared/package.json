@@ -1,0 +1,25 @@
+{
+  "name": "@repo/shared",
+  "version": "0.1.1",
+  "private": true,
+  "//": "Contrato entre telas e API: schemas zod, tipos de resposta, enums, especificações de mídia, safeRedirect() e política de senha. Compila para CommonJS em dist/, que o Nest e o Next importam igual. Ver docs/05, decisão 5.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "jest": "30.5.1",
+    "ts-jest": "29.4.12"
+  }
+}

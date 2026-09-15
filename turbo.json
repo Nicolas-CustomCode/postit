@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "//": "build depende do build dos pacotes de que cada app depende (^build): shared e database compilam antes de api e web. dev não tem cache e fica rodando. Variáveis do .env da raiz entram no cálculo de cache do build do web, que as lê em tempo de construção.",
+  "globalDependencies": [".env"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "src/generated/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Fora da imagem: o que é reconstruído lá dentro, segredos e o que não roda.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+packages/database/src/generated
+
+.env
+.env.*
+!.env.example
+*-credenciais.*
+*.dump
+backup*.sql
+*.pem
+
+.git
+.github
+.githooks
+docs
+apps/web/e2e
+apps/web/test-results
+apps/web/playwright-report

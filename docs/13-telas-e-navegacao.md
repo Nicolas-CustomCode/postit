@@ -229,7 +229,7 @@ Nomes das variáveis do `shadcn/ui`. O tema segue a configuração do aparelho, 
 | `--primary-foreground` | `#FFFFFF` | `#0C0E16` | Texto sobre a primária |
 | `--accent` | `#E4E8FF` | `#232A5C` | Fundo de item selecionado e do anel de foco |
 | `--destructive` | `#DC2626` | `#F87171` | Só ações destrutivas e falhas |
-| `--destaque` (própria) | `#C6F432` | `#C6F432` | Lima: dia de hoje, contadores novos, ponto do ícone. Texto sobre ela: `#182000` |
+| `--highlight` (própria) | `#C6F432` | `#C6F432` | Lima: dia de hoje, contadores novos, ponto do ícone. Texto sobre ela: `#182000` |
 
 **Escala do azul PostIt:** 50 `#EEF1FF` · 100 `#E4E8FF` · 200 `#C7D0FF` · 300 `#A0B0FF` · 400 `#6D86FF` ·
 500 `#4A61FB` · 600 `#3544E6` · 700 `#2B36C2` · 800 `#262F9B` · 900 `#232A72` · 950 `#171B47`.

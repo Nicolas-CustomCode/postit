@@ -329,6 +329,7 @@ postit/
 ├── ecosystem.config.cjs                  # só na etapa 2, depois da aprovação
 ├── scripts/
 │   ├── deploy.sh                         # etapa 2: deploy.sh vX.Y.Z — só aceita tag
+│   ├── docker-entrypoint.sh              # despacha web, api (migrations antes) ou worker na imagem
 │   ├── version.mjs                       # propaga a versao unica
 │   └── tunnel.cjs                        # dois tuneis rapidos da Cloudflare, app e midia — ver doc 14
 ├── turbo.json

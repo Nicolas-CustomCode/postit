@@ -1,0 +1,83 @@
+# docker-compose.yml — Postgres e MinIO do COMPUTADOR LOCAL.
+#
+# Produção não usa este arquivo: na etapa 1 os serviços são do Easypanel, e o
+# compose de produção da etapa 2 só é escrito na mudança de casa. Ver
+# docs/10-infra-deploy.md e docs/adr/0020.
+#
+# Não há Redis: as filas ficam no próprio Postgres, pelo pg-boss. Ver docs/adr/0008.
+#
+# Portas presas a 127.0.0.1 e deslocadas. O Postgres usa a 5435 porque a 5434 já
+# costuma estar ocupada por um PostgreSQL instalado direto no Windows, e a 5433
+# pelo vortex.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postit-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5435:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postit}
+      POSTGRES_DB: ${POSTGRES_DB:-postit}
+      TZ: UTC # o servidor pensa em UTC. Ver docs/adr/0006
+    volumes:
+      - postgres-dados:/var/lib/postgresql/data
+      # Cria o banco postit_test na primeira subida, para os testes da API
+      # (docs/15: o teste recusa rodar em banco que não termina em _test).
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: postit-minio
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9002:9000" # API S3 — é esta porta que o segundo túnel expõe
+      - "127.0.0.1:9003:9001" # console de administração, só local
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-postit}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-postit-local-123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-dados:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Prepara o bucket do PostIt: leitura pública só em publicas/ e ciclo de vida
+  # apagando envios abandonados em recebidos/. Ver docs/adr/0012 e docs/10.
+  #
+  # Roda a cada `docker compose up` e sai. Repetível: `mb --ignore-existing` e
+  # `anonymous set` não reclamam do que já existe, e a regra de ciclo de vida só
+  # é criada se ainda não estiver lá. Para rodar de novo: npm run media:setup
+  media-init:
+    image: minio/mc:latest
+    container_name: postit-media-init
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-postit}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-postit-local-123}
+      BUCKET: ${MINIO_BUCKET:-postit}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb --ignore-existing local/$$BUCKET &&
+      mc anonymous set download local/$$BUCKET/publicas &&
+      (mc ilm rule ls local/$$BUCKET | grep -q recebidos/ || mc ilm rule add --prefix recebidos/ --expire-days 1 local/$$BUCKET) &&
+      echo bucket $$BUCKET pronto, leitura publica so em publicas/
+      "
+
+volumes:
+  postgres-dados:
+  minio-dados:

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node", "jest"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": false,
+    "declaration": false,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "//": "isolatedModules desligado: com emitDecoratorMetadata, os tipos importados só para injeção precisam continuar existindo em tempo de execução. Sem incremental: o typecheck gravava o .tsbuildinfo e o nest build, depois de apagar a dist, confiava nele e não emitia nada.",
+  "include": ["src"]
+}

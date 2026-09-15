@@ -1,0 +1,694 @@
+// Schema do PostIt. Espelha docs/07-modelo-dados.md — mudou aqui, muda lá.
+//
+// Código em inglês, banco em português (docs/adr/0023): cada modelo, campo, enum e
+// valor tem nome em inglês e @map/@@map para o nome em português do banco. O código
+// escreve `post.scheduledAt`; o banco guarda `Postagem.publicarEm`.
+//
+// Horários são timestamptz e sempre em UTC (docs/adr/0006). Identificadores são
+// UUID v7: ordenáveis pelo tempo, o que ajuda os índices, e sem número sequencial
+// que revele volume.
+//
+// As tabelas do pg-boss NÃO estão aqui: ele cria e gerencia as dele no esquema
+// pgboss (docs/07, "O esquema do pg-boss").
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  // CommonJS: o Nest compila para CommonJS, e o client é importado por ele.
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// Enumerações — as mesmas de packages/shared/src/domain.ts
+// ============================================================================
+
+enum SocialNetwork {
+  INSTAGRAM
+
+  @@map("RedeSocial")
+}
+
+enum PostFormat {
+  FEED_IMAGE @map("FEED_IMAGEM")
+  FEED_VIDEO
+  CAROUSEL   @map("CARROSSEL")
+  REELS
+  STORIES
+
+  @@map("FormatoPostagem")
+}
+
+enum PostStatus {
+  DRAFT      @map("RASCUNHO")
+  IN_REVIEW  @map("EM_REVISAO")
+  APPROVED   @map("APROVADO")
+  SCHEDULED  @map("AGENDADO")
+  PROCESSING @map("PROCESSANDO")
+  PUBLISHED  @map("PUBLICADO")
+  FAILED     @map("FALHOU")
+  CANCELED   @map("CANCELADO")
+
+  @@map("StatusPostagem")
+}
+
+enum ContainerRole {
+  SINGLE @map("UNICO")
+  PARENT @map("PAI")
+  CHILD  @map("FILHO")
+
+  @@map("PapelContainer")
+}
+
+// Nomes da Meta, de propósito: é o valor que chega da API (docs/07).
+enum ContainerStatus {
+  IN_PROGRESS
+  FINISHED
+  ERROR
+  EXPIRED
+  PUBLISHED
+
+  @@map("StatusContainer")
+}
+
+enum MetricMoment {
+  T1H
+  T24H
+  T7D
+  STORY_20H
+
+  @@map("MomentoMetrica")
+}
+
+enum ApprovalAction {
+  SUBMITTED_FOR_REVIEW @map("ENVIOU_REVISAO")
+  APPROVED             @map("APROVOU")
+  REJECTED             @map("REPROVOU")
+  INVALIDATED_BY_EDIT  @map("INVALIDOU_POR_EDICAO")
+
+  @@map("AcaoAprovacao")
+}
+
+enum PublishStep {
+  CREATE_CONTAINER @map("CRIAR_CONTAINER")
+  CHECK_STATUS     @map("CONSULTAR_STATUS")
+  PUBLISH          @map("PUBLICAR")
+  COLLECT_METRICS  @map("COLETAR_METRICAS")
+
+  @@map("EtapaPublicacao")
+}
+
+enum StepResult {
+  SUCCESS           @map("SUCESSO")
+  RECOVERABLE_ERROR @map("ERRO_RECUPERAVEL")
+  FATAL_ERROR       @map("ERRO_FATAL")
+
+  @@map("ResultadoEtapa")
+}
+
+enum TokenAction {
+  LONG_LIVED_EXCHANGE @map("TROCA_LONGA_DURACAO")
+  REFRESH             @map("RENOVACAO")
+
+  @@map("AcaoToken")
+}
+
+enum RevocationReason {
+  LOGGED_OUT       @map("SAIU")
+  PASSWORD_CHANGE  @map("TROCA_SENHA")
+  PASSWORD_RESET   @map("REDEFINICAO_SENHA")
+  TWO_FACTOR_RESET @map("RESET_2FA")
+  ENDED_BY_USER    @map("ENCERRADA_PELO_USUARIO")
+
+  @@map("MotivoRevogacao")
+}
+
+enum ChallengePurpose {
+  SETUP_2FA  @map("CADASTRAR_2FA")
+  VERIFY_2FA @map("VERIFICAR_2FA")
+
+  @@map("FinalidadeDesafio")
+}
+
+enum LinkPurpose {
+  SIGNUP         @map("CADASTRO")
+  PASSWORD_RESET @map("REDEFINICAO_SENHA")
+
+  @@map("FinalidadeLink")
+}
+
+enum AccessResult {
+  SUCCESS        @map("SUCESSO")
+  WRONG_PASSWORD @map("SENHA_ERRADA")
+  UNKNOWN_EMAIL  @map("EMAIL_INEXISTENTE")
+  WRONG_CODE     @map("CODIGO_ERRADO")
+  BLOCKED        @map("BLOQUEADO")
+
+  @@map("ResultadoAcesso")
+}
+
+enum BlockType {
+  ACCOUNT @map("CONTA")
+  IP
+
+  @@map("TipoBloqueio")
+}
+
+enum NotificationType {
+  PUBLISH_FAILED      @map("PUBLICACAO_FALHOU")
+  AWAITING_APPROVAL   @map("AGUARDANDO_APROVACAO")
+  TOKEN_EXPIRING      @map("TOKEN_EXPIRANDO")
+  ACCOUNT_ACCESS_LOST @map("CONTA_SEM_ACESSO")
+  PROCESSING_STUCK    @map("PROCESSAMENTO_TRAVADO")
+  ACCOUNT_LOCKED      @map("CONTA_BLOQUEADA")
+
+  @@map("TipoNotificacao")
+}
+
+// Catálogo fixo (docs/adr/0015). Acrescentar exige código e migração.
+enum Permission {
+  POST_EDIT        @map("POSTAGEM_EDITAR")
+  POST_APPROVE     @map("POSTAGEM_APROVAR")
+  POST_APPROVE_OWN @map("POSTAGEM_APROVAR_PROPRIA")
+  POST_SCHEDULE    @map("POSTAGEM_AGENDAR")
+  ACCOUNT_MANAGE   @map("CONTA_GERENCIAR")
+
+  @@map("Permissao")
+}
+
+enum AuditOrigin {
+  WEB
+  CLI
+
+  @@map("OrigemAuditoria")
+}
+
+enum AuditAction {
+  USER_CREATED          @map("USUARIO_CRIADO")
+  USER_DEACTIVATED      @map("USUARIO_DESATIVADO")
+  USER_REACTIVATED      @map("USUARIO_REATIVADO")
+  SUPER_ADMIN_PROMOTED  @map("SUPER_ADMIN_PROMOVIDO")
+  SUPER_ADMIN_REMOVED   @map("SUPER_ADMIN_REMOVIDO")
+  PERMISSIONS_CHANGED   @map("PERMISSOES_ALTERADAS")
+  RESET_LINK_CREATED    @map("LINK_REDEFINICAO_GERADO")
+  TWO_FACTOR_RESET      @map("DUAS_ETAPAS_RESETADAS")
+  SESSIONS_ENDED        @map("SESSOES_ENCERRADAS")
+  BLOCK_RELEASED        @map("BLOQUEIO_LIBERADO")
+
+  @@map("AcaoAuditoria")
+}
+
+// ============================================================================
+// Autenticação e administração — docs/adr/0013 e 0015
+// ============================================================================
+
+model User {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  email               String    @unique
+  name                String    @map("nome")
+  // argon2id. Vazio até a pessoa usar o link de cadastro.
+  passwordHash        String?   @map("senhaHash")
+  // Cifrado com ENCRYPTION_KEY. Nunca sai da API.
+  totpSecretEncrypted String?   @map("totpSegredoCifrado")
+  totpEnabledAt       DateTime? @map("totpAtivadoEm") @db.Timestamptz(3)
+  // Último passo de 30 s aceito: impede reusar o mesmo código.
+  totpLastStep        BigInt?   @map("totpUltimoPasso")
+  superAdmin          Boolean   @default(false)
+  deactivatedAt       DateTime? @map("desativadoEm") @db.Timestamptz(3)
+  deactivatedById     String?   @map("desativadoPorId") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  deactivatedBy           User?                    @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id])
+  deactivatedUsers        User[]                   @relation("UserDeactivatedBy")
+  permissions             UserPermission[]         @relation("PermissionOfUser")
+  grantedPermissions      UserPermission[]         @relation("PermissionGrantedBy")
+  sessions                Session[]
+  loginChallenges         LoginChallenge[]
+  recoveryCodes           RecoveryCode[]
+  accessLinks             AccessLink[]
+  releasedBlocks          AccessBlock[]
+  auditEvents             AuditEvent[]
+  createdPosts            Post[]                   @relation("PostCreatedBy")
+  scheduledPosts          Post[]                   @relation("PostScheduledBy")
+  updatedPosts            Post[]                   @relation("PostUpdatedBy")
+  approvals               Approval[]
+  internalComments        InternalComment[]
+  notificationDeliveries  NotificationDelivery[]
+  pushSubscriptions       PushSubscription[]
+  notificationPreferences NotificationPreference[]
+
+  // Contagem de super admins ativos da invariante I-10.
+  @@index([superAdmin, deactivatedAt])
+  @@map("Usuario")
+}
+
+model UserPermission {
+  id          String     @id @default(uuid(7)) @db.Uuid
+  userId      String     @map("usuarioId") @db.Uuid
+  permission  Permission @map("permissao")
+  // Vazio quando concedida por comando no servidor.
+  grantedById String?    @map("concedidaPorId") @db.Uuid
+  grantedAt   DateTime   @default(now()) @map("concedidaEm") @db.Timestamptz(3)
+
+  user      User  @relation("PermissionOfUser", fields: [userId], references: [id])
+  grantedBy User? @relation("PermissionGrantedBy", fields: [grantedById], references: [id])
+
+  @@unique([userId, permission])
+  @@map("PermissaoUsuario")
+}
+
+model Session {
+  id               String            @id @default(uuid(7)) @db.Uuid
+  userId           String            @map("usuarioId") @db.Uuid
+  // sha256 do token. O token de verdade só existe no cookie do navegador.
+  tokenHash        String            @unique
+  ip               String?
+  userAgent        String?           @map("navegador")
+  // Teto absoluto: criação + SESSION_MAX_DAYS. Nunca estendido.
+  expiresAt        DateTime          @map("expiraEm") @db.Timestamptz(3)
+  lastUsedAt       DateTime          @map("ultimoUsoEm") @db.Timestamptz(3)
+  // Último código do aplicativo digitado nesta sessão (confirmação recente, RF-I08).
+  verifiedAt       DateTime          @map("verificadoEm") @db.Timestamptz(3)
+  revokedAt        DateTime?         @map("revogadaEm") @db.Timestamptz(3)
+  revocationReason RevocationReason? @map("motivoRevogacao")
+  createdAt        DateTime          @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([createdAt])
+  @@map("Sessao")
+}
+
+model LoginChallenge {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  userId      String           @map("usuarioId") @db.Uuid
+  tokenHash   String           @unique
+  purpose     ChallengePurpose @map("finalidade")
+  attempts    Int              @default(0) @map("tentativas")
+  expiresAt   DateTime         @map("expiraEm") @db.Timestamptz(3)
+  completedAt DateTime?        @map("concluidoEm") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("DesafioLogin")
+}
+
+model RecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("usuarioId") @db.Uuid
+  codeHash  String    @unique @map("codigoHash")
+  usedAt    DateTime? @map("usadoEm") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("CodigoRecuperacao")
+}
+
+model AccessLink {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  userId    String      @map("usuarioId") @db.Uuid
+  tokenHash String      @unique
+  purpose   LinkPurpose @map("finalidade")
+  expiresAt DateTime    @map("expiraEm") @db.Timestamptz(3)
+  usedAt    DateTime?   @map("usadoEm") @db.Timestamptz(3)
+  createdAt DateTime    @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("LinkAcesso")
+}
+
+// Sem chave estrangeira para User de propósito: registra também e-mails inexistentes.
+model AccessAttempt {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  email     String
+  ip        String
+  result    AccessResult @map("resultado")
+  createdAt DateTime     @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+  @@index([createdAt])
+  @@map("TentativaAcesso")
+}
+
+model AccessBlock {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  type         BlockType @map("tipo")
+  // O e-mail ou o IP.
+  key          String    @map("chave")
+  // 1 no primeiro bloqueio, 2 na reincidência em 24 h.
+  level        Int       @map("nivel")
+  until        DateTime  @map("ate") @db.Timestamptz(3)
+  releasedAt   DateTime? @map("liberadoEm") @db.Timestamptz(3)
+  releasedById String?   @map("liberadoPorId") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  releasedBy User? @relation(fields: [releasedById], references: [id])
+
+  @@index([type, key, until])
+  @@index([createdAt])
+  @@map("BloqueioAcesso")
+}
+
+model AuditEvent {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  // Vazio quando a ação veio de comando no servidor.
+  authorId   String?     @map("autorId") @db.Uuid
+  origin     AuditOrigin @map("origem")
+  action     AuditAction @map("acao")
+  targetType String?     @map("alvoTipo")
+  targetId   String?     @map("alvoId")
+  // O que mudou. NUNCA links, códigos, senhas ou tokens.
+  details    Json?       @map("detalhes")
+  ip         String?
+  createdAt  DateTime    @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@map("EventoAuditoria")
+}
+
+// ============================================================================
+// Publicação
+// ============================================================================
+
+model Account {
+  id               String        @id @default(uuid(7)) @db.Uuid
+  network          SocialNetwork @map("rede")
+  // Identificador da conta dentro da rede. No Instagram, o id que a Meta devolve.
+  externalId       String        @map("idExterno")
+  username         String
+  // Nome e foto de perfil, para o seletor de conta (docs/13). A foto é copiada
+  // para o MinIO: as telas nunca carregam imagem da Meta (docs/adr/0014).
+  name             String?       @map("nome")
+  photoObjectKey   String?       @map("fotoChaveObjeto")
+  // Cifrado com ENCRYPTION_KEY. Só instagram/client.ts o decifra.
+  tokenEncrypted   String        @map("tokenCifrado")
+  tokenExpiresAt   DateTime      @map("tokenExpiraEm") @db.Timestamptz(3)
+  tokenRefreshedAt DateTime?     @map("tokenRenovadoEm") @db.Timestamptz(3)
+  scopes           String        @map("escopos")
+  // Identificador IANA, como America/Sao_Paulo — nunca deslocamento fixo.
+  timezone         String        @map("fusoHorario")
+  active           Boolean       @default(true) @map("ativa")
+  createdAt        DateTime      @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  posts       Post[]
+  tokenEvents TokenEvent[]
+  metrics     AccountMetric[]
+
+  @@unique([network, externalId])
+  @@index([tokenExpiresAt])
+  @@map("Conta")
+}
+
+// Só existe para arquivo já validado, com a chave apontando para publicas/ (docs/adr/0012).
+model Media {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  objectKey   String   @unique @map("chaveObjeto")
+  mimeType    String
+  bytes       Int
+  width       Int      @map("largura")
+  height      Int      @map("altura")
+  durationMs  Int?     @map("duracaoMs")
+  videoCodec  String?  @map("codecVideo")
+  audioCodec  String?  @map("codecAudio")
+  moovAtStart Boolean? @map("moovNoInicio")
+  sha256      String   @map("hashSha256")
+  createdAt   DateTime @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  usages     PostMedia[]
+  coverOfPosts Post[]    @relation("PostCover")
+
+  @@map("Midia")
+}
+
+model Post {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  accountId        String     @map("contaId") @db.Uuid
+  format           PostFormat @map("formato")
+  status           PostStatus @default(DRAFT)
+  caption          String?    @map("legenda")
+  scheduledAt      DateTime?  @map("publicarEm") @db.Timestamptz(3)
+  shareToFeed      Boolean?   @map("apareceNoFeed")
+  coverOffsetMs    Int?       @map("capaOffsetMs")
+  coverMediaId     String?    @map("capaMidiaId") @db.Uuid
+  aiGenerated      Boolean    @default(false) @map("geradoPorIA")
+  // Edição simultânea (RF-C12): sobe a cada alteração feita por usuário. O worker não mexe.
+  version          Int        @default(1) @map("versao")
+  attempts         Int        @default(0) @map("tentativas")
+  lastErrorCode    String?    @map("ultimoErroCodigo")
+  lastErrorMessage String?    @map("ultimoErroMensagem")
+  createdById      String     @map("criadoPorId") @db.Uuid
+  scheduledById    String?    @map("agendadoPorId") @db.Uuid
+  updatedById      String?    @map("atualizadoPorId") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("criadoEm") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("atualizadoEm") @db.Timestamptz(3)
+
+  account          Account            @relation(fields: [accountId], references: [id])
+  coverMedia       Media?             @relation("PostCover", fields: [coverMediaId], references: [id])
+  createdBy        User               @relation("PostCreatedBy", fields: [createdById], references: [id])
+  scheduledBy      User?              @relation("PostScheduledBy", fields: [scheduledById], references: [id])
+  updatedBy        User?              @relation("PostUpdatedBy", fields: [updatedById], references: [id])
+  media            PostMedia[]
+  collaborators    Collaborator[]
+  containers       PublishContainer[]
+  publication      Publication?
+  approvals        Approval[]
+  internalComments InternalComment[]
+  publishEvents    PublishEvent[]
+
+  // A varredura do despachante, a cada minuto — o índice mais quente do sistema.
+  @@index([status, scheduledAt])
+  // O calendário.
+  @@index([accountId, scheduledAt])
+  @@map("Postagem")
+}
+
+model PostMedia {
+  id       String  @id @default(uuid(7)) @db.Uuid
+  postId   String  @map("postagemId") @db.Uuid
+  mediaId  String  @map("midiaId") @db.Uuid
+  position Int     @map("ordem")
+  // Por mídia, e não por postagem: num carrossel, cada imagem tem o seu (alt_text
+  // vai em cada item filho na API da Meta). Só para imagens.
+  altText  String? @map("textoAlternativo")
+
+  post     Post      @relation(fields: [postId], references: [id])
+  // Sem cascata: a mesma mídia pode servir a outras postagens (RF-B04).
+  media    Media     @relation(fields: [mediaId], references: [id])
+  userTags UserTag[]
+
+  @@unique([postId, position])
+  @@map("PostagemMidia")
+}
+
+model UserTag {
+  id          String @id @default(uuid(7)) @db.Uuid
+  postMediaId String @map("postagemMidiaId") @db.Uuid
+  username    String
+  // De 0.0 a 1.0. Obrigatórias em imagens, opcionais em Stories (docs/08).
+  x           Float?
+  y           Float?
+
+  postMedia PostMedia @relation(fields: [postMediaId], references: [id])
+
+  @@map("Marcacao")
+}
+
+model Collaborator {
+  id       String @id @default(uuid(7)) @db.Uuid
+  postId   String @map("postagemId") @db.Uuid
+  username String
+
+  post Post @relation(fields: [postId], references: [id])
+
+  @@map("Colaborador")
+}
+
+// A entidade que impede a duplicação: reaproveitar container válido em vez de criar outro.
+model PublishContainer {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  postId        String           @map("postagemId") @db.Uuid
+  igContainerId String
+  role          ContainerRole    @map("papel")
+  statusCode    ContainerStatus?
+  createdAt     DateTime         @default(now()) @map("criadoEm") @db.Timestamptz(3)
+  expiresAt     DateTime         @map("expiraEm") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id])
+
+  @@index([postId, expiresAt])
+  @@map("ContainerPublicacao")
+}
+
+model Publication {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  // Único: garantia de banco da invariante I-5. Uma postagem nunca publica duas vezes.
+  postId      String   @unique @map("postagemId") @db.Uuid
+  externalId  String   @unique @map("idExterno")
+  permalink   String?
+  publishedAt DateTime @map("publicadoEm") @db.Timestamptz(3)
+
+  post    Post         @relation(fields: [postId], references: [id])
+  metrics PostMetric[]
+
+  @@map("Publicacao")
+}
+
+model PostMetric {
+  id            String       @id @default(uuid(7)) @db.Uuid
+  publicationId String       @map("publicacaoId") @db.Uuid
+  moment        MetricMoment @map("momento")
+  collectedAt   DateTime     @map("coletadoEm") @db.Timestamptz(3)
+  // Como veio da Meta. JSON porque o conjunto muda por formato e ao longo do tempo.
+  values        Json         @map("valores")
+
+  publication Publication @relation(fields: [publicationId], references: [id])
+
+  @@index([publicationId, moment])
+  @@map("MetricaPostagem")
+}
+
+model Approval {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  postId    String         @map("postagemId") @db.Uuid
+  userId    String         @map("usuarioId") @db.Uuid
+  action    ApprovalAction @map("acao")
+  reason    String?        @map("motivo")
+  createdAt DateTime       @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("Aprovacao")
+}
+
+model InternalComment {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  postId    String   @map("postagemId") @db.Uuid
+  userId    String   @map("usuarioId") @db.Uuid
+  text      String   @map("texto")
+  createdAt DateTime @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("ComentarioInterno")
+}
+
+model PublishEvent {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  postId       String      @map("postagemId") @db.Uuid
+  step         PublishStep @map("etapa")
+  result       StepResult  @map("resultado")
+  durationMs   Int?        @map("duracaoMs")
+  // Resposta da Meta como veio, COM O TOKEN REMOVIDO.
+  metaResponse Json?       @map("respostaMeta")
+  createdAt    DateTime    @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  post Post @relation(fields: [postId], references: [id])
+
+  @@index([postId, createdAt])
+  @@map("EventoPublicacao")
+}
+
+model TokenEvent {
+  id        String      @id @default(uuid(7)) @db.Uuid
+  accountId String      @map("contaId") @db.Uuid
+  action    TokenAction @map("acao")
+  result    StepResult  @map("resultado")
+  createdAt DateTime    @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@map("EventoToken")
+}
+
+// Uma linha por conta e dia, sobrescrita pela recoleta dos últimos 3 dias.
+// Métrica que a Meta não enviou fica AUSENTE no JSON, nunca zero.
+model AccountMetric {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  accountId   String   @map("contaId") @db.Uuid
+  day         DateTime @map("dia") @db.Date
+  values      Json     @map("valores")
+  collectedAt DateTime @map("coletadoEm") @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@unique([accountId, day])
+  @@map("MetricaConta")
+}
+
+// ============================================================================
+// Notificações — docs/adr/0017
+// ============================================================================
+
+// O fato, só com tipo e identificadores. A frase é montada na leitura.
+model Notification {
+  id         String           @id @default(uuid(7)) @db.Uuid
+  type       NotificationType @map("tipo")
+  targetType String           @map("alvoTipo")
+  targetId   String           @map("alvoId")
+  createdAt  DateTime         @default(now()) @map("criadaEm") @db.Timestamptz(3)
+
+  deliveries NotificationDelivery[]
+
+  @@map("Notificacao")
+}
+
+model NotificationDelivery {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  notificationId String    @map("notificacaoId") @db.Uuid
+  userId         String    @map("usuarioId") @db.Uuid
+  readAt         DateTime? @map("lidaEm") @db.Timestamptz(3)
+  pushSentAt     DateTime? @map("pushEnviadoEm") @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [notificationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([notificationId, userId])
+  // O contador de não lidas do sino, consultado em toda tela.
+  @@index([userId, readAt])
+  @@map("NotificacaoEntrega")
+}
+
+model PushSubscription {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  userId              String    @map("usuarioId") @db.Uuid
+  endpoint            String    @unique
+  p256dhKey           String    @map("chaveP256dh")
+  authKey             String    @map("chaveAuth")
+  device              String?   @map("aparelho")
+  lastSuccessAt       DateTime? @map("ultimoSucessoEm") @db.Timestamptz(3)
+  consecutiveFailures Int       @default(0) @map("falhasSeguidas")
+  createdAt           DateTime  @default(now()) @map("criadaEm") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("InscricaoPush")
+}
+
+// Sem linha, vale o padrão: push ligado. O sino recebe sempre.
+model NotificationPreference {
+  id     String           @id @default(uuid(7)) @db.Uuid
+  userId String           @map("usuarioId") @db.Uuid
+  type   NotificationType @map("tipo")
+  push   Boolean
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, type])
+  @@map("PreferenciaNotificacao")
+}

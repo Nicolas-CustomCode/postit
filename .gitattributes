@@ -1,0 +1,4 @@
+# Scripts de shell rodam em Linux (a imagem Docker e o hook do git). Com quebra de
+# linha do Windows (CRLF), o sh falha com erro que não aponta a causa.
+*.sh text eol=lf
+.githooks/* text eol=lf
