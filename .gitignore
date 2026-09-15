@@ -1,0 +1,37 @@
+# Dependências e saídas de build
+node_modules/
+dist/
+.next/
+.turbo/
+out/
+coverage/
+*.tsbuildinfo
+
+# Client gerado do Prisma — nunca no git (conflito a cada deploy no alivio-crm)
+packages/database/src/generated/
+
+# Variáveis: só o exemplo entra no repositório
+.env
+.env.*
+!.env.example
+
+# Credenciais e backups de banco — padrões de hotclone e vortex
+*-credenciais.*
+*.dump
+backup*.sql
+*.pem
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+
+# Service worker gerado pelo Serwist
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+apps/web/public/swe-worker-*.js
+
+# Sistema e editor
+.DS_Store
+Thumbs.db
+*.log
