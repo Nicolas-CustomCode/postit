@@ -100,7 +100,11 @@ flowchart LR
 
 - **`concurrency` com cancelamento:** um push novo cancela a execução anterior ainda em andamento
 - **CodeQL** — análise de segurança do código — toda semana e a cada push, como no `alivio-crm`
-- **Dependabot** — atualizações de dependências — toda semana, com correções pequenas agrupadas
+- **Dependabot** — atualizações de dependências — toda semana, com correções pequenas agrupadas.
+  **Versão principal nova não vem por ele:** cada uma é decisão registrada (NestJS 11, Prisma 7, Next 16,
+  React 19, ESLint 9, TypeScript 5) e várias dependem umas das outras — subir só o `@nestjs/common` para a 12
+  quebra o `@nestjs/platform-fastify` 11. Subir de versão principal é trabalho manual, com leitura das
+  mudanças incompatíveis e atualização dos docs. Quem vigia falha de segurança é o `npm audit` da CI
 - **Não há deploy pela CI.** O deploy é pelo Easypanel (etapa 1) ou pelo `scripts/deploy.sh`, no servidor (etapa 2)
 
 ---

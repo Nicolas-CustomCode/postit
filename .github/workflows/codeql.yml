@@ -12,15 +12,20 @@ on:
 permissions:
   contents: read
   security-events: write
-  # Em repositório privado, o CodeQL lê a execução do workflow para enviar o
-  # resultado. Sem esta linha a análise roda inteira e falha no envio, com
-  # "Resource not accessible by integration".
+  # O CodeQL lê a execução do workflow para enviar o resultado. Sem esta linha a
+  # análise roda inteira e falha no envio, com "Resource not accessible by
+  # integration".
   actions: read
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Fora dos pedidos do Dependabot: neles o GitHub entrega um token só de
+    # leitura, e o envio do resultado é recusado — a análise roda por 4 minutos
+    # para falhar no fim. Quem confere esses pedidos é a CI. O código deles entra
+    # na análise da main assim que o pedido for aceito.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v4

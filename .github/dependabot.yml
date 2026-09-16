@@ -1,5 +1,16 @@
 # Atualizações de dependências toda semana (docs/15). Correções pequenas vêm
-# juntas num pedido só; versão principal nova vem separada, para ser lida com calma.
+# juntas num pedido só.
+#
+# Versão principal nova NÃO vem por aqui. Toda versão principal deste projeto é
+# uma decisão registrada — NestJS 11, Prisma 7, Next 16, React 19, ESLint 9,
+# TypeScript 5 — e várias delas dependem umas das outras: subir só
+# `@nestjs/common` para a 12 quebra o `@nestjs/platform-fastify` 11, e o
+# TypeScript 7 não é suportado pelo ts-jest nem pela CLI do Nest. Na primeira
+# semana, o Dependabot abriu cinco pedidos assim, e a CI recusou todos.
+#
+# Subir de versão principal é trabalho manual: ler as mudanças incompatíveis,
+# subir o conjunto junto e atualizar os docs. O que continua vigiando falha de
+# segurança é o `npm audit` da CI, que roda a cada push.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,6 +18,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: [minor, patch]
