@@ -255,14 +255,16 @@ postit/
 │   │   │   │   ├── acervo/               # compartilhado entre as contas
 │   │   │   │   ├── saude/                # todas as contas
 │   │   │   │   ├── notificacoes/         # o sino, de todas as contas
-│   │   │   │   ├── perfil/               # senha, codigos, sessoes, preferencias e ativar push
+│   │   │   │   ├── perfil/               # senha, codigos e sessoes; preferencias e push na Fase 1
 │   │   │   │   └── admin/                # so super admin: usuarios, permissoes, acessos, auditoria
 │   │   │   ├── manifest.ts               # manifesto do app instalavel
 │   │   │   ├── sw.ts                     # service worker (Serwist): push e pagina offline, sem dado pessoal
 │   │   │   ├── ~offline/                 # pagina "sem conexao"
-│   │   │   ├── entrar/                   # e-mail e senha, depois o codigo de 6 digitos
-│   │   │   ├── cadastro/                 # link gerado por admin:create
-│   │   │   ├── redefinir/                # link gerado por admin:reset-password
+│   │   │   ├── entrar/                   # e-mail e senha
+│   │   │   │   ├── codigo/               # o codigo de 6 digitos, ou um de recuperacao
+│   │   │   │   └── cadastro/             # primeiro acesso: QR e codigos de recuperacao
+│   │   │   ├── cadastro/[token]/         # link gerado por admin:create
+│   │   │   ├── redefinir/[token]/        # link gerado por admin:reset-password
 │   │   │   └── sessao-expirada/          # GET que confere com a API antes de apagar o cookie
 │   │   ├── components/
 │   │   ├── lib/

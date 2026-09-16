@@ -28,21 +28,38 @@ export class TotpService {
   ) {}
 
   /**
-   * Primeiro acesso: sorteia o segredo, guarda cifrado e devolve o QR.
+   * Primeiro acesso: garante um segredo pendente e devolve o QR.
    *
    * Ainda NÃO ativa as duas etapas: `totpAtivadoEm` só é preenchido quando a
    * pessoa prova que conseguiu cadastrar, digitando um código. Ativar antes
    * trancaria fora quem fechasse a tela no meio.
    *
-   * Chamar de novo sorteia outro segredo: quem recomeçou o cadastro leu o QR
-   * novo, e o anterior nunca chegou a valer.
+   * ⚠️ **Chamar de novo reaproveita o segredo pendente, em vez de sortear
+   * outro.** Sortear a cada chamada parece mais seguro e é uma armadilha: a tela
+   * de cadastro é renderizada mais de uma vez pelo Next (documento e navegação),
+   * e o segundo sorteio invalidaria justamente o QR que a pessoa acabou de ler —
+   * o código certo aparece como "código incorreto". Segredo pendente nunca
+   * chegou a valer para entrar, e o `admin:reset-2fa` apaga tudo quando é
+   * preciso recomeçar de fato.
    */
   async beginSetup(userId: string, email: string): Promise<TwoFactorSetup> {
-    const secret = newTotpSecret();
-    await this.prisma.db.user.update({
+    const user = await this.prisma.db.user.findUniqueOrThrow({
       where: { id: userId },
-      data: { totpSecretEncrypted: encryptSecret(secret, this.config.encryptionKey, "totp-secret") },
+      select: { totpSecretEncrypted: true, totpEnabledAt: true },
     });
+
+    const pendente =
+      user.totpEnabledAt === null && user.totpSecretEncrypted !== null
+        ? decryptSecret(user.totpSecretEncrypted, this.config.encryptionKey, "totp-secret")
+        : null;
+
+    const secret = pendente ?? newTotpSecret();
+    if (pendente === null) {
+      await this.prisma.db.user.update({
+        where: { id: userId },
+        data: { totpSecretEncrypted: encryptSecret(secret, this.config.encryptionKey, "totp-secret") },
+      });
+    }
 
     const url = otpauthUrl(this.config.totpIssuer, email, secret);
     return { otpauthUrl: url, qrDataUrl: await qrCodeDataUrl(url) };

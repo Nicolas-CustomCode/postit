@@ -51,6 +51,19 @@ describe("duas etapas", () => {
     expect(gravado.totpSecretEncrypted).not.toContain(secret);
   });
 
+  it("pedir o QR duas vezes devolve o MESMO segredo", async () => {
+    // A tela de cadastro é renderizada mais de uma vez pelo Next. Se cada
+    // renderização sorteasse um segredo, o QR lido pela pessoa deixaria de
+    // valer, e o código certo apareceria como incorreto.
+    const user = await createTestUser(api.db, api.config.encryptionKey, { withTotp: false });
+    const token = (await login(user.email)).body["token"] as string;
+
+    const primeiro = await api.request({ method: "POST", url: "/auth/challenge/totp-setup", payload: { token } });
+    const segundo = await api.request({ method: "POST", url: "/auth/challenge/totp-setup", payload: { token } });
+
+    expect(segundo.body["otpauthUrl"]).toBe(primeiro.body["otpauthUrl"]);
+  });
+
   it("o mesmo código não entra duas vezes", async () => {
     const user = await createTestUser(api.db, api.config.encryptionKey);
     const codigo = totpCodeFor(user.totpSecret);

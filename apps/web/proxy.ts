@@ -1,13 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { SESSION_COOKIE } from "@/lib/auth/cookies";
+import { requiresSession } from "@/lib/protected-routes";
 import { buildCsp } from "@/lib/security/csp";
 
 /**
  * O proxy do Next 16 (antes chamado middleware).
  *
- * Por enquanto só gera o nonce e a CSP. A conferência de cookie de sessão entra
- * no Bloco B — e mesmo lá ela é só atalho de navegação: a defesa de verdade é o
- * requireSession() em cada página e Server Action (AGENTS.md, regra 5).
+ * Faz duas coisas: gera o nonce da CSP e desvia para o login quem tenta abrir
+ * uma tela protegida sem cookie.
+ *
+ * ⚠️ **Ele não protege nada.** Só olha a PRESENÇA do cookie — não fala com a
+ * API, não sabe se a sessão foi revogada e não sabe quem é a pessoa. É
+ * otimização de navegação: evita carregar uma tela inteira para descobrir que
+ * não há sessão. A defesa é o `requireSession()` de cada página e de cada Server
+ * Action (AGENTS.md, regra 5; dor registrada no `alivio-crm`, onde o middleware
+ * não protegia nada).
  */
 
 /**
@@ -21,6 +29,16 @@ function newNonce(): string {
 export function proxy(request: NextRequest): NextResponse {
   const nonce = newNonce();
   const csp = buildCsp(nonce, process.env.NODE_ENV === "development");
+
+  const { pathname } = request.nextUrl;
+  if (requiresSession(pathname) && !request.cookies.has(SESSION_COOKIE)) {
+    const destino = new URL("/entrar", request.url);
+    // Só o caminho, nunca a URL inteira: aceitar endereço absoluto aqui seria um
+    // redirecionamento aberto — e quem lê isso do outro lado passa por
+    // safeRedirect() de qualquer forma.
+    destino.searchParams.set("voltar", pathname);
+    return NextResponse.redirect(destino);
+  }
 
   /*
    * O nonce vai nos cabeçalhos da REQUISIÇÃO, e não só da resposta: o Next lê a

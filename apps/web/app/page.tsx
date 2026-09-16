@@ -1,23 +1,14 @@
-import { VERSION } from "@repo/shared";
-import { connection } from "next/server";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { getSession } from "@/lib/auth/session";
 
 /**
- * Tela provisória da Fase 0, Bloco A: prova que o Next, o tema, as fontes e a CSP
- * estão de pé. No Bloco B, `/` passa a desviar para `/entrar` ou para a conta
- * ativa (docs/13).
+ * A raiz não desenha nada: decide para onde a pessoa vai.
+ *
+ * É o endereço gravado no aparelho quando o app é instalado (`start_url` do
+ * manifesto), então ele precisa servir tanto a quem está logado quanto a quem
+ * não está. Com o Bloco C, quem entra passa a cair na conta ativa.
  */
 export default async function HomePage(): Promise<ReactNode> {
-  // Página gerada no build não tem nonce; esta precisa ser montada a cada acesso.
-  await connection();
-
-  return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-      <h1 className="text-[34px] font-extrabold tracking-tight">PostIt</h1>
-      <p className="text-muted-foreground">Fundação no ar. O login chega no próximo bloco.</p>
-      <p className="rounded-full bg-highlight px-3 py-1 text-xs font-semibold text-highlight-foreground tabular-nums">
-        v{VERSION}
-      </p>
-    </main>
-  );
+  redirect((await getSession()) === null ? "/entrar" : "/perfil");
 }
