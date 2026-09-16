@@ -205,7 +205,7 @@ Decisão em [ADR 0013](adr/0013-autenticacao-com-duas-etapas.md).
 | Peça | Biblioteca | Observação |
 |---|---|---|
 | Hash de senha | `argon2` | argon2id, parâmetros no pacote compartilhado |
-| Códigos de 6 dígitos (TOTP) | `otplib` | Usada no `hotclone`. Confirmar a API na versão instalada — item V-17 |
+| Códigos de 6 dígitos (TOTP) | `otplib` 13 | Usada no `hotclone`. API confirmada em 16/09/2026 (item V-17, [08](08-integracao-instagram.md)). É publicada só como ESM: o Jest a compila na hora do teste, ver `apps/api/jest.config.js` |
 | QR code do cadastro | `qrcode` | Gerado na API, entregue como imagem |
 | Cifra do segredo das duas etapas | `node:crypto` | AES-256-GCM, o mesmo usado para os tokens do Instagram |
 

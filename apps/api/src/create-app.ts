@@ -2,6 +2,8 @@ import helmet from "@fastify/helmet";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module";
+import { warmPasswordVerification } from "./auth/password";
+import { AppExceptionFilter } from "./common/filters/app-exception.filter";
 import type { ApiEnv } from "./config/env";
 
 /** Nenhuma rota da API aceita corpo acima de 1 MB (AGENTS.md, regra 10). Arquivo vai direto ao MinIO. */
@@ -24,6 +26,15 @@ export async function createApp(env: ApiEnv): Promise<NestFastifyApplication> {
     // 'unsafe-inline', fontes de https:) à nossa, e ela deixa de proibir tudo.
     contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
   });
+
+  // Único lugar que escreve corpo de erro — e que não registra o corpo da
+  // requisição, onde estariam a senha tentada e o código digitado.
+  app.useGlobalFilters(new AppExceptionFilter());
+
+  // O hash isca precisa estar pronto ANTES do primeiro login: sem isto, a
+  // primeira tentativa com e-mail inexistente sai mais rápida que as demais e
+  // entrega quais e-mails existem.
+  await warmPasswordVerification();
 
   app.enableShutdownHooks();
   return app;

@@ -1,5 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { VERSION } from "@repo/shared";
+import { Public } from "../authorization/policy.decorators";
 import { PrismaService } from "../prisma/prisma.service";
 
 export interface HealthResponse {
@@ -17,6 +18,9 @@ export interface HealthResponse {
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Sem sessão: quem consulta é o deploy, com a chave interna. "Público" aqui
+  // significa "não exige login" — a rota continua sem nome na internet.
+  @Public()
   @Get()
   async check(): Promise<HealthResponse> {
     let database: HealthResponse["database"] = "ok";

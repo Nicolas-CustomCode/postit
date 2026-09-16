@@ -137,7 +137,7 @@ dia sem coletar é um dia de histórico que pode ser perdido. A tela vem na Fase
     tocado — item V-14
 
 **Validações a resolver nesta fase:** V-10 (caminho de menu da conta testadora), V-14 (pg-boss com
-Prisma), V-16 (origem das Server Actions atrás do proxy) e V-17 (API do `otplib`).
+Prisma) e V-16 (origem das Server Actions atrás do proxy). **V-17 (API do `otplib`) foi resolvido em 16/09/2026.**
 
 **Risco da fase:** a URI de retorno precisa bater exatamente com a registrada no painel da Meta,
 inclusive barra final. É o erro mais comum e o mais chato de diagnosticar.

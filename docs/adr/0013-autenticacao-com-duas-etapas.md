@@ -7,6 +7,14 @@
 > existindo como **emergência**. A política `@AnyAuthenticated` ganha a companhia de `@RequirePermission` e
 > `@SuperAdmin`.
 
+> **Nota de implementação (16/09/2026).** Os prazos e limites deste ADR — 5 minutos de desafio, 5 tentativas,
+> 10 falhas em 30 minutos, 15 e 30 minutos de bloqueio, 60 na reincidência, links de 7 dias e 24 horas, e os 15
+> minutos de confirmação recente do [ADR 0015](0015-super-admin-e-permissoes.md) — passaram a ser **variáveis de
+> ambiente**, com estes mesmos valores como padrão no código. Mexer num número vira ajuste de operação, sem
+> publicar versão. Os nomes estão em [10](../10-infra-deploy.md#variáveis-de-ambiente). Continuam no código, por
+> serem formato e não ajuste: 32 bytes de token, ±1 passo de tolerância, 10 códigos de recuperação e os
+> parâmetros do argon2id.
+
 ## Contexto
 
 O [ADR 0011](0011-autenticacao-sessao-opaca.md) definiu login por senha com sessão opaca em cookie. Uma
@@ -36,7 +44,7 @@ a cada 30 segundos e é calculado a partir de um segredo compartilhado entre o s
 
 | Regra | Valor |
 |---|---|
-| Biblioteca | `otplib`, como no `hotclone` — confirmar a API na versão instalada (item V-17) |
+| Biblioteca | `otplib` 13, como no `hotclone` — API confirmada em 16/09/2026, ver [08](../08-integracao-instagram.md#a-validar-em-desenvolvimento) |
 | Tolerância de relógio | ±1 passo (30 s para cada lado) |
 | Reuso do mesmo código | **Recusado.** Guarda-se o último passo usado por usuário |
 | Segredo no banco | **Cifrado** com `ENCRYPTION_KEY`, em envelope versionado `v1:` |

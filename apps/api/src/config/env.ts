@@ -38,6 +38,11 @@ const shared = {
   IG_API_VERSION: z.string().default("v26.0"),
 };
 
+// Prazos e limites da autenticação. Os padrões são os valores decididos no
+// ADR 0013 e no ADR 0015: ambiente sem estas variáveis continua correto, e
+// mexer num número é ajuste de operação, não mudança de código.
+const minutes = (fallback: number) => z.coerce.number().int().positive().default(fallback);
+
 const apiSchema = z.object({
   ...shared,
   APP_URL: z.string().url(),
@@ -47,6 +52,18 @@ const apiSchema = z.object({
   SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(7),
   SESSION_MAX_DAYS: z.coerce.number().int().positive().default(30),
   TOTP_ISSUER: z.string().min(1).default("PostIt"),
+  CHALLENGE_TTL_MINUTES: minutes(5),
+  CHALLENGE_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  LOCKOUT_WINDOW_MINUTES: minutes(30),
+  LOCKOUT_ACCOUNT_ATTEMPTS: z.coerce.number().int().positive().default(10),
+  LOCKOUT_ACCOUNT_MINUTES: minutes(15),
+  LOCKOUT_IP_ATTEMPTS: z.coerce.number().int().positive().default(20),
+  LOCKOUT_IP_MINUTES: minutes(30),
+  LOCKOUT_REPEAT_MINUTES: minutes(60),
+  LOCKOUT_REPEAT_WINDOW_HOURS: z.coerce.number().int().positive().default(24),
+  SIGNUP_LINK_DAYS: z.coerce.number().int().positive().default(7),
+  PASSWORD_RESET_LINK_HOURS: z.coerce.number().int().positive().default(24),
+  RECENT_CONFIRMATION_MINUTES: minutes(15),
   STATE_SECRET: hex32,
   IG_REDIRECT_URI: z.preprocess(emptyAsMissing, z.string().url().optional()),
 });

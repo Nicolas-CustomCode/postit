@@ -407,6 +407,21 @@ SESSION_IDLE_DAYS=    # 7 — sem uso por esse tempo, pede login de novo
 SESSION_MAX_DAYS=         # 30 — teto absoluto, mesmo com uso diário
 TOTP_ISSUER=               # nome que aparece no aplicativo autenticador, ex.: PostIt
 
+# ---------- Login: prazos e limites ----------
+# Todas opcionais: o padrão do código é o valor decidido nos ADRs 0013 e 0015.
+CHALLENGE_TTL_MINUTES=      # 5 — validade do desafio entre a senha e o código
+CHALLENGE_MAX_ATTEMPTS=     # 5 — códigos errados que encerram o desafio
+LOCKOUT_WINDOW_MINUTES=     # 30 — janela em que as falhas são contadas
+LOCKOUT_ACCOUNT_ATTEMPTS=   # 10 — falhas que bloqueiam a conta
+LOCKOUT_ACCOUNT_MINUTES=    # 15 — duração do bloqueio da conta
+LOCKOUT_IP_ATTEMPTS=        # 20 — falhas que bloqueiam o IP
+LOCKOUT_IP_MINUTES=         # 30 — duração do bloqueio do IP
+LOCKOUT_REPEAT_MINUTES=     # 60 — duração quando reincide
+LOCKOUT_REPEAT_WINDOW_HOURS= # 24 — prazo em que um bloqueio novo conta como reincidência
+SIGNUP_LINK_DAYS=           # 7 — validade do link de cadastro
+PASSWORD_RESET_LINK_HOURS=  # 24 — validade do link de redefinição
+RECENT_CONFIRMATION_MINUTES= # 15 — idade máxima do código para ação administrativa
+
 # ---------- Banco ----------
 DATABASE_URL=
 POSTGRES_USER=
@@ -447,6 +462,7 @@ Cada ambiente — local e produção — tem **suas próprias** chaves. Ver
 | `INTERNAL_API_KEY` | ✓ | ✓ | |
 | `API_HOST`, `API_PORT` | | ✓ | |
 | `SESSION_IDLE_DAYS`, `SESSION_MAX_DAYS`, `TOTP_ISSUER` | | ✓ | |
+| `CHALLENGE_*`, `LOCKOUT_*`, `SIGNUP_LINK_DAYS`, `PASSWORD_RESET_LINK_HOURS`, `RECENT_CONFIRMATION_MINUTES` | | ✓ | |
 | `DATABASE_URL` | | ✓ | ✓ |
 | Demais `MINIO_*` | | ✓ | ✓ |
 | `IG_*` | | ✓ | ✓ |

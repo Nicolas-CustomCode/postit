@@ -27,6 +27,11 @@
         "STATE_SECRET",
         "SESSION_*",
         "TOTP_ISSUER",
+        "CHALLENGE_*",
+        "LOCKOUT_*",
+        "SIGNUP_*",
+        "PASSWORD_*",
+        "RECENT_*",
         "IG_*",
         "VAPID_*"
       ]

@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "//": "Só para o Jest. allowJs existe porque o otplib 13 e as dependências dele (@scure/base, @noble/hashes) são publicados apenas como ESM, e o Jest, em CommonJS, não consegue carregá-los antes do Node 24.9. Com isto o ts-jest os compila para CommonJS na hora do teste — ver transformIgnorePatterns em jest.config.js. Em produção nada disso é usado: o Node 22 carrega ESM por require nativamente.",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false
+  }
+}
