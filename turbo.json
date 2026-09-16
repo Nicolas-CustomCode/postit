@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "//": "build depende do build dos pacotes de que cada app depende (^build): shared e database compilam antes de api e web. dev não tem cache e fica rodando. Variáveis do .env da raiz entram no cálculo de cache do build do web, que as lê em tempo de construção.",
+  "//": "build depende do build dos pacotes de que cada app depende (^build): shared e database compilam antes de api e web. dev não tem cache e fica rodando. Variáveis do .env da raiz entram no cálculo de cache do build do web, que as lê em tempo de construção. O Turborepo 2 só repassa a cada tarefa as variáveis declaradas: sem o passThroughEnv do test, a CI — que não tem .env e passa as variáveis pelo workflow — rodava os testes sem TEST_DATABASE_URL. Variável nova lida em teste entra nessa lista.",
   "globalDependencies": [".env"],
   "tasks": {
     "build": {
@@ -15,7 +15,21 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": [],
+      "passThroughEnv": [
+        "TEST_DATABASE_URL",
+        "DATABASE_URL",
+        "APP_URL",
+        "API_*",
+        "INTERNAL_API_*",
+        "MINIO_*",
+        "ENCRYPTION_KEY",
+        "STATE_SECRET",
+        "SESSION_*",
+        "TOTP_ISSUER",
+        "IG_*",
+        "VAPID_*"
+      ]
     },
     "dev": {
       "dependsOn": ["^build"],

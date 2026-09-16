@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Em repositório privado, o CodeQL lê a execução do workflow para enviar o
+  # resultado. Sem esta linha a análise roda inteira e falha no envio, com
+  # "Resource not accessible by integration".
+  actions: read
 
 jobs:
   analyze:
