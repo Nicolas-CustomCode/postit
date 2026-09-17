@@ -42,6 +42,9 @@ describe("links de acesso", () => {
 
     const gravado = await api.db.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(gravado.passwordHash).not.toBeNull();
+    // O primeiro acesso também carimba a data: é "senha definida", não "trocada",
+    // e é o que a tela de Perfil mostra.
+    expect(gravado.passwordSetAt).not.toBeNull();
     expect((await api.db.accessLink.findFirstOrThrow()).usedAt).not.toBeNull();
     // Sessão só nasce depois das duas etapas: aqui não pode haver nenhuma.
     expect(await api.db.session.count()).toBe(0);

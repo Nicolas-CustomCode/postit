@@ -71,6 +71,31 @@ export interface ActiveSession {
   readonly current: boolean;
 }
 
+/**
+ * O estado de segurança da própria conta, para a tela de Perfil.
+ *
+ * Não se chama `AccountSecurity` de propósito: aqui `Account` é conta de rede
+ * social (ADR 0009), e o nome colidiria com o vocabulário do domínio.
+ *
+ * Fica fora de `SessionInfo` porque aquela resposta é lida a cada render de
+ * página; contar códigos de recuperação em toda requisição seria custo puro.
+ */
+export interface SecurityOverview {
+  /** Quando a pessoa foi criada no PostIt. */
+  readonly memberSince: string;
+  /** Quando a senha ATUAL foi definida. Vazio em quem definiu antes da coluna existir. */
+  readonly passwordSetAt: string | null;
+  /**
+   * Na prática nunca é nulo — quem tem sessão passou pelas duas etapas, e
+   * `admin:reset-2fa` revoga todas as sessões. Declarado nulável mesmo assim,
+   * porque a coluna é, e afirmar o contrário exigiria uma asserção mentirosa.
+   */
+  readonly twoFactorEnabledAt: string | null;
+  readonly recoveryCodesRemaining: number;
+  /** Contagem de linhas, não a constante: sobrevive a uma mudança dela. */
+  readonly recoveryCodesTotal: number;
+}
+
 /** Dono do link de cadastro ou de redefinição, para a tela dizer de quem é. */
 export interface AccessLinkInfo {
   readonly email: string;

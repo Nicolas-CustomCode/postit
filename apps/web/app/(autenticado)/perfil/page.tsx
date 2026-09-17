@@ -1,65 +1,59 @@
+import { LogOut } from "lucide-react";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { VERSION } from "@repo/shared";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LocalMonth } from "@/components/local-date";
+import { PageHeader } from "@/components/nav/page-header";
+import { Button } from "@/components/ui/button";
+import { logoutAction } from "@/lib/actions/auth";
+import { getSecurityOverview } from "@/lib/data/security";
 import { listActiveSessions } from "@/lib/data/sessions";
 import { requireSession } from "@/lib/auth/session";
-import { ChangePasswordForm } from "./change-password-form";
-import { RecoveryCodesForm } from "./recovery-codes-form";
-import { SessionsList } from "./sessions-list";
+import { DevicesCard } from "./devices-card";
+import { IdentityCard, PermissionsCard } from "./identity-card";
+import { SecurityCard } from "./security-card";
 
 export const metadata: Metadata = { title: "Perfil" };
 
 /**
- * O perfil (RF-H07): trocar senha, gerar códigos de recuperação e ver onde a
- * conta está conectada.
+ * O perfil (RF-H07): quem você é, o que pode fazer, e o estado da sua segurança.
+ *
+ * Duas colunas no computador (artboard `PerfilDesktop`): identidade e permissões
+ * à esquerda, ações à direita. Uma coluna no celular, na mesma ordem.
  *
  * Preferências de notificação e "ativar push" entram na Fase 1, junto com o
  * push. A proteção é o `requireSession()` daqui — não a do layout.
  */
 export default async function PerfilPage(): Promise<ReactNode> {
   const { user } = await requireSession();
-  const sessions = await listActiveSessions();
+  const [sessions, security] = await Promise.all([listActiveSessions(), getSecurityOverview()]);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8">
-      <div>
-        <h1 className="font-heading text-[28px] font-extrabold tracking-tight">{user.name}</h1>
-        <p className="text-muted-foreground">
-          {user.email}
-          {user.superAdmin ? " · super admin" : null}
-        </p>
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
+      <PageHeader
+        trail={["Geral", "Perfil"]}
+        title={user.name}
+        actions={
+          <form action={logoutAction}>
+            <Button type="submit" variant="secondary" className="h-11 md:h-10">
+              <LogOut className="size-4.5" strokeWidth={2} aria-hidden />
+              Sair do PostIt
+            </Button>
+          </form>
+        }
+      />
+
+      <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-7">
+        <div className="flex flex-col gap-5">
+          <IdentityCard user={user} memberSince={<LocalMonth iso={security.memberSince} />} />
+          <PermissionsCard user={user} />
+        </div>
+
+        <div className="flex flex-col gap-5">
+          <SecurityCard security={security} />
+          <DevicesCard sessions={sessions} />
+        </div>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">Trocar a senha</CardTitle>
-          <CardDescription>Pede a senha atual e um código do aplicativo. Os outros aparelhos saem.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChangePasswordForm />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">Códigos de recuperação</CardTitle>
-          <CardDescription>Servem para entrar se você perder o celular. Gerar novos invalida os antigos.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RecoveryCodesForm />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">Aparelhos conectados</CardTitle>
-          <CardDescription>Não reconhece algum? Encerre os outros e troque a senha.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SessionsList sessions={sessions} />
-        </CardContent>
-      </Card>
 
       <p className="text-center text-xs text-muted-foreground tabular-nums">PostIt v{VERSION}</p>
     </main>

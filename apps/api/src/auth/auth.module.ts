@@ -8,6 +8,7 @@ import { AuthService } from "./auth.service";
 import { ChallengeService } from "./challenge.service";
 import { LinksService } from "./links.service";
 import { LockoutService } from "./lockout.service";
+import { SecurityQueryService } from "./security.query.service";
 import { SessionService } from "./session.service";
 import { TotpService } from "./totp.service";
 
@@ -34,6 +35,8 @@ export class AuthModule {
         LinksService,
         UsersService,
         AuditService,
+        // Só a tela de Perfil consulta; nada fora do módulo precisa dele.
+        SecurityQueryService,
       ],
       exports: [AUTH_CONFIG, SessionService, TotpService, LinksService, UsersService, AuditService],
     };

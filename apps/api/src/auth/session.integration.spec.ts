@@ -140,6 +140,180 @@ describe("sessão", () => {
     expect((await api.request({ method: "GET", url: "/auth/session", token })).statusCode).toBe(200);
   });
 
+  describe("encerrar um aparelho", () => {
+    /** Uma sessão a mais do mesmo usuário, como se fosse outro aparelho. */
+    async function outroAparelho(userId: string, marca: string) {
+      return api.db.session.create({
+        data: {
+          userId,
+          tokenHash: marca.repeat(64),
+          expiresAt: new Date(Date.now() + 86_400_000),
+          lastUsedAt: new Date(),
+          verifiedAt: new Date(),
+        },
+      });
+    }
+
+    it("encerra a indicada e mantém a atual", async () => {
+      const { token, userId } = await entrar();
+      const outra = await outroAparelho(userId, "c");
+
+      const resposta = await api.request({ method: "POST", url: `/auth/sessions/${outra.id}/revoke`, token });
+      expect(resposta.statusCode).toBe(204);
+
+      const gravada = await api.db.session.findUniqueOrThrow({ where: { id: outra.id } });
+      expect(gravada.revokedAt).not.toBeNull();
+      expect(gravada.revocationReason).toBe("ENDED_BY_USER");
+      expect((await api.request({ method: "GET", url: "/auth/session", token })).statusCode).toBe(200);
+    });
+
+    /**
+     * O teste que justifica o desenho da rota.
+     *
+     * Mandar o id da sessão de outra pessoa devolve **exatamente** o que devolve
+     * um sucesso: 204, sem corpo. Se respondesse 403, ou devolvesse uma
+     * contagem, a rota viraria um jeito de descobrir sessões alheias.
+     */
+    it("não encerra sessão de outra pessoa, e responde igual", async () => {
+      const a = await entrar();
+      const b = await entrar();
+      const sessaoDeB = await api.db.session.findFirstOrThrow({ where: { userId: b.userId } });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/auth/sessions/${sessaoDeB.id}/revoke`,
+        token: a.token,
+      });
+
+      expect(resposta.statusCode).toBe(204);
+      expect((await api.db.session.findUniqueOrThrow({ where: { id: sessaoDeB.id } })).revokedAt).toBeNull();
+      expect((await api.request({ method: "GET", url: "/auth/session", token: b.token })).statusCode).toBe(200);
+    });
+
+    it("id que não existe responde igual a um sucesso", async () => {
+      const { token } = await entrar();
+      const resposta = await api.request({
+        method: "POST",
+        url: "/auth/sessions/0195f2a0-0000-7000-8000-000000000000/revoke",
+        token,
+      });
+      expect(resposta.statusCode).toBe(204);
+    });
+
+    it("id fora do formato é recusado com 400, e não estoura em 500", async () => {
+      const { token } = await entrar();
+      const resposta = await api.request({ method: "POST", url: "/auth/sessions/nao-e-uuid/revoke", token });
+      expect(resposta.statusCode).toBe(400);
+      expect(resposta.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    });
+
+    /**
+     * A sessão atual fica fora do alcance da rota **por construção**. Sem este
+     * teste, alguém "simplifica" o `NOT` do where numa refatoração e a tela
+     * passa a conseguir se deslogar pela metade — sessão morta, cookie vivo.
+     */
+    it("não consegue encerrar a própria sessão atual", async () => {
+      const { token } = await entrar();
+      const atual = await api.db.session.findFirstOrThrow();
+
+      const resposta = await api.request({ method: "POST", url: `/auth/sessions/${atual.id}/revoke`, token });
+      expect(resposta.statusCode).toBe(204);
+
+      expect((await api.db.session.findUniqueOrThrow({ where: { id: atual.id } })).revokedAt).toBeNull();
+      expect((await api.request({ method: "GET", url: "/auth/session", token })).statusCode).toBe(200);
+    });
+
+    it("encerrar duas vezes não reescreve o carimbo da primeira", async () => {
+      const { token, userId } = await entrar();
+      const outra = await outroAparelho(userId, "e");
+
+      await api.request({ method: "POST", url: `/auth/sessions/${outra.id}/revoke`, token });
+      const primeira = await api.db.session.findUniqueOrThrow({ where: { id: outra.id } });
+
+      await api.request({ method: "POST", url: `/auth/sessions/${outra.id}/revoke`, token });
+      const segunda = await api.db.session.findUniqueOrThrow({ where: { id: outra.id } });
+
+      expect(segunda.revokedAt).toEqual(primeira.revokedAt);
+    });
+
+    it("a sessão encerrada some da lista", async () => {
+      const { token, userId } = await entrar();
+      const outra = await outroAparelho(userId, "f");
+
+      await api.request({ method: "POST", url: `/auth/sessions/${outra.id}/revoke`, token });
+
+      const lista = (await api.request({ method: "GET", url: "/auth/sessions", token })).body as unknown as {
+        id: string;
+      }[];
+      expect(lista.map((sessao) => sessao.id)).not.toContain(outra.id);
+    });
+
+    it("sem token, recusa", async () => {
+      const resposta = await api.request({
+        method: "POST",
+        url: "/auth/sessions/0195f2a0-0000-7000-8000-000000000000/revoke",
+      });
+      expect(resposta.statusCode).toBe(401);
+    });
+  });
+
+  describe("estado de segurança", () => {
+    it("sem token, recusa", async () => {
+      const resposta = await api.request({ method: "GET", url: "/auth/security" });
+      expect(resposta.statusCode).toBe(401);
+    });
+
+    it("devolve as datas e quantos códigos ainda valem", async () => {
+      const { token, secret, userId } = await entrar();
+      await api.request({
+        method: "POST",
+        url: "/auth/recovery-codes",
+        token,
+        payload: { code: totpCodeFor(secret, 1) },
+      });
+      // Um código gasto, como se a pessoa tivesse usado para entrar.
+      const usado = await api.db.recoveryCode.findFirstOrThrow({ where: { userId } });
+      await api.db.recoveryCode.update({ where: { id: usado.id }, data: { usedAt: new Date() } });
+
+      const resposta = await api.request({ method: "GET", url: "/auth/security", token });
+      expect(resposta.statusCode).toBe(200);
+      expect(resposta.body).toMatchObject({ recoveryCodesRemaining: 9, recoveryCodesTotal: 10 });
+      expect(resposta.body["twoFactorEnabledAt"]).not.toBeNull();
+
+      const usuario = await api.db.user.findUniqueOrThrow({ where: { id: userId } });
+      expect(resposta.body["memberSince"]).toBe(usuario.createdAt.toISOString());
+    });
+
+    /**
+     * O guarda-costas da regra 3. A resposta é montada campo a campo justamente
+     * para isto: um `include`, ou o registro do Prisma devolvido cru, traria o
+     * hash da senha e o segredo cifrado das duas etapas junto.
+     */
+    it("não vaza nenhum segredo do usuário", async () => {
+      const { token, userId } = await entrar();
+      const usuario = await api.db.user.findUniqueOrThrow({ where: { id: userId } });
+      const codigos = await api.db.recoveryCode.findMany({ where: { userId } });
+
+      const corpo = JSON.stringify((await api.request({ method: "GET", url: "/auth/security", token })).body);
+
+      expect(corpo).not.toContain(usuario.passwordHash);
+      expect(corpo).not.toContain(usuario.totpSecretEncrypted);
+      for (const codigo of codigos) expect(corpo).not.toContain(codigo.codeHash);
+    });
+
+    it("cada pessoa vê o seu", async () => {
+      const a = await entrar();
+      const b = await entrar();
+      await api.db.recoveryCode.create({ data: { userId: b.userId, codeHash: "9".repeat(64) } });
+
+      const daA = await api.request({ method: "GET", url: "/auth/security", token: a.token });
+      const daB = await api.request({ method: "GET", url: "/auth/security", token: b.token });
+
+      expect(daA.body).toMatchObject({ recoveryCodesTotal: 0 });
+      expect(daB.body).toMatchObject({ recoveryCodesTotal: 1 });
+    });
+  });
+
   describe("trocar a senha", () => {
     const novaSenha = "outra-senha-boa-2026";
 
@@ -198,6 +372,11 @@ describe("sessão", () => {
       });
       expect(resposta.body).toEqual({ revoked: 1 });
       expect((await api.request({ method: "GET", url: "/auth/session", token })).statusCode).toBe(200);
+
+      // A troca carimba a data que a tela de Perfil mostra. O usuário do teste
+      // nasce com a senha gravada direto no banco, então antes disto é nula.
+      const depois = await api.db.user.findUniqueOrThrow({ where: { id: userId } });
+      expect(depois.passwordSetAt).not.toBeNull();
 
       const outras = await api.db.session.findMany({ where: { revokedAt: { not: null } } });
       expect(outras).toHaveLength(1);

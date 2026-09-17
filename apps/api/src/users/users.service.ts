@@ -31,12 +31,20 @@ export class UsersService {
    *
    * A política é a mesma função que a tela usa (@repo/shared), e é o que faz o
    * formulário e a API concordarem sobre o que é uma senha aceitável.
+   *
+   * ⚠️ **Único lugar que grava senha.** O link de cadastro, o de redefinição e a
+   * troca pelo perfil passam todos por aqui — é isso que mantém `passwordSetAt`
+   * verdadeiro. Um segundo `update` com `passwordHash` em outro arquivo é o
+   * caminho conhecido para a coluna começar a mentir.
    */
-  async setPassword(userId: string, email: string, password: string): Promise<void> {
+  async setPassword(userId: string, email: string, password: string, now: Date): Promise<void> {
     const problem = passwordProblem(password, email);
     if (problem !== null) throw new PasswordPolicyError(problem);
 
-    await this.prisma.db.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(password) } });
+    await this.prisma.db.user.update({
+      where: { id: userId },
+      data: { passwordHash: await hashPassword(password), passwordSetAt: now },
+    });
   }
 
   async promoteToSuperAdmin(userId: string): Promise<void> {

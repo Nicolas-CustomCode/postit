@@ -35,6 +35,14 @@ export type ChallengeCompleteInput = z.infer<typeof challengeCompleteSchema>;
 export const confirmCodeSchema = z.strictObject({ code });
 export type ConfirmCodeInput = z.infer<typeof confirmCodeSchema>;
 
+/**
+ * O id de sessão que vem no caminho de `POST /auth/sessions/:id/revoke`.
+ *
+ * Não é enfeite: a coluna é `@db.Uuid`, e um valor fora do formato faz o Prisma
+ * estourar P2023 — a rota devolveria 500 no lugar de 400.
+ */
+export const sessionIdSchema = z.string().uuid();
+
 export const changePasswordSchema = z.strictObject({
   currentPassword: password,
   newPassword: password,

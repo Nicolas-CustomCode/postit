@@ -2,25 +2,20 @@ import { Injectable } from "@nestjs/common";
 import {
   isTotpCodeShaped,
   normalizeEmail,
-  passwordProblem,
   type ChallengeStarted,
   type SessionIssued,
   type SessionUser,
   type TwoFactorSetup,
 } from "@repo/shared";
-import {
-  AccountDeactivatedError,
-  InvalidCodeError,
-  InvalidCredentialsError,
-  PasswordPolicyError,
-} from "../common/errors";
+import { AccountDeactivatedError, InvalidCodeError, InvalidCredentialsError } from "../common/errors";
 import type { ClientContext } from "../common/request-context";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChallengeService } from "./challenge.service";
 import { LockoutService } from "./lockout.service";
-import { hashPassword, verifyPassword } from "./password";
+import { verifyPassword } from "./password";
 import { SessionService, type AuthContext } from "./session.service";
 import { TotpService } from "./totp.service";
+import { UsersService } from "../users/users.service";
 
 /**
  * O fluxo de login inteiro, de ponta a ponta (ADR 0013, seções 2 e 5).
@@ -36,6 +31,7 @@ export class AuthService {
     private readonly challenges: ChallengeService,
     private readonly totp: TotpService,
     private readonly lockout: LockoutService,
+    private readonly users: UsersService,
   ) {}
 
   /**
@@ -160,13 +156,10 @@ export class AuthService {
     if (!(await verifyPassword(user.passwordHash, input.currentPassword))) throw new InvalidCredentialsError();
     if (!(await this.totp.verifyCode(user, input.code.trim(), now))) throw new InvalidCodeError();
 
-    const problem = passwordProblem(input.newPassword, user.email);
-    if (problem !== null) throw new PasswordPolicyError(problem);
-
-    await this.prisma.db.user.update({
-      where: { id: user.id },
-      data: { passwordHash: await hashPassword(input.newPassword) },
-    });
+    // Delega em vez de gravar aqui: `setPassword` é o único lugar que escreve
+    // senha, e é ele que carimba `passwordSetAt`. Ele confere a política de
+    // novo, o que mantém a ordem dos erros — senha atual, código, política.
+    await this.users.setPassword(user.id, user.email, input.newPassword, now);
     await this.sessions.markVerified(auth.sessionId, now);
 
     return this.sessions.revokeAllForUser(user.id, "PASSWORD_CHANGE", now, auth.sessionId);

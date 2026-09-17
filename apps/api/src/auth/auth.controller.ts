@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import {
   challengeCompleteSchema,
   challengeSetupSchema,
@@ -8,9 +8,11 @@ import {
   inspectLinkSchema,
   loginSchema,
   passwordProblem,
+  sessionIdSchema,
   type AccessLinkInfo,
   type ActiveSession,
   type ChallengeStarted,
+  type SecurityOverview,
   type SessionInfo,
   type SessionIssued,
   type TwoFactorSetup,
@@ -22,6 +24,7 @@ import { AnyAuthenticated, Public } from "../authorization/policy.decorators";
 import { Auth, Client } from "./auth.decorators";
 import { AuthService } from "./auth.service";
 import { LinksService } from "./links.service";
+import { SecurityQueryService } from "./security.query.service";
 import type { AuthContext } from "./session.service";
 import { SessionService } from "./session.service";
 import { UsersService } from "../users/users.service";
@@ -40,6 +43,7 @@ export class AuthController {
     private readonly sessions: SessionService,
     private readonly links: LinksService,
     private readonly users: UsersService,
+    private readonly securityQuery: SecurityQueryService,
   ) {}
 
   @Public()
@@ -116,6 +120,36 @@ export class AuthController {
     return this.sessions.listActive(auth.userId, auth.sessionId, new Date());
   }
 
+  /** O estado de segurança da própria conta, só para a tela de Perfil. */
+  @AnyAuthenticated()
+  @Get("security")
+  security(@Auth() auth: AuthContext): Promise<SecurityOverview> {
+    return this.securityQuery.overview(auth.userId);
+  }
+
+  /**
+   * Encerra **um** aparelho da lista.
+   *
+   * Responde 204 sempre, inclusive quando não encerra nada: devolver uma
+   * contagem seria justamente o bit que revela se aquele id existe e é de outra
+   * pessoa. Quem confere o resultado é a lista, relida depois.
+   */
+  @AnyAuthenticated()
+  @Post("sessions/:id/revoke")
+  @HttpCode(204)
+  async revokeSession(
+    @Auth() auth: AuthContext,
+    @Param("id", new ZodValidationPipe(sessionIdSchema)) id: string,
+  ): Promise<void> {
+    await this.sessions.revokeOwn({
+      userId: auth.userId,
+      sessionId: id,
+      currentSessionId: auth.sessionId,
+      reason: "ENDED_BY_USER",
+      now: new Date(),
+    });
+  }
+
   /** "Sair dos outros dispositivos" — a sessão atual continua. */
   @AnyAuthenticated()
   @Post("sessions/revoke-others")
@@ -180,7 +214,7 @@ export class AuthController {
     if (problem !== null) throw new PasswordPolicyError(problem);
 
     const link = await this.links.consume(body.token, body.purpose, now);
-    await this.users.setPassword(link.userId, link.email, body.password);
+    await this.users.setPassword(link.userId, link.email, body.password, now);
 
     // Redefinição derruba todas as sessões: se a senha vazou, quem entrou com
     // ela sai. Cadastro não tem sessão nenhuma para derrubar.

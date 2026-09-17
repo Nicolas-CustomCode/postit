@@ -104,11 +104,57 @@ export class SessionService {
     await this.prisma.db.session.update({ where: { id: sessionId }, data: { verifiedAt: now } });
   }
 
-  /** Revogação é lógica e com motivo: apagar destruiria a trilha de incidente. */
+  /**
+   * Revogação é lógica e com motivo: apagar destruiria a trilha de incidente.
+   *
+   * ⚠️ **Não filtra por usuário**, e por isso só pode ser chamada com uma sessão
+   * que já se sabe ser de quem pediu — hoje, o `logout` com a própria. Para um id
+   * vindo de fora, use `revokeOwn`.
+   */
   async revoke(sessionId: string, reason: RevocationReason, now: Date): Promise<void> {
     await this.prisma.db.session.updateMany({
       where: { id: sessionId, revokedAt: null },
       data: { revokedAt: now, revocationReason: reason },
+    });
+  }
+
+  /**
+   * Encerra **uma** sessão da própria pessoa, a partir de um id que veio do
+   * endereço da requisição.
+   *
+   * Três decisões que parecem detalhe e não são:
+   *
+   * 1. **O dono vai dentro do `where`**, não num `if` depois de buscar. Assim
+   *    sessão de outra pessoa, id inexistente e id já revogado produzem todos
+   *    `count: 0`, numa instrução SQL só — mesma resposta e mesmo tempo. Quem
+   *    chama não devolve a contagem, justamente para não denunciar qual dos
+   *    casos aconteceu. Buscar antes e comparar criaria caminhos distinguíveis.
+   * 2. **A sessão atual é excluída** (`id: { not: currentSessionId }`), o que
+   *    deixa a rota estruturalmente incapaz de deslogar quem a chamou. Quem quer
+   *    sair deste aparelho usa o "Sair", que também apaga o cookie no Next.
+   * 3. **`revokedAt: null`** preserva o carimbo original: reescrever `revogadaEm`
+   *    numa sessão já revogada corromperia a trilha que o ADR 0013 existe para
+   *    manter — e de quebra torna a rota idempotente.
+   *
+   * ⚠️ **Nunca aceite um `userId` de fora aqui.** Encerrar sessão de outra
+   * pessoa é ação administrativa: exige `@SuperAdmin` + `@RecentConfirmation` +
+   * `EventoAuditoria` com `SESSIONS_ENDED` (regra 18), e isso é da Fase 4.
+   */
+  async revokeOwn(input: {
+    userId: string;
+    sessionId: string;
+    currentSessionId: string;
+    reason: RevocationReason;
+    now: Date;
+  }): Promise<void> {
+    await this.prisma.db.session.updateMany({
+      where: {
+        id: input.sessionId,
+        userId: input.userId,
+        revokedAt: null,
+        NOT: { id: input.currentSessionId },
+      },
+      data: { revokedAt: input.now, revocationReason: input.reason },
     });
   }
 

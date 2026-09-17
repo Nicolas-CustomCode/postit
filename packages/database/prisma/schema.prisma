@@ -211,6 +211,10 @@ model User {
   name                String    @map("nome")
   // argon2id. Vazio até a pessoa usar o link de cadastro.
   passwordHash        String?   @map("senhaHash")
+  // Quando a senha ATUAL foi definida — pelo link de cadastro ou de redefinição,
+  // ou pela troca no perfil. Vazio em quem definiu a senha antes desta coluna
+  // existir: a tela diz "data não registrada" em vez de inventar uma.
+  passwordSetAt       DateTime? @map("senhaDefinidaEm") @db.Timestamptz(3)
   // Cifrado com ENCRYPTION_KEY. Nunca sai da API.
   totpSecretEncrypted String?   @map("totpSegredoCifrado")
   totpEnabledAt       DateTime? @map("totpAtivadoEm") @db.Timestamptz(3)

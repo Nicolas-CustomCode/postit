@@ -29,6 +29,7 @@ erDiagram
         string email UK
         string nome
         string senhaHash
+        datetime senhaDefinidaEm
         string totpSegredoCifrado
         datetime totpAtivadoEm
         bigint totpUltimoPasso
@@ -355,6 +356,7 @@ servidor. Não confundir com conta de rede social.
 | Campo | O que guarda |
 |---|---|
 | `senhaHash` | A senha processada com **argon2id** — nunca a senha. Vazio até a pessoa usar o link de cadastro |
+| `senhaDefinidaEm` | Quando a senha **atual** foi definida: pelo link ou pela troca no perfil. É o que o Perfil mostra. Vazio em quem definiu antes da coluna existir — a tela diz "data não registrada" em vez de inventar. Gravado num lugar só, `UsersService.setPassword` |
 | `totpSegredoCifrado` | O segredo da verificação em duas etapas, **cifrado** com `ENCRYPTION_KEY`. Vazio até o cadastro |
 | `totpAtivadoEm` | Quando a verificação em duas etapas foi confirmada. Vazio significa que o próximo login pede o cadastro |
 | `totpUltimoPasso` | O último passo de 30 segundos cujo código foi aceito. Um código do mesmo passo, ou anterior, é recusado — impede reusar um código visto por cima do ombro |

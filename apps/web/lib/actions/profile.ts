@@ -2,17 +2,23 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { changePasswordSchema, confirmCodeSchema } from "@repo/shared";
+import { changePasswordSchema, confirmCodeSchema, sessionIdSchema } from "@repo/shared";
 import { apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
+import { requireSession } from "../auth/session";
 import { failure, success, type ActionResult } from "./result";
 
 /**
- * As escritas do perfil: trocar senha, gerar códigos novos e encerrar as outras
- * sessões. Todas exigem sessão — a API confere de novo, sempre.
+ * As escritas do perfil: trocar senha, gerar códigos novos e encerrar sessões.
+ *
+ * Toda ação chama `requireSession()` antes de falar com a API (AGENTS.md, regra
+ * 5). Não é o que protege — quem decide é a API, que confere o token de novo —,
+ * mas é o que faz a pessoa sem sessão cair no login em vez de receber um erro
+ * cru vindo de dentro.
  */
 
 async function sessionToken(): Promise<string | undefined> {
+  await requireSession();
   return (await cookies()).get(SESSION_COOKIE)?.value;
 }
 
@@ -63,6 +69,26 @@ export async function regenerateRecoveryCodesAction(
       token: await sessionToken(),
     });
     return success(resultado);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/**
+ * Encerra **um** aparelho da lista.
+ *
+ * A API responde 204 mesmo quando não encerra nada — de propósito, para não
+ * revelar de quem é aquele id. Quem mostra o resultado é a lista, relida pelo
+ * `revalidatePath`.
+ */
+export async function revokeSessionAction(_previous: unknown, form: FormData): Promise<ActionResult<null>> {
+  const id = sessionIdSchema.safeParse(form.get("sessionId"));
+  if (!id.success) return { ok: false, code: "VALIDATION_FAILED", message: "Aparelho inválido" };
+
+  try {
+    await apiFetch<void>({ method: "POST", path: `/auth/sessions/${id.data}/revoke`, token: await sessionToken() });
+    revalidatePath("/perfil");
+    return success(null);
   } catch (error) {
     return failure(error);
   }
