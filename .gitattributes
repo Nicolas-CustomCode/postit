@@ -1,4 +1,23 @@
+# Todo arquivo de texto é guardado e entregue com quebra de linha LF, em qualquer
+# sistema. Sem isto, uma ferramenta que grava no formato do Windows converte o
+# arquivo inteiro e o git passa a ver TODAS as linhas como alteradas — um ajuste
+# de 71 linhas aparece como 613, a revisão fica cega e o `git blame` aponta para
+# quem só trocou a quebra de linha. Aconteceu em 17/09/2026, em sete arquivos.
+* text=auto eol=lf
+
 # Scripts de shell rodam em Linux (a imagem Docker e o hook do git). Com quebra de
 # linha do Windows (CRLF), o sh falha com erro que não aponta a causa.
 *.sh text eol=lf
 .githooks/* text eol=lf
+
+# Binários: o git nunca deve tentar converter quebra de linha neles.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
