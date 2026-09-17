@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { accountFromPath } from "@repo/shared";
 
 import { cookieOptions, LAST_ACCOUNT_COOKIE, SESSION_COOKIE } from "@/lib/auth/cookies";
 import { requiresSession } from "@/lib/protected-routes";
@@ -24,13 +25,6 @@ import { buildCsp } from "@/lib/security/csp";
  */
 function newNonce(): string {
   return Buffer.from(crypto.randomUUID()).toString("base64");
-}
-
-/** O @ da conta no endereço `/c/<conta>/…`, se houver. */
-function contaNoCaminho(pathname: string): string | null {
-  const partes = pathname.split("/").filter((parte) => parte.length > 0);
-  if (partes[0] !== "c" || partes[1] === undefined) return null;
-  return decodeURIComponent(partes[1]);
 }
 
 const UM_ANO = (): Date => new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
@@ -61,9 +55,6 @@ export function proxy(request: NextRequest): NextResponse {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-  // O caminho da página, para o layout saber qual é a conta ativa: layout não
-  // recebe os parâmetros da rota filha, e a conta mora no endereço.
-  requestHeaders.set("x-pathname", pathname);
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
@@ -76,7 +67,7 @@ export function proxy(request: NextRequest): NextResponse {
    * O valor não autoriza nada: quem decide a conta ativa é o endereço, e quem
    * confere é a API. Se a conta tiver sumido, quem lê o cookie ignora o valor.
    */
-  const conta = contaNoCaminho(pathname);
+  const conta = accountFromPath(pathname).username;
   if (conta !== null && request.cookies.get(LAST_ACCOUNT_COOKIE)?.value !== conta) {
     response.cookies.set(LAST_ACCOUNT_COOKIE, conta, cookieOptions(UM_ANO()));
   }

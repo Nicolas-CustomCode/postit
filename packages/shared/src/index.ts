@@ -10,4 +10,5 @@ export * from "./auth-errors";
 export * from "./auth-types";
 export * from "./auth-schemas";
 export * from "./account-types";
+export * from "./account-path";
 export * from "./device-name";

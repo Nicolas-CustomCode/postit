@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { AccountSummary, SessionUser } from "@repo/shared";
-import { AccountSwitcher } from "@/components/nav/account-switcher";
 import { BottomBar } from "@/components/nav/bottom-bar";
+import { MobileTopBar } from "@/components/nav/mobile-top-bar";
 import { Sidebar } from "@/components/nav/sidebar";
 
 /**
@@ -14,46 +14,34 @@ import { Sidebar } from "@/components/nav/sidebar";
  *
  * Não há cabeçalho no computador: quem está usando aparece no rodapé da barra
  * lateral, e o caminho da tela vem da migalha de cada página.
+ *
+ * ⚠️ **A conta ativa não passa por aqui.** Cada peça a lê do endereço, pelo
+ * `useActiveAccount()`. Derivá-la neste layout foi um erro: no App Router o
+ * layout não roda de novo ao navegar entre rotas que o compartilham, e a barra
+ * lateral ficava congelada em "Nenhuma conta" depois de entrar por uma tela
+ * geral.
  */
 export function AppShell({
   user,
   accounts,
-  activeUsername,
-  currentSection,
   children,
 }: {
   readonly user: SessionUser;
   readonly accounts: readonly AccountSummary[];
-  readonly activeUsername: string | null;
-  readonly currentSection: string;
   readonly children: ReactNode;
 }): ReactNode {
   return (
     // min-h-dvh, e não min-h-screen: no celular a barra do navegador aparece e
     // some, e `vh` não acompanha — o rodapé fica cortado.
     <div className="flex min-h-dvh">
-      <Sidebar user={user} accounts={accounts} activeUsername={activeUsername} currentSection={currentSection} />
+      <Sidebar user={user} accounts={accounts} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/*
-         * A pílula só existe nas telas da conta (docs/13, "Navegação"). Em
-         * Perfil ou Contas ela dizia "Nenhuma conta", que não quer dizer nada:
-         * são telas gerais, que não dependem de conta nenhuma.
-         */}
-        {activeUsername === null ? null : (
-          <header className="flex min-w-0 items-center px-4 pt-5 pb-3 md:hidden">
-            <AccountSwitcher
-              accounts={accounts}
-              activeUsername={activeUsername}
-              currentSection={currentSection}
-              variant="mobile"
-            />
-          </header>
-        )}
+        <MobileTopBar accounts={accounts} />
 
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
 
-        <BottomBar user={user} activeUsername={activeUsername} />
+        <BottomBar user={user} />
       </div>
     </div>
   );

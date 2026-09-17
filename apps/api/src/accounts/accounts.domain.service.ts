@@ -45,7 +45,7 @@ export class AccountsDomainService {
     this.oauth.verifyState(input.state, input.userId, input.now);
 
     const { token, expiresInSeconds } = await this.oauth.redeem(input.code);
-    const perfil = await this.profiles.read(token);
+    const perfil = await this.profiles.read(token, "conexao");
 
     const jaExiste = await this.prisma.db.account.findUnique({
       where: { network_externalId: { network: "INSTAGRAM", externalId: perfil.externalId } },
@@ -54,6 +54,32 @@ export class AccountsDomainService {
 
     const expiresAt = new Date(input.now.getTime() + expiresInSeconds * 1000);
     const tokenEncrypted = encryptSecret(token, this.config.encryptionKey, "instagram-token");
+
+    try {
+      return await this.gravar({ jaExiste, perfil, tokenEncrypted, expiresAt });
+    } catch (error) {
+      /*
+       * Duas abas concluindo a conexão da MESMA conta ao mesmo tempo: as duas
+       * leem "não existe" acima e as duas tentam criar. A restrição de
+       * unicidade do banco impede a linha duplicada — e é ela que garante isso,
+       * não a leitura acima; mover o `findUnique` para dentro da transação não
+       * resolveria, porque o nível é *read committed*.
+       *
+       * O que falta é traduzir: sem isto, a segunda aba vê "algo deu errado"
+       * (500) em vez de "esta conta já está conectada".
+       */
+      if (isUniqueViolation(error)) throw new AccountAlreadyConnectedError();
+      throw error;
+    }
+  }
+
+  private gravar(input: {
+    jaExiste: { id: string; active: boolean } | null;
+    perfil: { externalId: string; username: string; name: string | null };
+    tokenEncrypted: string;
+    expiresAt: Date;
+  }): Promise<string> {
+    const { jaExiste, perfil, tokenEncrypted, expiresAt } = input;
 
     return this.prisma.db.$transaction(async (tx) => {
       // Reconectar uma conta desativada é religar a mesma linha, não criar outra:
@@ -100,4 +126,16 @@ export class AccountsDomainService {
       return conta.username;
     });
   }
+}
+
+/**
+ * P2002 é a violação de restrição de unicidade do Prisma — aqui, sempre a
+ * `@@unique([network, externalId])` da tabela de contas.
+ *
+ * Conferido pelo `code`, e não pela classe: importar o tipo de erro do Prisma
+ * amarraria este módulo ao client gerado, que é justamente o acoplamento que a
+ * regra 6 evita.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "P2002";
 }

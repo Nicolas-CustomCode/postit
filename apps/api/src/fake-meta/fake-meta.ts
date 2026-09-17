@@ -49,6 +49,15 @@ const TOKEN_PREFIX = "fake-long-";
 const SIXTY_DAYS_IN_SECONDS = 60 * 24 * 60 * 60;
 
 /**
+ * A única URI de retorno que esta Meta falsa aceita.
+ *
+ * Existe para o teste poder provar o que mais dá errado na configuração real: a
+ * URI que não bate com a cadastrada no painel. Quem conecta com outra recebe o
+ * mesmo `code: 100` que a Meta devolve.
+ */
+export const FAKE_META_REDIRECT_URI = "http://localhost:3100/contas/conectar/retorno";
+
+/**
  * Recusa subir fora de NODE_ENV=test. Um servidor que aceita qualquer coisa como
  * se fosse a Meta não pode existir por engano em outro ambiente.
  */
@@ -112,8 +121,26 @@ export function createFakeMeta(nodeEnv: string | undefined): FastifyInstance {
     const corpo = new URLSearchParams(typeof request.body === "string" ? request.body : "");
     const code = corpo.get("code") ?? "";
 
+    /*
+     * Confere a URI de retorno, porque **é a falha número 1 do mundo real**: o
+     * painel da Meta acrescenta uma barra final sozinho, a URI deixa de bater
+     * caractere a caractere e a troca falha com um erro que não explica nada
+     * (docs/08; o docs/12 chama isso de risco da fase). Sem esta conferência
+     * aqui, nenhum teste cobre esse caminho.
+     */
+    const redirect = corpo.get("redirect_uri") ?? "";
+    if (redirect !== FAKE_META_REDIRECT_URI) {
+      return reply.code(400).send(erro(100, "Invalid platform app or redirect_uri mismatch."));
+    }
+
     if (!(code in LONG_LIVED)) return reply.code(400).send(erro(100, "Invalid authorization code."));
-    return { access_token: `fake-short-${code}`, user_id: FAKE_META_ACCOUNT.user_id };
+
+    // O user_id acompanha o roteiro. Devolver sempre o da primeira conta seria
+    // um roteiro que mente, e o teste passaria onde a produção falharia.
+    const roteiro = LONG_LIVED[code];
+    const userId = typeof roteiro === "object" ? roteiro.user_id : FAKE_META_ACCOUNT.user_id;
+
+    return { access_token: `fake-short-${code}`, user_id: userId };
   });
 
   /** Passo 3: curta duração vira longa duração, com 60 dias. */

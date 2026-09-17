@@ -1,6 +1,13 @@
+import { createHmac } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { decryptSecret } from "../common/crypto";
-import { createFakeMeta, FAKE_META_ACCOUNT, FAKE_META_CODES, FAKE_META_SECOND_ACCOUNT } from "../fake-meta/fake-meta";
+import {
+  createFakeMeta,
+  FAKE_META_ACCOUNT,
+  FAKE_META_CODES,
+  FAKE_META_REDIRECT_URI,
+  FAKE_META_SECOND_ACCOUNT,
+} from "../fake-meta/fake-meta";
 import { createTestUser, TEST_PASSWORD, totpCodeFor } from "../common/testing/factories";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
 
@@ -17,6 +24,8 @@ import { bootTestApp, type TestApp } from "../common/testing/test-app";
 describe("conectar conta do Instagram", () => {
   let api: TestApp;
   let meta: FastifyInstance;
+  /** O endereço da Meta falsa, guardado para quem precisa subir uma segunda API. */
+  let metaBase = "";
   const IP = "203.0.113.70";
 
   beforeAll(async () => {
@@ -24,6 +33,7 @@ describe("conectar conta do Instagram", () => {
     await meta.listen({ port: 0, host: "127.0.0.1" });
     const endereco = meta.addresses()[0];
     const base = `http://127.0.0.1:${endereco?.port ?? 0}`;
+    metaBase = base;
 
     api = await bootTestApp({
       META_AUTH_URL: base,
@@ -31,7 +41,7 @@ describe("conectar conta do Instagram", () => {
       META_GRAPH_URL: base,
       IG_APP_ID: "app-de-teste",
       IG_APP_SECRET: "segredo-de-teste",
-      IG_REDIRECT_URI: "http://localhost:3010/contas/conectar/retorno",
+      IG_REDIRECT_URI: FAKE_META_REDIRECT_URI,
     });
   });
   beforeEach(() => api.reset());
@@ -233,6 +243,93 @@ describe("conectar conta do Instagram", () => {
       expect(resposta.statusCode).toBe(400);
       expect(resposta.body).toMatchObject({ code: "CONNECTION_INVALID" });
       expect(await api.db.account.count()).toBe(0);
+    });
+  });
+
+  /**
+   * Os erros que a revisão pegou. Todos davam a mensagem errada — e a errada
+   * manda a pessoa para o lado oposto do problema.
+   */
+  describe("recusas que precisam dizer a coisa certa", () => {
+    /**
+     * Código já usado (F5 na volta), código vencido depois de uma hora, e a URI
+     * de retorno diferente da cadastrada no painel. A Meta devolve o MESMO
+     * `code: 100` nos três, e todos diziam "o Instagram não respondeu agora" —
+     * mandando caçar problema de rede que não existe.
+     */
+    it("código de autorização inválido diz para recomeçar, não que o Instagram caiu", async () => {
+      const token = await entrar();
+      const resposta = await concluir(token, "codigo-que-nao-existe", await comecar(token));
+
+      expect(resposta.statusCode).toBe(400);
+      expect(resposta.body).toMatchObject({ code: "CONNECTION_INVALID" });
+    });
+
+    /**
+     * A falha número 1 do mundo real: o painel da Meta acrescenta uma barra
+     * final sozinho e a URI deixa de bater caractere a caractere. O docs/12
+     * chama isso de risco da fase — e até agora nenhum teste cobria.
+     */
+    it("URI de retorno diferente da cadastrada diz para recomeçar", async () => {
+      const outraApi = await bootTestApp({
+        META_AUTH_URL: metaBase,
+        META_TOKEN_URL: metaBase,
+        META_GRAPH_URL: metaBase,
+        IG_APP_ID: "app-de-teste",
+        IG_APP_SECRET: "segredo-de-teste",
+        // A barra final que o painel acrescenta.
+        IG_REDIRECT_URI: `${FAKE_META_REDIRECT_URI}/`,
+      });
+
+      try {
+        await outraApi.reset();
+        const user = await createTestUser(outraApi.db, outraApi.config.encryptionKey, {
+          permissions: ["ACCOUNT_MANAGE"],
+        });
+        const desafio = await outraApi.request({
+          method: "POST",
+          url: "/auth/login",
+          payload: { email: user.email, password: TEST_PASSWORD },
+          ip: IP,
+        });
+        const sessao = await outraApi.request({
+          method: "POST",
+          url: "/auth/challenge/verify",
+          payload: { token: desafio.body["token"], code: totpCodeFor(user.totpSecret) },
+          ip: IP,
+        });
+        const sessionToken = sessao.body["token"] as string;
+
+        const inicio = await outraApi.request({ method: "POST", url: "/accounts/connect", token: sessionToken });
+        const state = new URL(inicio.body["authorizationUrl"] as string).searchParams.get("state") ?? "";
+
+        const resposta = await outraApi.request({
+          method: "POST",
+          url: "/accounts/connect/finish",
+          token: sessionToken,
+          payload: { code: FAKE_META_CODES.ok, state },
+        });
+
+        expect(resposta.statusCode).toBe(400);
+        expect(resposta.body).toMatchObject({ code: "CONNECTION_INVALID" });
+      } finally {
+        await outraApi.close();
+      }
+    });
+
+    /** `JSON.parse("null")` não lança: o state precisava recusar isso na forma. */
+    it("state com corpo nulo é recusado como state inválido, não como erro de servidor", async () => {
+      const token = await entrar();
+      // Assinado por nós, mas com corpo `null` — só quem tem o segredo chega aqui.
+      const corpo = Buffer.from("null", "utf8").toString("base64url");
+      const assinatura = createHmac("sha256", Buffer.from(process.env["STATE_SECRET"] ?? "", "hex"))
+        .update(corpo)
+        .digest("base64url");
+
+      const resposta = await concluir(token, FAKE_META_CODES.ok, `${corpo}.${assinatura}`);
+
+      expect(resposta.statusCode).toBe(400);
+      expect(resposta.body).toMatchObject({ code: "CONNECTION_INVALID" });
     });
   });
 });

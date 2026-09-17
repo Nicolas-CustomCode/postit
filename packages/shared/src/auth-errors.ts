@@ -28,6 +28,7 @@ export const AUTH_ERROR_CODES = [
   "ACCOUNT_NOT_PROFESSIONAL",
   "ACCOUNT_NOT_TESTER",
   "INSTAGRAM_UNAVAILABLE",
+  "ACCOUNT_ACCESS_EXPIRED",
   "ACCOUNT_ALREADY_CONNECTED",
   "INTERNAL_ERROR",
 ] as const;
@@ -65,6 +66,7 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
     "Esta conta do Instagram não é profissional. Mude para conta profissional no aplicativo e tente de novo",
   ACCOUNT_NOT_TESTER: "Esta conta ainda não aceitou o convite de testadora do PostIt",
   INSTAGRAM_UNAVAILABLE: "O Instagram não respondeu agora. Tente de novo em alguns minutos",
+  ACCOUNT_ACCESS_EXPIRED: "A conexão com o Instagram expirou. Reconecte a conta",
   ACCOUNT_ALREADY_CONNECTED: "Esta conta do Instagram já está conectada ao PostIt",
   INTERNAL_ERROR: "Algo deu errado",
 };

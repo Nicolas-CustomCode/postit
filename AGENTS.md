@@ -181,6 +181,16 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
 24. **A conta ativa vem do endereço da página** (`/c/<conta>/…`), nunca de estado guardado no servidor ou na
     sessão. Toda chamada à API passa a conta explicitamente, e a API confere que a postagem pertence a ela. O cookie
     da última conta só decide onde o sistema abre. Ver [docs/13-telas-e-navegacao.md](docs/13-telas-e-navegacao.md#conta-ativa).
+    **Quem lê o endereço é `accountFromPath()` de `packages/shared`** — o proxy e a casca, os dois. Duas leituras
+    que discordem fazem o sistema abrir numa conta e marcar outra como ativa.
+25. **Nada que dependa da rota é calculado em layout.** No App Router o layout **não re-renderiza** ao navegar
+    entre rotas que o compartilham: o valor congela na primeira carga completa. A conta ativa sai do
+    `useActiveAccount()`, num componente de cliente. Já custou um defeito — a barra lateral dizendo "Nenhuma
+    conta" com o endereço dentro da conta, e os itens da conta apagados.
+26. **Toda ação que mexe em conta chama `revalidatePath("/", "layout")`.** A lista de contas da casca —
+    seletor, barra lateral, barra inferior — vem do layout autenticado, e sem isso ela envelhece: a conta
+    aparece na tela de Contas e não aparece no seletor, ao mesmo tempo. `revalidatePath("/contas")` sozinho
+    revalida a página, não a casca das outras rotas.
 
 ## Antes de afirmar algo sobre a API da Meta
 

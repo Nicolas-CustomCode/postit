@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { z } from "zod";
 import { InstagramUnavailableError } from "../common/errors";
 import { INSTAGRAM_CONFIG, type InstagramConfig } from "./instagram.config";
 
@@ -24,6 +25,24 @@ const TIMEOUT_MS = 20_000;
 /** Parâmetros que nunca podem aparecer num log, nem parcialmente. */
 const SENSITIVE = new Set(["access_token", "client_secret", "code", "input_token"]);
 
+/** Marca de "a resposta não era JSON", distinta de um JSON que é `null`. */
+const SEM_JSON = Symbol("sem-json");
+
+/**
+ * O que esperamos da Meta nos dois passos de token.
+ *
+ * `passthrough` de propósito: a Meta acrescenta campos com o tempo, e recusar
+ * uma resposta por trazer campo a mais quebraria a conexão sem motivo. O que
+ * conferimos é o que **usamos**.
+ */
+const shortLivedTokenSchema = z.object({ access_token: z.string().min(1) }).loose();
+const longLivedTokenSchema = z
+  .object({ access_token: z.string().min(1), expires_in: z.number().int().positive() })
+  .loose();
+
+export type ShortLivedToken = z.infer<typeof shortLivedTokenSchema>;
+export type LongLivedToken = z.infer<typeof longLivedTokenSchema>;
+
 export interface MetaError {
   readonly status: number;
   /** Código numérico da Meta, quando ela manda. É seguro: não é segredo. */
@@ -46,7 +65,7 @@ export class InstagramClient {
   }
 
   /** Troca o código da autorização pelo token de curta duração (docs/08, passo 2). */
-  async exchangeCode(code: string, redirectUri: string): Promise<{ access_token: string; user_id: string }> {
+  async exchangeCode(code: string, redirectUri: string): Promise<ShortLivedToken> {
     const body = new URLSearchParams({
       client_id: this.requireAppId(),
       client_secret: this.requireAppSecret(),
@@ -55,22 +74,24 @@ export class InstagramClient {
       code,
     });
 
-    return this.request(`${this.config.tokenUrl}/oauth/access_token`, {
+    const corpo = await this.request(`${this.config.tokenUrl}/oauth/access_token`, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: body.toString(),
     });
+
+    return this.parse(shortLivedTokenSchema, corpo, "troca do código");
   }
 
   /** Curta duração (1 hora) para longa duração (60 dias) — docs/08, passo 3. */
-  async exchangeForLongLived(shortToken: string): Promise<{ access_token: string; expires_in: number }> {
+  async exchangeForLongLived(shortToken: string): Promise<LongLivedToken> {
     const url = this.graphUrl("/access_token", {
       grant_type: "ig_exchange_token",
       client_secret: this.requireAppSecret(),
       access_token: shortToken,
     });
 
-    return this.request(url, { method: "GET" });
+    return this.parse(longLivedTokenSchema, await this.request(url, { method: "GET" }), "token de longa duração");
   }
 
   /**
@@ -79,19 +100,37 @@ export class InstagramClient {
    * A Meta exige token com **pelo menos 24 horas de idade** e não expirado. Quem
    * decide quando chamar é a tarefa recorrente, não este método.
    */
-  async refreshLongLived(token: string): Promise<{ access_token: string; expires_in: number }> {
+  async refreshLongLived(token: string): Promise<LongLivedToken> {
     const url = this.graphUrl("/refresh_access_token", {
       grant_type: "ig_refresh_token",
       access_token: token,
     });
 
-    return this.request(url, { method: "GET" });
+    return this.parse(longLivedTokenSchema, await this.request(url, { method: "GET" }), "renovação do token");
+  }
+
+  /**
+   * Confere o que a Meta devolveu antes de deixar entrar.
+   *
+   * A borda de ENTRADA do projeto já tem esse rigor, com o `ZodValidationPipe`;
+   * a de saída não tinha. Sem isto, um `expires_in` ausente virava
+   * `agora + undefined` — uma data inválida que só estoura lá adiante, no
+   * Prisma, como erro de servidor sem relação aparente com a Meta.
+   */
+  private parse<T>(schema: z.ZodType<T>, corpo: unknown, oQue: string): T {
+    const resultado = schema.safeParse(corpo);
+    if (resultado.success) return resultado.data;
+
+    // Só os NOMES dos campos problemáticos — os valores são o token.
+    const campos = resultado.error.issues.map((issue) => issue.path.join(".")).join(", ");
+    this.logger.error(`A Meta devolveu uma resposta inesperada na ${oQue}. Campos: ${campos || "(corpo inteiro)"}`);
+    throw new MetaRefusedError({ status: 200, code: null, subcode: null, type: null });
   }
 
   private graphUrl(path: string, query: Record<string, string>): string {
-    // A versão entra no caminho, menos nos endpoints de token, que não a usam.
-    const versioned = path.startsWith("/access_token") || path.startsWith("/refresh_access_token");
-    const base = versioned ? this.config.graphUrl : `${this.config.graphUrl}/${this.config.apiVersion}`;
+    // Os endpoints de token são os únicos SEM a versão no caminho.
+    const semVersao = path.startsWith("/access_token") || path.startsWith("/refresh_access_token");
+    const base = semVersao ? this.config.graphUrl : `${this.config.graphUrl}/${this.config.apiVersion}`;
     const url = new URL(base + path);
     for (const [chave, valor] of Object.entries(query)) url.searchParams.set(chave, valor);
     return url.toString();
@@ -108,7 +147,9 @@ export class InstagramClient {
       throw new InstagramUnavailableError();
     }
 
-    const corpo: unknown = await response.json().catch(() => null);
+    // `null` distingue "não veio JSON" de "veio JSON nulo": a diferença importa
+    // logo abaixo, e `catch(() => null)` sozinho confundiria os dois.
+    const corpo: unknown = await response.json().catch(() => SEM_JSON);
 
     if (!response.ok) {
       const erro = readMetaError(corpo, response.status);
@@ -116,6 +157,17 @@ export class InstagramClient {
         `A Meta recusou ${safeUrl(url)} — status ${erro.status}, código ${erro.code ?? "?"}, subcódigo ${erro.subcode ?? "?"}`,
       );
       throw new MetaRefusedError(erro);
+    }
+
+    /*
+     * Resposta 200 sem JSON é página de manutenção, portal de rede ou proxy
+     * corporativo — não é a Meta. Sem esta recusa, o `corpo` viraria `undefined`
+     * e o erro só apareceria lá adiante, como "não consigo ler uma propriedade
+     * de undefined", longe da causa.
+     */
+    if (corpo === SEM_JSON) {
+      this.logger.error(`A Meta respondeu ${response.status} sem JSON em ${safeUrl(url)}`);
+      throw new MetaRefusedError({ status: response.status, code: null, subcode: null, type: null });
     }
 
     return corpo as T;
@@ -150,7 +202,10 @@ export class MetaRefusedError extends Error {
 export function safeUrl(raw: string): string {
   try {
     const url = new URL(raw);
-    for (const chave of url.searchParams.keys()) {
+    // Percorre uma CÓPIA das chaves: `set` altera a coleção, e alterar enquanto
+    // se percorre pode fazer o laço pular uma entrada — a pulada sairia em claro
+    // no log, que é exatamente o que esta função existe para impedir.
+    for (const chave of [...url.searchParams.keys()]) {
       if (SENSITIVE.has(chave)) url.searchParams.set(chave, "***");
     }
     return `${url.origin}${url.pathname}${url.search}`;

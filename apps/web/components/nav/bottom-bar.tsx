@@ -8,6 +8,7 @@ import type { SessionUser } from "@repo/shared";
 import { UserCard } from "@/components/nav/user-card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { hrefFor, visibleItems } from "@/lib/nav/items";
+import { useActiveAccount } from "@/lib/nav/use-active-account";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,14 +24,9 @@ import { cn } from "@/lib/utils";
  * - o item ativo fica em peso 700, além de mudar de cor: cor sozinha não é
  *   sinal suficiente.
  */
-export function BottomBar({
-  user,
-  activeUsername,
-}: {
-  readonly user: SessionUser;
-  readonly activeUsername: string | null;
-}): ReactNode {
+export function BottomBar({ user }: { readonly user: SessionUser }): ReactNode {
   const pathname = usePathname();
+  const { username: activeUsername } = useActiveAccount();
   const [aberto, setAberto] = useState(false);
 
   const conta = (secao: string) => (activeUsername === null ? "/contas" : `/c/${activeUsername}/${secao}`);

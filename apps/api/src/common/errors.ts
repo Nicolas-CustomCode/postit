@@ -146,3 +146,17 @@ export class AccountAlreadyConnectedError extends AppError {
     super("ACCOUNT_ALREADY_CONNECTED", 409);
   }
 }
+
+/**
+ * O acesso à conta morreu: a pessoa revogou o app, trocou a senha do Instagram,
+ * ou o token passou dos 60 dias sem renovar (docs/08).
+ *
+ * Diferente de `INSTAGRAM_UNAVAILABLE`: aquele é a Meta fora do ar, e passa
+ * sozinho. Este exige alguém reconectar a conta, e dizer "tente de novo em
+ * alguns minutos" faria a pessoa esperar por algo que nunca vai acontecer.
+ */
+export class AccountAccessExpiredError extends AppError {
+  constructor() {
+    super("ACCOUNT_ACCESS_EXPIRED", 422);
+  }
+}

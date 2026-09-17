@@ -9,6 +9,7 @@ import { AccountAvatar } from "@/components/nav/account-avatar";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useActiveAccount } from "@/lib/nav/use-active-account";
 import { cn } from "@/lib/utils";
 
 /**
@@ -29,18 +30,15 @@ import { cn } from "@/lib/utils";
  */
 export function AccountSwitcher({
   accounts,
-  activeUsername,
-  /** O caminho depois de /c/<conta>/, para a troca manter a mesma tela. */
-  currentSection,
   variant,
 }: {
   readonly accounts: readonly AccountSummary[];
-  readonly activeUsername: string | null;
-  readonly currentSection: string;
   readonly variant: "sidebar" | "mobile";
 }): ReactNode {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // Do endereço, não de prop: o layout do servidor não reage à navegação.
+  const { username: activeUsername, section: currentSection } = useActiveAccount();
 
   const ativa = accounts.find((conta) => conta.username === activeUsername) ?? null;
   const rotulo =

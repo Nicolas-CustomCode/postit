@@ -68,6 +68,10 @@ export async function regenerateRecoveryCodesAction(
       body: entrada.data,
       token: await sessionToken(),
     });
+    // O contador "7 de 10" da tela vem de /auth/security, e acabou de mudar.
+    // Os códigos em si não se perdem: eles vivem no resultado desta ação, não
+    // na leitura do servidor, e é por isso que revalidar aqui é seguro.
+    revalidatePath("/perfil");
     return success(resultado);
   } catch (error) {
     return failure(error);

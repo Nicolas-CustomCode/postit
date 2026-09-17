@@ -80,3 +80,50 @@ test.describe("conta ativa", () => {
     await expect(page.getByText("Acesso expirado")).toBeVisible();
   });
 });
+
+/**
+ * A conta ativa precisa acompanhar a navegação pelo cliente.
+ *
+ * ⚠️ Regressão conhecida: derivar a conta ativa no layout do servidor não
+ * funciona. No App Router o layout **não roda de novo** quando se navega entre
+ * rotas que o compartilham — ele congela no valor da primeira carga completa. A
+ * barra lateral ficava dizendo "Nenhuma conta" enquanto o endereço já estava
+ * dentro de uma conta.
+ */
+test.describe("a conta ativa acompanha a navegação", () => {
+  test.use({ storageState: ESTADO_SUPER_ADMIN });
+
+  test.beforeEach(async ({ page }) => {
+    await resetAccounts();
+    await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
+    await page.goto("/contas");
+  });
+
+  test("a barra lateral mostra a conta depois de escolhê-la numa tela geral", async ({ page, isMobile }) => {
+    test.skip(isMobile === true, "a barra lateral não existe no celular");
+
+    // Carga completa numa tela GERAL: aqui não há conta ativa, e está certo.
+    const lateral = page.getByRole("button", { name: /escolher conta/i });
+    await expect(lateral).toBeVisible();
+
+    // Daqui em diante é navegação pelo cliente, que não recarrega o layout.
+    await lateral.click();
+    await page.getByRole("dialog").getByRole("button", { name: /loja aurora/i }).click();
+    await expect(page).toHaveURL(/\/c\/aurora\.loja\//);
+
+    // O seletor precisa ter acompanhado, em vez de continuar em "Nenhuma conta".
+    await expect(page.getByRole("button", { name: /conta ativa: aurora\.loja/i })).toBeVisible();
+  });
+
+  test("os itens da conta deixam de estar desabilitados", async ({ page, isMobile }) => {
+    test.skip(isMobile === true, "a barra lateral não existe no celular");
+
+    await page.getByRole("button", { name: /escolher conta/i }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /loja aurora/i }).click();
+    await expect(page).toHaveURL(/\/c\/aurora\.loja\//);
+
+    // Sem conta ativa eles são texto apagado; com conta, viram link.
+    const menu = page.getByRole("navigation", { name: "Menu principal" });
+    await expect(menu.getByRole("link", { name: "Calendário" })).toBeVisible();
+  });
+});

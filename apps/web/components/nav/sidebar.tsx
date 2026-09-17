@@ -9,6 +9,7 @@ import { AccountSwitcher } from "@/components/nav/account-switcher";
 import { UserCard } from "@/components/nav/user-card";
 import { BrandSvg } from "@/components/brand";
 import { hrefFor, visibleItems, type NavItem } from "@/lib/nav/items";
+import { useActiveAccount } from "@/lib/nav/use-active-account";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,14 +25,11 @@ import { cn } from "@/lib/utils";
 export function Sidebar({
   user,
   accounts,
-  activeUsername,
-  currentSection,
 }: {
   readonly user: SessionUser;
   readonly accounts: readonly AccountSummary[];
-  readonly activeUsername: string | null;
-  readonly currentSection: string;
 }): ReactNode {
+  const { username: activeUsername } = useActiveAccount();
   const itens = visibleItems({ superAdmin: user.superAdmin, permissions: user.permissions });
   const daConta = itens.filter((item) => item.scope === "account");
   const gerais = itens.filter((item) => item.scope === "general");
@@ -43,12 +41,7 @@ export function Sidebar({
         <span className="font-heading text-[22px] font-extrabold tracking-[-0.02em]">PostIt</span>
       </div>
 
-      <AccountSwitcher
-        accounts={accounts}
-        activeUsername={activeUsername}
-        currentSection={currentSection}
-        variant="sidebar"
-      />
+      <AccountSwitcher accounts={accounts} variant="sidebar" />
 
       <NovaPostagem activeUsername={activeUsername} />
 

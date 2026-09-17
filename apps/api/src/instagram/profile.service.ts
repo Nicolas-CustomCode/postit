@@ -1,10 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import {
-  AccountNotProfessionalError,
-  AccountNotTesterError,
-  InstagramUnavailableError,
-} from "../common/errors";
-import { InstagramClient, MetaRefusedError } from "./client";
+import { AccountNotProfessionalError, InstagramUnavailableError } from "../common/errors";
+import { InstagramClient } from "./client";
+import { translateRefusal, type RefusalOrigin } from "./errors";
 
 /**
  * Leitura do perfil da conta conectada (docs/08, "Dados do perfil").
@@ -45,13 +42,13 @@ interface MeResponse {
 export class InstagramProfileService {
   constructor(private readonly client: InstagramClient) {}
 
-  async read(token: string): Promise<InstagramProfile> {
+  async read(token: string, origin: RefusalOrigin): Promise<InstagramProfile> {
     let dados: MeResponse;
 
     try {
       dados = await this.client.get<MeResponse>("/me", token, { fields: FIELDS });
     } catch (error) {
-      throw translateRefusal(error);
+      throw translateRefusal(error, origin);
     }
 
     // `account_type` só vem quando a conta é profissional o bastante para
@@ -75,33 +72,3 @@ export class InstagramProfileService {
   }
 }
 
-/**
- * Traduz a recusa da Meta para algo que a pessoa consiga resolver.
- *
- * A tradução mora aqui, e não no cliente, porque só quem conhece o contexto sabe
- * que "código 190 durante a conexão" quer dizer "a conta não aceitou o convite
- * de testadora". **A mensagem da Meta nunca é repassada** — ela devolve de volta
- * o que recebeu, token incluído (AGENTS.md, regra 3).
- */
-export function translateRefusal(error: unknown): Error {
-  if (!(error instanceof MetaRefusedError)) {
-    return error instanceof Error ? error : new InstagramUnavailableError();
-  }
-
-  const { code, subcode } = error.meta;
-
-  // 190 é "token inválido" no vocabulário da Meta. Durante a conexão, com um
-  // token recém-emitido, o motivo real é quase sempre o app em desenvolvimento
-  // não conhecer aquela conta como testadora (docs/08, "Níveis de acesso").
-  if (code === 190) return new AccountNotTesterError();
-
-  // 10 e 200 são a família "sem permissão para esta ação": o app não tem acesso
-  // àquela conta, que é o mesmo sintoma do convite não aceito.
-  if (code === 10 || code === 200) return new AccountNotTesterError();
-
-  // 100 com subcódigo 33 é "objeto não existe ou você não pode vê-lo" — conta
-  // pessoal, que o Instagram Login não enxerga.
-  if (code === 100 && subcode === 33) return new AccountNotProfessionalError();
-
-  return new InstagramUnavailableError();
-}

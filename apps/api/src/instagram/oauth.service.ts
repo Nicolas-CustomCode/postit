@@ -3,7 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { ConnectionInvalidError, InstagramUnavailableError } from "../common/errors";
 import { INSTAGRAM_CONFIG, type InstagramConfig } from "./instagram.config";
 import { InstagramClient } from "./client";
-import { translateRefusal } from "./profile.service";
+import { translateRefusal } from "./errors";
 
 /**
  * O fluxo de autorização do Instagram Login (docs/08, "Fluxo de autorização").
@@ -71,15 +71,25 @@ export class InstagramOAuthService {
     const [corpo, assinatura] = partes as [string, string];
     if (!this.signatureMatches(corpo, assinatura)) throw new ConnectionInvalidError();
 
-    let dados: { u?: unknown; e?: unknown };
+    let dados: unknown;
     try {
-      dados = JSON.parse(Buffer.from(corpo, "base64url").toString("utf8")) as typeof dados;
+      dados = JSON.parse(Buffer.from(corpo, "base64url").toString("utf8"));
     } catch {
       throw new ConnectionInvalidError();
     }
 
-    if (dados.u !== userId) throw new ConnectionInvalidError();
-    if (typeof dados.e !== "number" || dados.e < now.getTime()) throw new ConnectionInvalidError();
+    /*
+     * `JSON.parse("null")` NÃO lança — devolve `null` com sucesso. Sem esta
+     * conferência de forma, um corpo `null` escapava do `catch` acima e só
+     * estourava ao ler `.u`, virando "algo deu errado" (500) em vez de
+     * `CONNECTION_INVALID`. Não era explorável, porque o HMAC é conferido
+     * antes; era diagnóstico ruim.
+     */
+    if (typeof dados !== "object" || dados === null) throw new ConnectionInvalidError();
+
+    const { u, e } = dados as { u?: unknown; e?: unknown };
+    if (typeof u !== "string" || u !== userId) throw new ConnectionInvalidError();
+    if (typeof e !== "number" || e < now.getTime()) throw new ConnectionInvalidError();
   }
 
   /**
@@ -97,7 +107,7 @@ export class InstagramOAuthService {
     } catch (error) {
       // Sem isto, uma recusa da Meta aqui sobe como erro desconhecido e vira 500
       // na tela — em vez da frase que diz o que fazer.
-      throw translateRefusal(error);
+      throw translateRefusal(error, "conexao");
     }
   }
 

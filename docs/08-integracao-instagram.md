@@ -194,7 +194,7 @@ sequenceDiagram
 | Onde | Faz |
 |---|---|
 | Next — `apps/web/app/(autenticado)/contas/conectar/retorno/` | Recebe o retorno do Instagram e repassa `code` e `state` à API. Nada mais |
-| API — `apps/api/src/contas/` | Expõe as rotas de iniciar e concluir a conexão |
+| API — `apps/api/src/accounts/` | Expõe as rotas de iniciar e concluir a conexão |
 | API — `apps/api/src/instagram/oauth.ts` | Monta a URL, assina e valida o `state`, troca tokens |
 
 O Next **nunca** vê `IG_APP_SECRET` nem o token do Instagram.
@@ -665,11 +665,21 @@ Números da conta como um todo, e não de uma postagem (RF-G06, RF-G07). Verific
 ### Dados do perfil
 
 ```
-GET https://graph.instagram.com/v26.0/me?fields=followers_count,follows_count,media_count
+GET https://graph.instagram.com/v26.0/me
+  ?fields=user_id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count
 ```
 
 Disponíveis pela via do Instagram Login. Fonte:
 [Get started](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started).
+
+**`account_type`, `profile_picture_url` e `name` confirmados em 17/09/2026**, ao conectar a primeira conta
+real. A documentação oficial só lista os três contadores; os outros três vieram preenchidos na prática.
+Importa registrar porque **campo que não existe faz a Graph API devolver `code: 100`** para a chamada
+inteira — e esse mesmo código é o de "URI de retorno errada", então um campo digitado errado aqui apareceria
+como problema de configuração do app.
+
+`account_type` é o que separa conta profissional de conta pessoal: os valores aceitos são `BUSINESS` e
+`MEDIA_CREATOR` (marco 18).
 
 ### Insights da conta
 
@@ -719,7 +729,7 @@ Fonte:
 [Error Codes](https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/error-codes/).
 
 Cada linha define a mensagem em português e a ação do sistema. Esta tabela é o conteúdo de
-`apps/api/src/instagram/erros.ts`, seguindo o padrão da função `traduzErro()` de
+`apps/api/src/instagram/errors.ts`, seguindo o padrão da função `traduzErro()` de
 `sorteio-comentarios-instagram/src/lib/instagram.ts`.
 
 ### Erros recuperáveis — o sistema tenta de novo
@@ -877,11 +887,11 @@ ao módulo Nest.
 | Arquivo | Responsabilidade |
 |---|---|
 | `instagram.module.ts` | Módulo Nest, importado pela API e pelo worker |
-| `cliente.ts` | Único lugar que anexa o token e faz a chamada HTTP |
+| `client.ts` | Único lugar que anexa o token e faz a chamada HTTP |
 | `oauth.ts` | URL de autorização, `state` assinado, troca e renovação de tokens, cópia da foto de perfil |
 | `publicacao.ts` | Containers, consulta de estado, `media_publish`, upload resumível |
 | `insights.ts` | Métricas por formato |
-| `erros.ts` | Tradução dos códigos da Meta para mensagem e ação |
+| `errors.ts` | Tradução dos códigos da Meta para mensagem e ação, com a **origem** (conexão ou uso): o mesmo código quer dizer "conta não é testadora" ao conectar e "o acesso expirou" ao renovar |
 
 **Um único cliente de chamada.** Toda requisição à Meta passa por `apps/api/src/instagram/client.ts`,
 e é o único lugar que anexa o token. É essa concentração que sustenta a promessa do RNF-06 de que o
