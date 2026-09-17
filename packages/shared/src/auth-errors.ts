@@ -23,6 +23,12 @@ export const AUTH_ERROR_CODES = [
   "RECENT_CONFIRMATION_REQUIRED",
   "LAST_SUPER_ADMIN",
   "SELF_DEACTIVATION",
+  // Conexão de conta do Instagram (docs/08, "Fluxo de autorização").
+  "CONNECTION_INVALID",
+  "ACCOUNT_NOT_PROFESSIONAL",
+  "ACCOUNT_NOT_TESTER",
+  "INSTAGRAM_UNAVAILABLE",
+  "ACCOUNT_ALREADY_CONNECTED",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -54,5 +60,11 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   RECENT_CONFIRMATION_REQUIRED: "Confirme sua identidade com o código do aplicativo",
   LAST_SUPER_ADMIN: "É preciso haver ao menos um super admin ativo",
   SELF_DEACTIVATION: "Você não pode desativar a si mesmo",
+  CONNECTION_INVALID: "Esta autorização expirou ou não é sua. Comece de novo",
+  ACCOUNT_NOT_PROFESSIONAL:
+    "Esta conta do Instagram não é profissional. Mude para conta profissional no aplicativo e tente de novo",
+  ACCOUNT_NOT_TESTER: "Esta conta ainda não aceitou o convite de testadora do PostIt",
+  INSTAGRAM_UNAVAILABLE: "O Instagram não respondeu agora. Tente de novo em alguns minutos",
+  ACCOUNT_ALREADY_CONNECTED: "Esta conta do Instagram já está conectada ao PostIt",
   INTERNAL_ERROR: "Algo deu errado",
 };

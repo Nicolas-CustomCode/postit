@@ -98,6 +98,15 @@ export default defineConfig({
         API_HOST: "127.0.0.1",
         API_PORT: String(API_PORT),
         DATABASE_URL: TEST_DATABASE_URL,
+        // A API fala com a Meta falsa, nunca com a real (AGENTS.md, regra 23).
+        // Só o `NODE_ENV=test` acima permite esta troca: em qualquer outro
+        // ambiente, estas três variáveis impedem o processo de subir.
+        META_AUTH_URL: `http://127.0.0.1:${FAKE_META_PORT}`,
+        META_TOKEN_URL: `http://127.0.0.1:${FAKE_META_PORT}`,
+        META_GRAPH_URL: `http://127.0.0.1:${FAKE_META_PORT}`,
+        IG_APP_ID: "app-de-teste",
+        IG_APP_SECRET: "segredo-de-teste",
+        IG_REDIRECT_URI: `http://localhost:${WEB_PORT}/contas/conectar/retorno`,
       },
     },
     {

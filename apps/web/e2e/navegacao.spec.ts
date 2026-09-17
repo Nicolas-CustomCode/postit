@@ -28,8 +28,7 @@ test.describe("casca de navegação", () => {
 
     await expect(page.getByText(/conta precisa ser profissional/i)).toBeVisible();
     await expect(page.getByText(/aceitar o convite de testadora/i)).toBeVisible();
-    // A autorização chega na próxima entrega; o botão não mente sobre isso.
-    await expect(page.getByRole("button", { name: /autorizar no instagram/i })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /autorizar no instagram/i })).toBeEnabled();
   });
 
   test("um endereço de conta que não existe leva de volta às contas", async ({ page }) => {

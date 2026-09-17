@@ -57,3 +57,51 @@ describe("variáveis de ambiente", () => {
     expect(() => readWorkerEnv(base)).not.toThrow();
   });
 });
+
+/**
+ * A trava da regra 23: só o teste pode apontar a Meta para outro lugar.
+ *
+ * Sem ela, uma variável mal copiada no `.env` de produção mandaria token de
+ * conta real para um servidor qualquer — e nada avisaria.
+ */
+describe("endereço da Meta", () => {
+  const OUTRO = "http://127.0.0.1:3199";
+
+  it("usa os endereços reais da Meta quando ninguém mexe", () => {
+    const env = readApiEnv(api);
+    expect(env.META_AUTH_URL).toBe("https://www.instagram.com");
+    expect(env.META_TOKEN_URL).toBe("https://api.instagram.com");
+    expect(env.META_GRAPH_URL).toBe("https://graph.instagram.com");
+  });
+
+  it("deixa o teste apontar para a Meta falsa", () => {
+    const env = readApiEnv({ ...api, NODE_ENV: "test", META_GRAPH_URL: OUTRO });
+    expect(env.META_GRAPH_URL).toBe(OUTRO);
+  });
+
+  it.each(["META_AUTH_URL", "META_TOKEN_URL", "META_GRAPH_URL"])(
+    "impede a API de subir com %s trocada fora do teste",
+    (variavel) => {
+      expect(() => readApiEnv({ ...api, NODE_ENV: "production", [variavel]: OUTRO })).toThrow(
+        /só pode ser trocada com NODE_ENV=test/,
+      );
+    },
+  );
+
+  it("impede o worker de subir com o endereço trocado fora do teste", () => {
+    expect(() => readWorkerEnv({ ...base, NODE_ENV: "development", META_GRAPH_URL: OUTRO })).toThrow(
+      /só pode ser trocada com NODE_ENV=test/,
+    );
+  });
+
+  it("a mensagem do erro traz o nome da variável, nunca o valor", () => {
+    try {
+      readApiEnv({ ...api, NODE_ENV: "production", META_GRAPH_URL: OUTRO });
+      throw new Error("deveria ter recusado");
+    } catch (erro) {
+      const mensagem = (erro as Error).message;
+      expect(mensagem).toContain("META_GRAPH_URL");
+      expect(mensagem).not.toContain(OUTRO);
+    }
+  });
+});

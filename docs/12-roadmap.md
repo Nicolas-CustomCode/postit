@@ -136,8 +136,15 @@ dia sem coletar é um dia de histórico que pode ser perdido. A tela vem na Fase
 20. Rodar `prisma migrate dev` com o pg-boss já iniciado e confirmar que o esquema `pgboss` não é
     tocado — item V-14
 
-**Validações a resolver nesta fase:** V-10 (caminho de menu da conta testadora), V-14 (pg-boss com
-Prisma) e V-16 (origem das Server Actions atrás do proxy). **V-17 (API do `otplib`) foi resolvido em 16/09/2026.**
+**Validações a resolver nesta fase:** V-14 (pg-boss com Prisma) e V-16 (origem das Server Actions atrás do
+proxy). **V-17 (API do `otplib`) foi resolvido em 16/09/2026.** **V-18 (URI de retorno pelo túnel https) e
+V-10 (cadastro da conta testadora) foram resolvidos em 17/09/2026** — do V-10 falta só anotar os nomes dos
+menus na próxima conta.
+
+**Confirmados em 17/09/2026, com a conta de testes:** marcos **13** (conexão pelo fluxo OAuth completo, pelo
+túnel), **15** (token do Instagram cifrado no banco — coluna começando em `v1:` e ilegível), **18** e **19**
+(as duas recusas explicadas, cobertas por teste contra a Meta falsa). O marco **14** está coberto por teste
+automático; no mundo real depende de haver uma segunda conta de testes.
 
 **Risco da fase:** a URI de retorno precisa bater exatamente com a registrada no painel da Meta,
 inclusive barra final. É o erro mais comum e o mais chato de diagnosticar.

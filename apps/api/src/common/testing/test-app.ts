@@ -40,12 +40,17 @@ export interface TestApp {
   close(): Promise<void>;
 }
 
-export async function bootTestApp(): Promise<TestApp> {
+/**
+ * `overrides` existe para o teste apontar a API para a Meta falsa — a única
+ * troca que a regra 23 permite, e só porque o `NODE_ENV` aqui é `test`.
+ */
+export async function bootTestApp(overrides: NodeJS.ProcessEnv = {}): Promise<TestApp> {
   const env = readApiEnv({
     ...process.env,
     NODE_ENV: "test",
     DATABASE_URL: testDatabaseUrl(),
     INTERNAL_API_KEY: TEST_INTERNAL_KEY,
+    ...overrides,
   });
 
   const app = await createApp(env);

@@ -214,6 +214,18 @@ O `state` carrega assinatura HMAC com validade curta e o identificador do usuár
 conexão, seguindo o padrão de `openreply/lib/meta/oauth.ts`. Sem assinatura, o retorno aceita
 requisição forjada; sem o usuário, alguém poderia concluir uma conexão iniciada por outra pessoa.
 
+**O `client_id` NÃO é o App ID do Facebook.** O Instagram Login tem um par próprio — *Instagram app ID*
+e *Instagram app secret* —, e usar o par do painel principal falha na autorização sem dizer por quê. A
+[documentação da Meta](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login)
+dá o caminho: *App Dashboard > Instagram > API setup with Instagram login > 3. Set up Instagram business
+login > Business login settings*. É de lá que saem `IG_APP_ID` e `IG_APP_SECRET`. **Confirmado em
+17/09/2026**, ao conectar a primeira conta.
+
+**A URI de retorno é comparada caractere a caractere, e o painel pode mexer nela.** A mesma página
+avisa: *"the App Dashboard might have added a trailing slash to your URIs, so we recommend that you
+verify by checking the list."* Depois de salvar, releia a lista — uma barra final acrescentada pelo
+painel derruba a troca do código com um erro que não explica nada.
+
 ### 2. Trocar o código por um token de curta duração
 
 ```
@@ -771,10 +783,10 @@ todos precisam ser confirmados empiricamente na Fase 1 e o resultado registrado 
 | V-7 | Vídeo de feed vira Reels? | Sem tabela própria de specs | Aplicar specs de Reels | Publicar e ler `media_product_type` |
 | V-8 | Máximo de `user_tags` | Não declarado | Limitar a 20, como as menções | Aumentar até o erro `2207040` |
 | V-9 | Valores de `status` | Sem lista fechada | Decidir só por `status_code` | Coletar os valores observados na auditoria |
-| V-10 | Caminho de menu para cadastrar conta testadora | Só "Roles section"; o caminho exato vem do fórum | Seguir o passo a passo acima | Registrar o caminho real ao cadastrar a primeira conta |
+| V-10 | Caminho de menu para cadastrar conta testadora | **O procedimento funciona — confirmado em 17/09/2026**, com a conta cadastrada como testadora e conectada ao PostIt. O **caminho exato de menu não foi anotado** na hora, então continua valendo o do fórum | Seguir o passo a passo acima | Anotar os nomes reais dos menus ao cadastrar a próxima conta |
 | V-11 | Webhooks funcionam com contas testadoras em Standard Access? | A página de Webhooks exige app em modo **Live** e indica Advanced Access | Não usar webhooks no MVP | Testar antes de construir comentários e DMs. Ver [Escopos futuros](#escopos-futuros-comentários-e-mensagens) |
 | V-12 | Novos escopos exigem nova autorização? | Nada explícito | Assumir que sim: cada conta reconecta | Testar ao adicionar o primeiro escopo novo |
-| V-18 | Instagram Login aceita `http://localhost` como URI de retorno? | Não documentado; a regra equivalente do Facebook Login permite `localhost` só em desenvolvimento | Usar túnel rápido com https. Ver [14](14-ambientes-e-desenvolvimento.md) | Cadastrar `localhost` no PostIt Dev e tentar conectar |
+| V-18 | Instagram Login aceita `http://localhost` como URI de retorno? | **Parcialmente resolvido em 17/09/2026:** o túnel rápido com https **funciona** como URI de retorno — a primeira conta foi conectada por ele, de ponta a ponta. `localhost` continua sem teste, e não vale a pena testar: a postura de usar o túnel resolve o caso | Usar túnel rápido com https. Ver [14](14-ambientes-e-desenvolvimento.md) | — |
 | V-19 | Janela retroativa das métricas da conta | Guarda 90 dias; janela máxima entre `since` e `until` não confirmada | Tentar 90 dias na primeira coleta; se recusar, reduzir | Primeira conexão da conta de testes |
 | V-20 | Política de privacidade e exclusão de dados em modo de desenvolvimento | Exigidas para o modo Live; para desenvolvimento, não confirmado | Não publicar páginas de política até ser exigido | Tentar configurar o PostIt Dev sem esses campos |
 

@@ -3,10 +3,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { can } from "@repo/shared";
+import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES, can, type AuthErrorCode } from "@repo/shared";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { startAccountConnectionAction } from "@/lib/actions/accounts";
 import { requireSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Conectar conta" };
@@ -19,8 +20,12 @@ export const metadata: Metadata = { title: "Conectar conta" };
  * um erro cru da Meta, e a mensagem não explica o que fazer — por isso a tela
  * explica antes.
  */
-export default async function ConectarContaPage(): Promise<ReactNode> {
-  const { user } = await requireSession();
+export default async function ConectarContaPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{ erro?: string }>;
+}): Promise<ReactNode> {
+  const [{ user }, { erro }] = await Promise.all([requireSession(), searchParams]);
   // Esconder não é proteger: a API recusa de novo (ADR 0015). Aqui é para não
   // mostrar um caminho que terminaria em 403.
   if (!can(user, "ACCOUNT_MANAGE")) notFound();
@@ -61,15 +66,29 @@ export default async function ConectarContaPage(): Promise<ReactNode> {
         </CardContent>
       </Card>
 
-      <Alert>
-        <AlertDescription>
-          A conexão com o Instagram entra na próxima entrega. Assim que ela chegar, o botão abaixo leva à autorização.
-        </AlertDescription>
-      </Alert>
+      {erro === undefined ? null : (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{mensagemDoRetorno(erro)}</AlertDescription>
+        </Alert>
+      )}
 
-      <Button disabled className="h-11 md:h-10">
-        Autorizar no Instagram
-      </Button>
+      <form action={startAccountConnectionAction}>
+        <Button type="submit" className="h-11 w-full md:h-10 md:w-auto">
+          Autorizar no Instagram
+        </Button>
+      </form>
     </main>
   );
+}
+
+/**
+ * O que deu errado na volta da Meta, em português e sem repassar a mensagem dela.
+ *
+ * O código vem do vocabulário fechado de `@repo/shared`, e a tela decide por ele
+ * — nunca pelo texto. Código desconhecido cai na mensagem genérica em vez de
+ * aparecer cru para a pessoa.
+ */
+function mensagemDoRetorno(code: string): string {
+  const conhecido = (AUTH_ERROR_CODES as readonly string[]).includes(code);
+  return conhecido ? AUTH_ERROR_MESSAGES[code as AuthErrorCode] : AUTH_ERROR_MESSAGES.INTERNAL_ERROR;
 }

@@ -33,6 +33,7 @@
         "PASSWORD_*",
         "RECENT_*",
         "IG_*",
+        "META_*",
         "VAPID_*"
       ]
     },

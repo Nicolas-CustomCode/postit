@@ -36,7 +36,51 @@ const shared = {
   IG_APP_ID: optional,
   IG_APP_SECRET: optional,
   IG_API_VERSION: z.string().default("v26.0"),
+  /*
+   * Os três endereços da Meta, separados porque a Meta os separa: a autorização
+   * é no instagram.com, a troca do código é no api.instagram.com e o resto é no
+   * graph.instagram.com (docs/08, "Fluxo de autorização").
+   *
+   * Existem como variável por um motivo só: o teste apontar para a Meta falsa.
+   * Por isso a trava logo abaixo — trocar qualquer um deles fora de NODE_ENV=test
+   * impede o processo de subir (AGENTS.md, regra 23).
+   */
+  META_AUTH_URL: z.string().url().default("https://www.instagram.com"),
+  META_TOKEN_URL: z.string().url().default("https://api.instagram.com"),
+  META_GRAPH_URL: z.string().url().default("https://graph.instagram.com"),
 };
+
+/** Os padrões acima, para a trava saber o que é "não foi trocado". */
+const META_DEFAULTS = {
+  META_AUTH_URL: "https://www.instagram.com",
+  META_TOKEN_URL: "https://api.instagram.com",
+  META_GRAPH_URL: "https://graph.instagram.com",
+} as const;
+
+/**
+ * Recusa subir quando alguém aponta a Meta para outro lugar fora do teste.
+ *
+ * Falha barulhenta e cedo, no mesmo espírito do `assertTestEnvironment` da Meta
+ * falsa. A alternativa — ignorar o valor em silêncio — deixaria quem configurou
+ * errado descobrir pelo comportamento, e um erro de configuração que redireciona
+ * token de verdade não pode depender de alguém reparar.
+ */
+function refuseMetaOverrideOutsideTests(
+  value: Record<string, unknown>,
+  ctx: z.RefinementCtx,
+): void {
+  if (value["NODE_ENV"] === "test") return;
+
+  for (const [chave, padrao] of Object.entries(META_DEFAULTS)) {
+    if (value[chave] !== padrao) {
+      ctx.addIssue({
+        code: "custom",
+        path: [chave],
+        message: `só pode ser trocada com NODE_ENV=test (AGENTS.md, regra 23)`,
+      });
+    }
+  }
+}
 
 // Prazos e limites da autenticação. Os padrões são os valores decididos no
 // ADR 0013 e no ADR 0015: ambiente sem estas variáveis continua correto, e
@@ -66,14 +110,16 @@ const apiSchema = z.object({
   RECENT_CONFIRMATION_MINUTES: minutes(15),
   STATE_SECRET: hex32,
   IG_REDIRECT_URI: z.preprocess(emptyAsMissing, z.string().url().optional()),
-});
+}).superRefine(refuseMetaOverrideOutsideTests);
 
-const workerSchema = z.object({
-  ...shared,
-  VAPID_PUBLIC_KEY: optional,
-  VAPID_PRIVATE_KEY: optional,
-  VAPID_SUBJECT: optional,
-});
+const workerSchema = z
+  .object({
+    ...shared,
+    VAPID_PUBLIC_KEY: optional,
+    VAPID_PRIVATE_KEY: optional,
+    VAPID_SUBJECT: optional,
+  })
+  .superRefine(refuseMetaOverrideOutsideTests);
 
 export type ApiEnv = z.infer<typeof apiSchema>;
 export type WorkerEnv = z.infer<typeof workerSchema>;

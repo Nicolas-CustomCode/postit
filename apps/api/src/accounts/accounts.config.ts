@@ -1,3 +1,4 @@
+import { decodeEncryptionKey } from "../common/crypto";
 import type { ApiEnv } from "../config/env";
 
 /**
@@ -9,8 +10,19 @@ export const ACCOUNTS_CONFIG = "ACCOUNTS_CONFIG";
 export interface AccountsConfig {
   /** O domínio de mídia que a tela e a Meta enxergam (docs/10). */
   readonly mediaPublicUrl: string;
+  /**
+   * A mesma chave do AUTH_CONFIG, decodificada aqui em vez de importada de lá.
+   *
+   * Importar o `AuthModule` só para pegar a chave registraria o `AuthController`
+   * uma segunda vez — `forEnv` devolve um módulo novo a cada chamada, e o
+   * Fastify recusa a rota duplicada. Foi exatamente o que aconteceu.
+   */
+  readonly encryptionKey: Buffer;
 }
 
 export function accountsConfigFrom(env: ApiEnv): AccountsConfig {
-  return { mediaPublicUrl: env.MINIO_PUBLIC_URL };
+  return {
+    mediaPublicUrl: env.MINIO_PUBLIC_URL,
+    encryptionKey: decodeEncryptionKey(env.ENCRYPTION_KEY),
+  };
 }

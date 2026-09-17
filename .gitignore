@@ -21,6 +21,10 @@ packages/database/src/generated/
 backup*.sql
 *.pem
 
+# Travamento do Git Bash no Windows. Não é nosso, e o *.dump acima não pega:
+# o arquivo termina em .stackdump.
+*.stackdump
+
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/

@@ -102,3 +102,47 @@ export class SelfDeactivationError extends AppError {
     super("SELF_DEACTIVATION", 409);
   }
 }
+
+/**
+ * A autorização voltou sem `state` válido: expirada, adulterada, já usada, ou de
+ * outra pessoa. **Um erro só, de propósito** — distinguir os casos diria a quem
+ * forja um retorno o que ele acertou.
+ */
+export class ConnectionInvalidError extends AppError {
+  constructor() {
+    super("CONNECTION_INVALID", 400);
+  }
+}
+
+/** A conta autorizada não é profissional; a tela explica como mudar (RF-A08). */
+export class AccountNotProfessionalError extends AppError {
+  constructor() {
+    super("ACCOUNT_NOT_PROFESSIONAL", 422);
+  }
+}
+
+/** Enquanto o app está em desenvolvimento, só conta testadora entra (docs/08). */
+export class AccountNotTesterError extends AppError {
+  constructor() {
+    super("ACCOUNT_NOT_TESTER", 422);
+  }
+}
+
+/**
+ * A Meta não respondeu, demorou demais ou devolveu algo que não sabemos ler.
+ *
+ * Nunca carrega a mensagem da Meta: ela pode trazer de volta o que mandamos,
+ * inclusive o token na query string (AGENTS.md, regra 3).
+ */
+export class InstagramUnavailableError extends AppError {
+  constructor() {
+    super("INSTAGRAM_UNAVAILABLE", 502);
+  }
+}
+
+/** Conectar de novo a mesma conta é engano comum; dizer isso evita duplicata. */
+export class AccountAlreadyConnectedError extends AppError {
+  constructor() {
+    super("ACCOUNT_ALREADY_CONNECTED", 409);
+  }
+}

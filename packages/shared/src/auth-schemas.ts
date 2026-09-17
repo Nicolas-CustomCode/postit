@@ -58,3 +58,15 @@ export type InspectLinkInput = z.infer<typeof inspectLinkSchema>;
 
 export const consumeLinkSchema = z.strictObject({ token: opaqueToken, purpose: linkPurpose, password });
 export type ConsumeLinkInput = z.infer<typeof consumeLinkSchema>;
+
+/**
+ * O que a tela devolve à API depois da autorização da Meta.
+ *
+ * O `code` e o `state` vêm da query string do retorno, ou seja, de fora — daí
+ * os tetos de tamanho. Quem confere o `state` de verdade é a API, com HMAC.
+ */
+export const connectAccountSchema = z.strictObject({
+  code: z.string().min(1).max(512),
+  state: z.string().min(1).max(512),
+});
+export type ConnectAccountInput = z.infer<typeof connectAccountSchema>;
