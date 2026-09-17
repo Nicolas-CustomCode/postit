@@ -25,11 +25,17 @@ reagendar no calendário, aprovar, administrar. E pode ser instalado como aplica
 
 | | Celular | Computador |
 |---|---|---|
-| Conta ativa | Seletor no topo das telas da conta; abre uma folha com a lista | Seletor no topo da barra lateral, logo abaixo do logo |
-| Menu principal | Barra inferior com até 5 itens | Barra lateral, em dois grupos: **Nesta conta** e **Geral** |
+| Conta ativa | Pílula no topo das telas da conta — e **só nelas**: em Perfil ou Contas ela não aparece, porque não há conta ativa | Seletor no topo da barra lateral, sob o rótulo "CONTA" |
+| Menu principal | Barra inferior com até 5 itens | Barra lateral de 248 px, em dois grupos: **Nesta conta** e **Geral** |
 | Itens | Calendário, Postagens, Nova postagem, Notificações, Mais | Todos os itens abaixo |
 | "Mais" | Métricas, Acervo, Contas, Saúde, Perfil, Administração | — |
-| Criar postagem | Botão central da barra inferior | Botão na barra lateral |
+| Nova postagem | Botão central da barra inferior, 56 × 56 com raio 18 | Botão de 40 px na barra lateral |
+| Quem está usando | Cartão no fim da folha "Mais" | Cartão no rodapé da barra lateral |
+| Onde estou | Migalha "conta / seção" no topo do conteúdo | A mesma migalha, acima do título |
+
+O **"Sair"** mora no cartão de quem está usando, nos dois tamanhos de tela, e também na tela Perfil — que no celular
+é onde a pessoa procura quando quer resolver algo da própria conta. Não há cabeçalho no computador: o cartão do
+rodapé e a migalha já dizem quem é e onde está.
 
 Itens aparecem conforme permissão: **Administração** só para super admin; **Nova postagem** só com
 `POSTAGEM_EDITAR`.
@@ -57,15 +63,21 @@ ela. Nada de escolher a conta de novo a cada postagem, filtro ou métrica (RF-A0
 ### O seletor
 
 - Mostra foto, nome e @ de cada conta conectada, e a conta ativa marcada
-- Avisa ali mesmo quando uma conta precisa de atenção: token perto de vencer, sem acesso
-- Campo de busca quando há muitas contas
-- Último item: **Gerenciar contas**, que leva à tela Contas
+- Avisa ali mesmo quando uma conta precisa de atenção, **no lugar do @**: "Reconectar em 5 dias" em `--warning`,
+  "Sem acesso · reconectar" em `--destructive`. É frase, e não ícone: quem precisa reconectar precisa saber em
+  quantos dias, e um triângulo não diz isso
+- Campo de busca quando há mais de cinco contas
+- Último item, depois de um risco: **Gerenciar contas**, com ícone de engrenagem, que leva à tela Contas
+- No computador é um cartão ancorado no botão; no celular, uma folha que sobe de baixo
 - Navegável só pelo teclado, e com rótulo para leitores de tela
 
 ### Como funciona por dentro
 
 **A conta ativa fica no endereço da página**, e não guardada no servidor: `/c/<conta>/calendario`,
-`/c/<conta>/postagens/<id>`. Por quê:
+`/c/<conta>/postagens/<id>`. No lugar de `<conta>` vai o **@ da conta** — `/c/loja.aurora/calendario` —, porque
+o endereço é lido por gente: quem recebe o link sabe de que conta ele é antes de abrir. Se o @ mudar no
+Instagram, o endereço antigo deixa de existir e a tela manda de volta para a lista de contas, em vez de mostrar
+uma conta errada. Por quê:
 
 - **Duas abas podem ficar em contas diferentes**, cada uma com seu endereço, sem uma trocar a conta da outra
 - **Links funcionam sozinhos:** a notificação, o favorito do navegador e o link mandado para um colega já levam
@@ -141,7 +153,7 @@ flowchart TD
 | **Métricas** | Da conta ativa: por postagem e da conta, com evolução | — | RF-G01 a RF-G07 | Gráficos com rolagem horizontal; números-chave em cartões |
 | **Notificações** | Sino: lista, marcar como lida | — | RF-J01 | Também acessível pelo toque no push |
 | **Saúde** | Todas as contas: cota, tokens, falhas, filas | Decidir sobre falha: `POSTAGEM_AGENDAR` | RF-H02, RF-F07 | — |
-| **Perfil** | Senha, códigos de recuperação, sessões ativas, preferências de notificação, ativar push neste aparelho | — | RF-H07, RF-J03, RF-J04 | "Instalar o PostIt" e "Ativar notificações" ficam aqui |
+| **Perfil** | Identidade e permissões efetivas; Segurança (senha, duas etapas, códigos de recuperação) num bloco só; aparelhos conectados; preferências de notificação e ativar push neste aparelho | — | RF-H07, RF-J03, RF-J04 | Duas colunas no computador. Cada bloco **diz o estado** antes de oferecer o botão, e o formulário abre na linha. "Instalar o PostIt" e "Ativar notificações" ficam aqui, na Fase 1 |
 | **Usuários e permissões** | Criar, desativar, reativar, promover; marcar permissões | Super admin, com confirmação recente | RF-I02, RF-I03, RF-I06, RF-I09 | Permissões como lista de interruptores |
 | **Tentativas de acesso** | Tentativas, bloqueios, liberar bloqueio | Super admin | RF-I05 | Filtros numa folha deslizante |
 | **Auditoria** | Ações administrativas | Super admin | RF-I07 | — |
@@ -230,6 +242,7 @@ Nomes das variáveis do `shadcn/ui`. O tema segue a configuração do aparelho, 
 | `--accent` | `#E4E8FF` | `#232A5C` | Fundo de item selecionado e do anel de foco |
 | `--destructive` | `#DC2626` | `#F87171` | Só ações destrutivas e falhas |
 | `--highlight` (própria) | `#C6F432` | `#C6F432` | Lima: dia de hoje, contadores novos, ponto do ícone. Texto sobre ela: `#182000` |
+| `--warning` (própria) | `#9A4705` | `#F0A35E` | Aviso que ainda dá tempo de resolver — "Reconectar em 5 dias". Não é a `--destructive`: o acesso continua funcionando |
 
 **Escala do azul PostIt:** 50 `#EEF1FF` · 100 `#E4E8FF` · 200 `#C7D0FF` · 300 `#A0B0FF` · 400 `#6D86FF` ·
 500 `#4A61FB` · 600 `#3544E6` · 700 `#2B36C2` · 800 `#262F9B` · 900 `#232A72` · 950 `#171B47`.
@@ -249,6 +262,21 @@ Sempre em pílula **com o nome escrito** e um ponto da mesma cor — nunca só a
 | Falhou | `#B91C1C` / `#FDE2E2` | `#FF8A8A` / `#431717` |
 | Cancelado | `#6B7280`, só borda, texto riscado | `#8D94A6`, só borda, texto riscado |
 
+### Cores dos avatares de conta
+
+Conta sem foto mostra as iniciais sobre uma destas três combinações — **fundo e texto andam sempre juntos**, para o
+contraste não depender de sorte:
+
+| Fundo | Texto |
+|---|---|
+| `#262F9B` (azul 800) | `#C6F432` (lima) |
+| `#0B6B80` (teal) | `#D3F5FB` |
+| `#171B47` (azul 950) | `#A0B0FF` |
+
+A escolha sai do **@ da conta**, nunca da posição na lista: a mesma conta fica com a mesma cor em toda tela e depois
+de qualquer reordenação. É essa constância que faz o avatar servir de reconhecimento rápido. Nada de cor gerada por
+matemática a partir do nome — ela cai em tons ilegíveis.
+
 ### Tipografia
 
 | Papel | Fonte | Tamanhos |
@@ -266,6 +294,9 @@ Google Fonts seria bloqueado.
 - **Raio:** 10 px em botões e campos, 16 px em cartões e painéis, pílula em status, formatos e filtros
 - **Altura dos controles:** 40 px no computador, **44 px no celular**
 - **Ícones:** `lucide-react`, traço 2, 20 px no computador e 22 px na barra inferior do celular
+- **Telas de entrada:** página inteira, sem cartão — logo de 44 px, rótulo de etapa, título de 30 px, campos e
+  botão de 52 px. O código de 6 dígitos aparece em **seis caixas de 60 px**, com um campo de texto só por baixo:
+  são as caixas que são desenho, e não o campo, para o colar, o apagar e o leitor de tela continuarem funcionando
 
 ### Ícone do app — opção A, "Ponto"
 

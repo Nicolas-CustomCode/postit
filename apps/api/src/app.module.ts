@@ -1,5 +1,6 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import { APP_GUARD, DiscoveryModule } from "@nestjs/core";
+import { AccountsModule } from "./accounts/accounts.module";
 import { AuthModule } from "./auth/auth.module";
 import { SessionGuard } from "./auth/guards/session.guard";
 import { PolicyGuard } from "./authorization/policy.guard";
@@ -21,7 +22,12 @@ export class AppModule {
       module: AppModule,
       // DiscoveryModule: é o que permite ao teste de política percorrer as rotas
       // sozinho, sem lista escrita à mão — lista manual envelhece em silêncio.
-      imports: [DiscoveryModule, PrismaModule.forUrl(env.DATABASE_URL), AuthModule.forEnv(env)],
+      imports: [
+        DiscoveryModule,
+        PrismaModule.forUrl(env.DATABASE_URL),
+        AuthModule.forEnv(env),
+        AccountsModule.forEnv(env),
+      ],
       controllers: [HealthController],
       providers: [
         /*

@@ -1,24 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { FormError } from "@/components/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { verifyCodeAction } from "@/lib/actions/auth";
 import type { ActionResult } from "@/lib/actions/result";
+import { cn } from "@/lib/utils";
 
 type Resultado = ActionResult<{ recoveryCodes?: readonly string[]; voltar: string }> | null;
+
+const DIGITOS = 6;
 
 /**
  * O segundo passo do login: o código de 6 dígitos do aplicativo, ou um código de
  * recuperação de quem perdeu o celular.
  */
-export function CodeForm({ voltar }: { readonly voltar: string }) {
+export function CodeForm({ voltar }: { readonly voltar: string }): ReactNode {
   const router = useRouter();
   const [resultado, enviar, enviando] = useActionState<Resultado, FormData>(verifyCodeAction, null);
   const [recuperacao, setRecuperacao] = useState(false);
+  const [codigo, setCodigo] = useState("");
 
   useEffect(() => {
     // A navegação acontece aqui, e não na ação: a ação precisa devolver o
@@ -26,39 +29,108 @@ export function CodeForm({ voltar }: { readonly voltar: string }) {
     if (resultado?.ok === true) router.replace(resultado.data.voltar);
   }, [resultado, router]);
 
+  const completo = recuperacao ? codigo.trim().length > 0 : codigo.length === DIGITOS;
+
   return (
     <form action={enviar} className="flex flex-col gap-4">
       <input type="hidden" name="voltar" value={voltar} />
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="code">{recuperacao ? "Código de recuperação" : "Código do aplicativo"}</Label>
+      {recuperacao ? (
         <Input
-          id="code"
           name="code"
-          // Teclado numérico no celular e autopreenchimento do código pelo SO.
-          inputMode={recuperacao ? "text" : "numeric"}
-          autoComplete={recuperacao ? "off" : "one-time-code"}
-          maxLength={recuperacao ? 11 : 6}
-          placeholder={recuperacao ? "XXXXX-XXXXX" : "000000"}
+          value={codigo}
+          onChange={(evento) => setCodigo(evento.target.value)}
+          aria-label="Código de recuperação"
+          autoComplete="off"
+          maxLength={11}
+          placeholder="XXXXX-XXXXX"
           required
           autoFocus
-          className="h-11 text-center text-lg tracking-widest tabular-nums"
+          className="h-13 rounded-xl text-center text-lg tracking-widest tabular-nums"
         />
-      </div>
+      ) : (
+        <>
+          <CaixasDeCodigo valor={codigo} aoMudar={setCodigo} />
+          <p className="text-[13px] text-muted-foreground">O código muda a cada 30 segundos.</p>
+        </>
+      )}
 
       <FormError result={resultado} />
 
-      <Button type="submit" disabled={enviando} className="h-11">
-        {enviando ? "Conferindo…" : "Confirmar"}
+      <Button type="submit" disabled={enviando || !completo} className="mt-3 h-13 rounded-xl text-base font-bold">
+        {enviando ? "Conferindo…" : "Entrar"}
       </Button>
 
       <button
         type="button"
-        onClick={() => setRecuperacao(!recuperacao)}
-        className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+        onClick={() => {
+          setRecuperacao(!recuperacao);
+          setCodigo("");
+        }}
+        className="mx-auto flex min-h-11 items-center text-[15px] font-semibold text-primary"
       >
-        {recuperacao ? "Usar o código do aplicativo" : "Perdi o celular: usar um código de recuperação"}
+        {recuperacao ? "Usar o código do aplicativo" : "Usar um código de recuperação"}
       </button>
     </form>
+  );
+}
+
+/**
+ * As seis caixas do artefato (artboard `EntrarCelular`).
+ *
+ * Por baixo há **um campo de texto só**, transparente e esticado por cima das
+ * caixas; elas são desenho (`aria-hidden`). É o que mantém de graça o colar, o
+ * apagar, as setas, o autopreenchimento do sistema e o leitor de tela — seis
+ * campos de verdade quebrariam todos esses comportamentos, um a um.
+ */
+function CaixasDeCodigo({
+  valor,
+  aoMudar,
+}: {
+  readonly valor: string;
+  readonly aoMudar: (novo: string) => void;
+}): ReactNode {
+  const campo = useRef<HTMLInputElement>(null);
+  const ativa = Math.min(valor.length, DIGITOS - 1);
+
+  // O cursor volta sempre ao fim: sem isso, clicar no meio do campo escreveria
+  // no meio do código enquanto o destaque continuaria na última caixa.
+  function aoFim(): void {
+    campo.current?.setSelectionRange(valor.length, valor.length);
+  }
+
+  return (
+    <div className="relative">
+      <input
+        ref={campo}
+        name="code"
+        value={valor}
+        onChange={(evento) => aoMudar(evento.target.value.replace(/\D/g, "").slice(0, DIGITOS))}
+        onFocus={aoFim}
+        onClick={aoFim}
+        aria-label="Código do aplicativo"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={DIGITOS}
+        required
+        autoFocus
+        // Invisível, mas de verdade: é ele que recebe o foco e o teclado.
+        className="absolute inset-0 z-10 w-full opacity-0"
+      />
+
+      <div className="grid grid-cols-6 gap-2" aria-hidden>
+        {Array.from({ length: DIGITOS }, (_, indice) => (
+          <div
+            key={indice}
+            className={cn(
+              "flex h-15 items-center justify-center rounded-xl border-2 bg-card font-heading text-[26px] font-bold tabular-nums",
+              indice === ativa ? "border-primary ring-4 ring-accent" : "border-border",
+            )}
+          >
+            {valor[indice] ?? ""}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

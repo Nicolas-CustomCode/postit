@@ -1,4 +1,6 @@
+import { ChevronLeft } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
@@ -22,7 +24,22 @@ export default async function CodigoPage({
   if ((await cookies()).get(CHALLENGE_COOKIE) === undefined) redirect("/entrar");
 
   return (
-    <AuthShell title="Código de acesso" description="Abra seu aplicativo autenticador e digite o código de 6 dígitos.">
+    <AuthShell
+      step="Etapa 2 de 2"
+      title="Verificação em duas etapas"
+      description="Abra o aplicativo autenticador e digite o código de 6 dígitos do PostIt."
+      footer={
+        <>
+          <Link href="/entrar" className="flex min-h-11 items-center gap-2 text-[15px] font-semibold text-foreground">
+            <ChevronLeft className="size-4.5" strokeWidth={2} aria-hidden />
+            Voltar para e-mail e senha
+          </Link>
+          <p className="mt-2">
+            Sem o celular e sem os códigos de recuperação? Peça a um super admin para redefinir sua verificação.
+          </p>
+        </>
+      }
+    >
       <CodeForm voltar={destino} />
     </AuthShell>
   );

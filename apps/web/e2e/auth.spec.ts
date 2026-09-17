@@ -1,47 +1,15 @@
-import { expect, test, type Page } from "@playwright/test";
-import { criarUsuario } from "./support/admin-cli";
-import { secretFromOtpauth, totpCode } from "./support/totp";
+import { expect, test } from "@playwright/test";
+import { cadastrarEEntrar as primeiroAcesso, entrarComSenha, sair } from "./support/login";
+import { totpCode } from "./support/totp";
 
 /**
  * Os fluxos de entrada, pelo navegador (docs/15, cenários 1 a 3 e 11).
  *
  * Nada aqui usa atalho: o usuário nasce pelo comando `admin:create`, define a
  * senha pelo link, cadastra as duas etapas e só então entra — como uma pessoa
- * faria no primeiro dia.
+ * faria no primeiro dia. O caminho em si mora em `support/login.ts`, que a casca
+ * de navegação também usa: duas cópias divergiriam.
  */
-
-const SENHA = "senha-do-teste-2026";
-
-/** Primeiro acesso completo. Devolve o que é preciso para entrar de novo. */
-async function primeiroAcesso(page: Page, sufixo: string): Promise<{ email: string; secret: string }> {
-  const { email, signupUrl } = criarUsuario(new URL(page.url() || "http://localhost:3100").origin, sufixo);
-
-  await page.goto(signupUrl);
-  await expect(page.getByText(email)).toBeVisible();
-  await page.getByLabel("Nova senha").fill(SENHA);
-  await page.getByLabel("Repita a senha").fill(SENHA);
-  await page.getByRole("button", { name: "Salvar senha" }).click();
-
-  // Sem sessão de brinde: o link define a senha e manda para o login.
-  await expect(page).toHaveURL(/\/entrar/);
-  await entrarComSenha(page, email);
-
-  // Primeiro login cai no cadastro das duas etapas.
-  await expect(page).toHaveURL(/\/entrar\/cadastro/);
-  const otpauth = await page.getByRole("link", { name: /abrir no aplicativo/i }).getAttribute("href");
-  const secret = secretFromOtpauth(otpauth ?? "");
-
-  await page.getByLabel("Código de 6 dígitos").fill(totpCode(secret));
-  await page.getByRole("button", { name: /confirmar e entrar/i }).click();
-
-  return { email, secret };
-}
-
-async function entrarComSenha(page: Page, email: string): Promise<void> {
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha").fill(SENHA);
-  await page.getByRole("button", { name: "Entrar" }).click();
-}
 
 test.describe("primeiro acesso e login", () => {
   test("cria a senha pelo link, cadastra as duas etapas e recebe os códigos de recuperação", async ({ page }) => {
@@ -54,7 +22,11 @@ test.describe("primeiro acesso e login", () => {
     await expect(codigos).toHaveCount(10);
 
     await page.getByRole("button", { name: /já anotei/i }).click();
-    await expect(page).toHaveURL(/\/perfil/);
+
+    // Sem conta do Instagram conectada, o sistema abre na tela de contas; com
+    // conta, na conta ativa. O que importa aqui é que a pessoa entrou.
+    await expect(page).toHaveURL(/\/(contas|c\/)/);
+    await page.goto("/perfil");
     await expect(page.getByRole("heading", { name: "Pessoa do Teste" })).toBeVisible();
   });
 
@@ -64,7 +36,7 @@ test.describe("primeiro acesso e login", () => {
     await page.getByRole("button", { name: /já anotei/i }).click();
 
     // Sai e entra de novo, agora pelo caminho normal.
-    await page.getByRole("button", { name: "Sair" }).click();
+    await sair(page);
     await expect(page).toHaveURL(/\/entrar/);
 
     await entrarComSenha(page, email);
@@ -75,14 +47,14 @@ test.describe("primeiro acesso e login", () => {
     // prova logo abaixo.
     const codigo = totpCode(secret, 1);
     await page.getByLabel("Código do aplicativo").fill(codigo);
-    await page.getByRole("button", { name: "Confirmar" }).click();
-    await expect(page).toHaveURL(/\/perfil/);
+    await page.getByRole("button", { name: "Entrar" }).click();
+    await expect(page).toHaveURL(/\/(contas|c\/)/);
 
     // O mesmo código, de novo: recusado pelo anti-reuso.
-    await page.getByRole("button", { name: "Sair" }).click();
+    await sair(page);
     await entrarComSenha(page, email);
     await page.getByLabel("Código do aplicativo").fill(codigo);
-    await page.getByRole("button", { name: "Confirmar" }).click();
+    await page.getByRole("button", { name: "Entrar" }).click();
     // O seletor é pelo texto: o Next mantém um anunciador de rota com
     // role="alert" para leitores de tela, e procurar por papel casaria os dois.
     await expect(page.getByText("Código incorreto")).toBeVisible();
@@ -92,7 +64,7 @@ test.describe("primeiro acesso e login", () => {
     await page.goto("/entrar");
     const { email } = await primeiroAcesso(page, "sem-codigo");
     await page.getByRole("button", { name: /já anotei/i }).click();
-    await page.getByRole("button", { name: "Sair" }).click();
+    await sair(page);
 
     await entrarComSenha(page, email);
     await expect(page).toHaveURL(/\/entrar\/codigo/);
@@ -125,11 +97,15 @@ test.describe("proteção das telas", () => {
       await page.getByRole("button", { name: /já anotei/i }).click();
 
       // Foi para dentro do PostIt, e não para o endereço de fora.
-      await expect(page).toHaveURL(new RegExp(`^http://localhost:\\d+/(perfil)?$`));
+      // O destino exato depende de haver conta conectada; o que importa é que
+      // ficou dentro do PostIt.
+      const destinoFinal = new URL(page.url());
+      expect(destinoFinal.hostname).toBe("localhost");
+      expect(destinoFinal.pathname).not.toContain("site-externo");
       expect(email).toContain("@");
       expect(secret.length).toBeGreaterThan(10);
 
-      await page.getByRole("button", { name: "Sair" }).click();
+      await sair(page);
     }
   });
 
@@ -156,7 +132,7 @@ test.describe("proteção das telas", () => {
     const antigo = (await context.cookies()).find((cookie) => cookie.name === "sessao");
     expect(antigo).toBeDefined();
 
-    await page.getByRole("button", { name: "Sair" }).click();
+    await sair(page);
     await expect(page).toHaveURL(/\/entrar/);
 
     // Devolve o cookie ao navegador, como faria quem o tivesse copiado.

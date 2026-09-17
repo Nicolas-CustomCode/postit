@@ -22,6 +22,12 @@ const SECURE = (process.env.APP_URL ?? "").startsWith("https://");
  */
 export const SESSION_COOKIE = SECURE ? "__Host-sessao" : "sessao";
 export const CHALLENGE_COOKIE = SECURE ? "__Host-desafio" : "desafio";
+/**
+ * A última conta usada. Diferente dos outros, ele **não autoriza nada**: só
+ * decide em que conta o sistema abre (docs/13, "Conta ativa"). Quem manda na
+ * conta ativa é o endereço da página.
+ */
+export const LAST_ACCOUNT_COOKIE = SECURE ? "__Host-ultima-conta" : "ultima-conta";
 
 export interface CookieOptions {
   httpOnly: true;

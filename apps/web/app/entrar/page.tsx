@@ -28,7 +28,11 @@ export default async function EntrarPage({
   if ((await getSession()) !== null) redirect(destino);
 
   return (
-    <AuthShell title="Entrar" description="Depois da senha, o PostIt pede o código do seu aplicativo autenticador.">
+    <AuthShell
+      step="Etapa 1 de 2"
+      title="Entrar no PostIt"
+      description="Depois da senha, o PostIt pede o código do seu aplicativo autenticador."
+    >
       {definida === "1" ? (
         <Alert className="mb-4">
           <AlertDescription>Senha definida. Agora entre com ela.</AlertDescription>

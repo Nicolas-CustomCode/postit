@@ -16,6 +16,9 @@ import type { PrismaClient } from "@repo/database";
  * CASCADE; a lista é explícita para nunca apagar o esquema do pg-boss por engano.
  */
 const AUTH_TABLES = [
+  "MetricaConta",
+  "EventoToken",
+  "Conta",
   "PermissaoUsuario",
   "Sessao",
   "DesafioLogin",

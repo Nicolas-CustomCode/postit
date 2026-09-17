@@ -60,6 +60,50 @@ export async function createTestUser(
   return { id: user.id, email: user.email, totpSecret: secret };
 }
 
+export interface TestAccount {
+  readonly id: string;
+  readonly username: string;
+}
+
+/**
+ * Conta do Instagram conectada, como o OAuth a deixaria.
+ *
+ * O token é falso, mas passa pela cifra de verdade: é assim que o teste prova
+ * que a leitura nunca devolve o conteúdo da coluna.
+ */
+export async function createTestAccount(
+  db: PrismaClient,
+  encryptionKey: Buffer,
+  options: {
+    username?: string;
+    name?: string;
+    timezone?: string;
+    /** Quando o token vence. Serve para exercitar o aviso do seletor. */
+    tokenExpiresAt?: Date;
+    photoObjectKey?: string | null;
+    active?: boolean;
+  } = {},
+): Promise<TestAccount> {
+  const username = options.username ?? `conta.teste.${Math.random().toString(36).slice(2, 8)}`;
+
+  const account = await db.account.create({
+    data: {
+      network: "INSTAGRAM",
+      externalId: `1784140${Math.floor(Math.random() * 1_000_000_000)}`,
+      username,
+      name: options.name ?? "Conta de Teste",
+      photoObjectKey: options.photoObjectKey === undefined ? null : options.photoObjectKey,
+      tokenEncrypted: encryptSecret("token-falso-de-teste", encryptionKey, "instagram-token"),
+      tokenExpiresAt: options.tokenExpiresAt ?? new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      scopes: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights",
+      timezone: options.timezone ?? "America/Sao_Paulo",
+      active: options.active ?? true,
+    },
+  });
+
+  return { id: account.id, username: account.username };
+}
+
 /**
  * O código que o aplicativo autenticador mostraria agora — ou em outro passo,
  * para testar a tolerância de relógio e o reuso.

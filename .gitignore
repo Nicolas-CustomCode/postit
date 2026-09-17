@@ -38,3 +38,6 @@ Thumbs.db
 
 # Tipos gerados pelo Next
 apps/web/next-env.d.ts
+
+# Sessões guardadas pelos testes de tela — são credenciais, não código
+apps/web/e2e/.auth/

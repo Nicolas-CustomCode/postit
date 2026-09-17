@@ -14,10 +14,14 @@ export interface NovoUsuario {
   readonly signupUrl: string;
 }
 
-export function criarUsuario(appUrl: string, sufixo: string): NovoUsuario {
+export function criarUsuario(appUrl: string, sufixo: string, superAdmin = false): NovoUsuario {
   const email = `e2e-${sufixo}-${Date.now()}@exemplo.com`;
+  // Super admin tem todas as permissões: é assim que o teste consegue exercitar
+  // as telas de gerenciar conta sem inventar um atalho de permissão.
+  const argumentos = [CLI, "create", "--email", email, "--name", "Pessoa do Teste"];
+  if (superAdmin) argumentos.push("--super-admin");
 
-  const saida = execFileSync(process.execPath, [CLI, "create", "--email", email, "--name", "Pessoa do Teste"], {
+  const saida = execFileSync(process.execPath, argumentos, {
     encoding: "utf-8",
     env: {
       ...process.env,

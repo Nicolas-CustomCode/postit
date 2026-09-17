@@ -144,7 +144,15 @@ Testes que abrem o navegador e usam o PostIt como uma pessoa usaria. Rodam com `
 
 **Rodam contra o build de produção** (`next start`), na porta 3100, e não contra o `npm run dev`: a CSP de produção é
 mais estrita, e é ela que precisa passar. Antes de `npm run test:e2e`, rode `npm run build`. A Meta falsa sobe junto,
-na porta 3199.
+na porta 3199, e a API na 3111, contra o banco de teste.
+
+**Rodam em série**, um arquivo por vez, pelo mesmo motivo do Jest: todos dividem o banco `postit_test`. Em paralelo,
+um teste zera as contas enquanto o outro as insere — a lista sai duplicada e a falha aparece longe da causa.
+
+**Entram no sistema uma vez.** Um projeto de preparação faz o primeiro acesso completo de dois usuários — um super
+admin e um comum — e guarda a sessão; os demais testes começam logados. Refazer o cadastro das duas etapas em cada
+teste custava uns 12 segundos por teste, e era o que estourava o tempo de forma aparentemente aleatória. Quem testa o
+próprio fluxo de entrada continua fazendo tudo à mão, porque ele desloga.
 
 **Nunca falam com a Meta real.** Na CI, uma **Meta falsa** — um pequeno servidor que imita as respostas da Graph
 API, inclusive os erros — ocupa o lugar dela. O endereço da API da Meta só pode ser trocado quando

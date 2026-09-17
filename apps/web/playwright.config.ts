@@ -20,6 +20,21 @@ loadDotenv({ path: "../../.env", quiet: true });
  * Dois tamanhos de tela, porque o PostIt funciona por completo nos dois. O
  * celular é um Pixel, que usa o mesmo Chromium: um navegador só para instalar
  * na CI.
+ *
+ * ## Quatro regras que custaram caro para aprender
+ *
+ * 1. **O teste monta o estado do banco; nunca herda.** Jest, Playwright e o
+ *    desenvolvimento dividem o mesmo `postit_test`. Conta deixada por outro
+ *    teste muda o destino do login e derruba um teste que nada tem a ver.
+ * 2. **Não afirme o endereço final quando ele depende de dados.** Depois do
+ *    login, o sistema abre na conta ativa ou nas contas, conforme haja conta
+ *    conectada. Afirme a tela — título, papel —, não a URL.
+ * 3. **A casca aparece duas vezes no HTML**, porque a mesma página serve ao
+ *    computador e ao celular e o CSS esconde uma delas. Escope o seletor por
+ *    região (`getByRole("navigation")`, `getByRole("dialog")`) e prefira
+ *    `toBeHidden()` a `toHaveCount(0)`.
+ * 4. **Ao mexer num teste, rode só o arquivo dele**, com `--repeat-each=3` para
+ *    provocar intermitência. A suíte inteira, uma vez, no fim.
  */
 const WEB_PORT = 3100;
 const API_PORT = 3111;
@@ -29,17 +44,36 @@ const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
 
 export default defineConfig({
   testDir: "e2e",
-  fullyParallel: true,
+  /*
+   * Em série, um arquivo por vez. Todos os testes dividem o mesmo banco
+   * `postit_test` e o mesmo servidor: em paralelo, um zera as contas enquanto o
+   * outro as insere, e a lista sai duplicada — foi exatamente o que aconteceu.
+   * É o mesmo motivo do `maxWorkers: 1` do Jest (docs/15).
+   */
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  /*
+   * 90 s por teste, contra os 30 s padrão.
+   *
+   * Não é folga preguiçosa: cada teste fala com três servidores e um Postgres na
+   * mesma máquina, e alguns ainda criam usuário por um processo Node com
+   * argon2. Com 30 s, o que estourava era o tempo — e a falha aparecia num teste
+   * diferente a cada execução, parecendo defeito intermitente do produto.
+   */
+  timeout: 90_000,
+  expect: { timeout: 10_000 },
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "computador", use: { ...devices["Desktop Chrome"] } },
-    { name: "celular", use: { ...devices["Pixel 7"] } },
+    // Entra uma vez e guarda a sessão; os outros projetos começam logados.
+    { name: "preparacao", testMatch: /auth\.setup\.ts/ },
+    { name: "computador", use: { ...devices["Desktop Chrome"] }, dependencies: ["preparacao"] },
+    { name: "celular", use: { ...devices["Pixel 7"] }, dependencies: ["preparacao"] },
   ],
   webServer: [
     {

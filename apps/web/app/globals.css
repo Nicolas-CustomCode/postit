@@ -34,6 +34,12 @@
   --destructive: #dc2626;
   --highlight: #c6f432;
   --highlight-foreground: #182000;
+  /*
+   * Aviso que ainda dá tempo de resolver — "Reconectar em 5 dias". É âmbar
+   * escuro, e não a --destructive: o acesso continua funcionando. Sai do
+   * artefato (artboard SeletorConta).
+   */
+  --warning: #9a4705;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -56,6 +62,7 @@
     --accent: #232a5c;
     --accent-foreground: #eef0f8;
     --destructive: #f87171;
+    --warning: #f0a35e;
   }
 }
 
@@ -80,6 +87,7 @@
   --color-destructive: var(--destructive);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
+  --color-warning: var(--warning);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

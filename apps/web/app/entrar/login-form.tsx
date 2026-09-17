@@ -29,7 +29,7 @@ export function LoginForm({ voltar }: { readonly voltar: string }) {
           autoComplete="username"
           autoCapitalize="none"
           required
-          className="h-11"
+          className="h-13 rounded-xl"
         />
       </div>
 
@@ -41,13 +41,13 @@ export function LoginForm({ voltar }: { readonly voltar: string }) {
           type="password"
           autoComplete="current-password"
           required
-          className="h-11"
+          className="h-13 rounded-xl"
         />
       </div>
 
       <FormError result={resultado} />
 
-      <Button type="submit" disabled={enviando} className="h-11">
+      <Button type="submit" disabled={enviando} className="mt-3 h-13 rounded-xl text-base font-bold">
         {enviando ? "Entrando…" : "Entrar"}
       </Button>
     </form>
