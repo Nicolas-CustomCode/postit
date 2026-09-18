@@ -24,12 +24,26 @@ import { cn } from "@/lib/utils";
  * - o item ativo fica em peso 700, além de mudar de cor: cor sozinha não é
  *   sinal suficiente.
  */
-export function BottomBar({ user }: { readonly user: SessionUser }): ReactNode {
+export function BottomBar({
+  user,
+  rememberedAccount,
+}: {
+  readonly user: SessionUser;
+  readonly rememberedAccount: string | null;
+}): ReactNode {
   const pathname = usePathname();
   const { username: activeUsername } = useActiveAccount();
   const [aberto, setAberto] = useState(false);
 
-  const conta = (secao: string) => (activeUsername === null ? "/contas" : `/c/${activeUsername}/${secao}`);
+  /*
+   * Nas telas gerais — Contas, Perfil, Acervo — o endereço não tem conta, e a
+   * pílula do topo não aparece. Sem o `rememberedAccount`, os dois primeiros
+   * alvos apontavam para `/contas`: de lá, tocar em Calendário devolvia para a
+   * mesma tela, e no celular não sobrava caminho de volta para as telas da
+   * conta. É a mesma conta em que o sistema abre na raiz.
+   */
+  const destino = activeUsername ?? rememberedAccount;
+  const conta = (secao: string) => (destino === null ? "/contas" : `/c/${destino}/${secao}`);
   const restantes = visibleItems({ superAdmin: user.superAdmin, permissions: user.permissions }).filter(
     (item) => !["calendario", "postagens", "notificacoes"].includes(item.key),
   );
@@ -66,7 +80,9 @@ export function BottomBar({ user }: { readonly user: SessionUser }): ReactNode {
 
           <ul className="flex flex-col gap-0.5 px-2 pb-4">
             {restantes.map((item) => {
-              const href = hrefFor(item, activeUsername);
+              // Pelo mesmo motivo dos alvos da barra: Métricas é tela de conta,
+              // e ficaria desabilitada em Contas ou Perfil sem o destino.
+              const href = hrefFor(item, destino);
               const indisponivel = item.comingIn !== undefined || href === null;
               const Icone = item.icon;
               const linha = "flex min-h-12 items-center gap-3 rounded-[10px] px-2.5 text-sm";

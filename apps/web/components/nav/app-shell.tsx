@@ -24,10 +24,13 @@ import { Sidebar } from "@/components/nav/sidebar";
 export function AppShell({
   user,
   accounts,
+  rememberedAccount,
   children,
 }: {
   readonly user: SessionUser;
   readonly accounts: readonly AccountSummary[];
+  /** Para onde a barra inferior volta quando o endereço não tem conta. */
+  readonly rememberedAccount: string | null;
   readonly children: ReactNode;
 }): ReactNode {
   return (
@@ -41,7 +44,7 @@ export function AppShell({
 
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
 
-        <BottomBar user={user} />
+        <BottomBar user={user} rememberedAccount={rememberedAccount} />
       </div>
     </div>
   );

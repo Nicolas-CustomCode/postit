@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ESTADO_COMUM, ESTADO_SUPER_ADMIN } from "./support/estado";
-import { resetAccounts } from "./support/accounts-db";
+import { createAccount, resetAccounts } from "./support/accounts-db";
 
 /**
  * A casca do sistema (docs/13, "Navegação").
@@ -112,6 +112,33 @@ test.describe("casca no celular", () => {
     await expect(page.getByRole("dialog").getByText("Contas")).toBeVisible();
     await expect(page.getByRole("dialog").getByText("Perfil")).toBeVisible();
     await expect(page.getByRole("dialog").getByText("Métricas")).toBeVisible();
+  });
+
+  /*
+   * O beco sem saída: nas telas gerais o endereço não tem conta, e a pílula do
+   * topo não aparece. Antes, os alvos da barra apontavam para `/contas` — de lá,
+   * tocar em Calendário devolvia para a mesma tela e não havia caminho de volta
+   * para as telas da conta. Só no celular, porque no computador a barra lateral
+   * tem o seletor sempre visível.
+   */
+  test("de uma tela geral, a barra inferior volta para a conta", async ({ page }) => {
+    await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
+    await page.goto("/contas");
+
+    const barra = page.getByRole("navigation", { name: "Menu principal" });
+    await barra.getByRole("link", { name: "Calendário" }).click();
+
+    await expect(page).toHaveURL(/\/c\/aurora\.loja\/calendario/);
+  });
+
+  test("de uma tela geral, Métricas também volta para a conta", async ({ page }) => {
+    await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
+    await page.goto("/perfil");
+
+    await page.getByRole("button", { name: "Mais telas" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Métricas" }).click();
+
+    await expect(page).toHaveURL(/\/c\/aurora\.loja\/metricas/);
   });
 
   test("a barra lateral do computador não aparece", async ({ page }) => {

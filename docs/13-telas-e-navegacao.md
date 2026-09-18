@@ -25,7 +25,7 @@ reagendar no calendário, aprovar, administrar. E pode ser instalado como aplica
 
 | | Celular | Computador |
 |---|---|---|
-| Conta ativa | Pílula no topo das telas da conta — e **só nelas**: em Perfil ou Contas ela não aparece, porque não há conta ativa | Seletor no topo da barra lateral, sob o rótulo "CONTA" |
+| Conta ativa | Pílula no topo das telas da conta — e **só nelas**: em Perfil ou Contas ela não aparece, porque não há conta ativa. **Por isso os alvos da barra inferior voltam para a última conta usada**, e não para a tela de Contas: sem isso, quem estivesse numa tela geral não teria caminho de volta | Seletor no topo da barra lateral, sob o rótulo "CONTA" |
 | Menu principal | Barra inferior com até 5 itens | Barra lateral de 248 px, em dois grupos: **Nesta conta** e **Geral** |
 | Itens | Calendário, Postagens, Nova postagem, Notificações, Mais | Todos os itens abaixo |
 | "Mais" | Métricas, Acervo, Contas, Saúde, Perfil, Administração | — |
@@ -69,6 +69,12 @@ ela. Nada de escolher a conta de novo a cada postagem, filtro ou métrica (RF-A0
 - Campo de busca quando há mais de cinco contas
 - Último item, depois de um risco: **Gerenciar contas**, com ícone de engrenagem, que leva à tela Contas
 - No computador é um cartão ancorado no botão; no celular, uma folha que sobe de baixo
+
+  ⚠️ **A forma do celular não tem artboard de referência.** A `SeletorConta` do canvas é 320×600 — largura
+  de barra lateral —, e nenhuma artboard de celular (390×844) mostra o painel aberto, só a pílula fechada.
+  Confirmado em 18/09/2026, depois de a dúvida aparecer no uso. A folha foi mantida por três razões: fica ao
+  alcance do polegar, enquanto a pílula está no topo; cresce com o número de contas sem estourar a tela; e
+  sobra espaço para a busca quando houver mais de cinco contas.
 - Navegável só pelo teclado, e com rótulo para leitores de tela
 
 ### Como funciona por dentro

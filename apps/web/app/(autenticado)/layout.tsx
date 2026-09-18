@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/nav/app-shell";
+import { accountToOpen } from "@/lib/accounts/active-account";
 import { listAccounts } from "@/lib/data/accounts";
 import { requireSession } from "@/lib/auth/session";
 
@@ -13,12 +14,18 @@ import { requireSession } from "@/lib/auth/session";
  * Pelo mesmo motivo, **a conta ativa não é calculada aqui**. Ela sai do endereço
  * (AGENTS.md, regra 24), e quem a lê são os componentes de cliente da casca, com
  * `useActiveAccount()` — o único jeito de ela acompanhar a navegação.
+ *
+ * O `lembrada` é outra coisa, e não contraria o acima: é **para onde voltar
+ * quando o endereço não tem conta nenhuma** — em Contas, Perfil ou Acervo. Não
+ * depende da rota, só do cookie, então pode sair daqui. Sem ele, quem estivesse
+ * numa tela geral no celular não tinha como voltar às telas da conta.
  */
 export default async function AutenticadoLayout({ children }: { readonly children: ReactNode }): Promise<ReactNode> {
   const [{ user }, accounts] = await Promise.all([requireSession(), listAccounts()]);
+  const lembrada = await accountToOpen(accounts);
 
   return (
-    <AppShell user={user} accounts={accounts}>
+    <AppShell user={user} accounts={accounts} rememberedAccount={lembrada?.username ?? null}>
       {children}
     </AppShell>
   );
