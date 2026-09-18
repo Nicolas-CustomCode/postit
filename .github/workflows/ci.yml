@@ -87,6 +87,35 @@ jobs:
       - name: Migrations no banco de teste
         run: npm run db:deploy
 
+      # MinIO de verdade, pelo mesmo motivo que o Postgres é de verdade (docs/15):
+      # o que se quer provar é que a política do bucket e os prefixos funcionam, e
+      # um armazenamento falso não provaria nada disso.
+      #
+      # Sobe como passo, e não em `services`, porque a imagem do MinIO precisa do
+      # comando `server /data` — e `services` não aceita argumentos de comando.
+      - name: MinIO para os testes de integração
+        shell: bash
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER="$MINIO_ROOT_USER" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
+            minio/minio:latest server /data
+
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:9000/minio/health/live && break
+            sleep 1
+          done
+
+          # O mesmo que o serviço media-init faz no docker-compose: bucket criado e
+          # leitura anônima SÓ em publicas/. É essa política que faz o teste de
+          # "recebidos/ não é legível" significar alguma coisa (ADR 0012).
+          # --entrypoint sh porque a imagem tem o próprio mc como entrypoint:
+          # sem isso, o "sh" vira subcomando do mc e ele recusa.
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c "
+            mc alias set local http://127.0.0.1:9000 '$MINIO_ROOT_USER' '$MINIO_ROOT_PASSWORD' &&
+            mc mb --ignore-existing local/$MINIO_BUCKET &&
+            mc anonymous set download local/$MINIO_BUCKET/publicas"
+
       - name: Testes da API e do shared
         run: npm run test
 
