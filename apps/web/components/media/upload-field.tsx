@@ -4,6 +4,7 @@ import { ImageUp, Loader2 } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import {
   feedImagePreProblem,
+  targetRatioFor,
   FEED_IMAGE_MIME,
   FEED_IMAGE_RATIO_LABEL,
   megabytes,
@@ -12,9 +13,11 @@ import {
   type UploadPermission,
 } from "@repo/shared";
 import { confirmUploadAction, requestUploadPermissionAction } from "@/lib/actions/media";
+import { CropPreview } from "@/components/media/crop-preview";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { blobToFile, cropToJpeg, loadImage, type LoadedImage } from "@/lib/media/crop-image";
 
 /**
  * Escolher uma imagem e enviá-la (RF-B01, RF-B02).
@@ -32,6 +35,7 @@ import { Progress } from "@/components/ui/progress";
  */
 type Estado =
   | { fase: "parado" }
+  | { fase: "recortando"; imagem: LoadedImage; ratio: number; nome: string }
   | { fase: "enviando"; porcento: number }
   | { fase: "conferindo" }
   | { fase: "pronto"; midia: MediaSummary };
@@ -56,6 +60,45 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
       return;
     }
 
+    /*
+     * Só aqui as dimensões aparecem: o navegador decodifica a imagem e **já
+     * aplica a orientação da câmera**, então a foto tirada em pé chega em pé. É
+     * o que permite oferecer o recorte antes de enviar, em vez de gastar 8 MB
+     * para ouvir "proporção fora do permitido" do outro lado.
+     */
+    let imagem: LoadedImage;
+    try {
+      imagem = await loadImage(file);
+    } catch {
+      setErro("Não consegui ler esta imagem. O arquivo pode estar corrompido.");
+      setEstado({ fase: "parado" });
+      return;
+    }
+
+    const ratio = targetRatioFor(imagem.width, imagem.height);
+    if (ratio !== null) {
+      setEstado({ fase: "recortando", imagem, ratio, nome: file.name });
+      return;
+    }
+
+    await enviar(file);
+  }
+
+  /** Recorta o que a pessoa escolheu e envia o resultado, não o original. */
+  async function enviarRecorte(position: number): Promise<void> {
+    if (estado.fase !== "recortando") return;
+    setErro(null);
+
+    try {
+      const blob = await cropToJpeg(estado.imagem, estado.ratio, position);
+      await enviar(blobToFile(blob, estado.nome));
+    } catch {
+      setErro("Não consegui recortar a imagem. Tente outra.");
+      setEstado({ fase: "parado" });
+    }
+  }
+
+  async function enviar(file: File): Promise<void> {
     const permissao = await requestUploadPermissionAction();
     if (!permissao.ok) {
       setErro(permissao.message);
@@ -102,16 +145,36 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
         }}
       />
 
-      <Button
-        type="button"
-        variant="outline"
-        className="h-11 justify-start gap-2 md:h-10"
-        disabled={ocupado}
-        onClick={() => input.current?.click()}
-      >
-        {ocupado ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <ImageUp className="size-4" aria-hidden />}
-        {rotulo(estado)}
-      </Button>
+      {estado.fase === "recortando" && (
+        <CropPreview
+          image={estado.imagem}
+          ratio={estado.ratio}
+          busy={false}
+          onConfirm={(posicao) => void enviarRecorte(posicao)}
+          onCancel={() => {
+            setEstado({ fase: "parado" });
+            input.current?.click();
+          }}
+        />
+      )}
+
+      {/* Durante o recorte, os botões que valem são os de lá. */}
+      {estado.fase !== "recortando" && (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 justify-start gap-2 md:h-10"
+          disabled={ocupado}
+          onClick={() => input.current?.click()}
+        >
+          {ocupado ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <ImageUp className="size-4" aria-hidden />
+          )}
+          {rotulo(estado)}
+        </Button>
+      )}
 
       {estado.fase === "enviando" && (
         <Progress value={estado.porcento} aria-label="Progresso do envio" />
