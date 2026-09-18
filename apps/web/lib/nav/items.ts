@@ -41,7 +41,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: "postagens", label: "Postagens", icon: SquarePen, scope: "account", path: "postagens" },
   { key: "metricas", label: "Métricas", icon: BarChart3, scope: "account", path: "metricas" },
   { key: "notificacoes", label: "Notificações", icon: Bell, scope: "general", path: "/notificacoes", comingIn: "Fase 1" },
-  { key: "acervo", label: "Acervo", icon: Images, scope: "general", path: "/acervo", comingIn: "Fase 1" },
+  { key: "acervo", label: "Acervo", icon: Images, scope: "general", path: "/acervo" },
   { key: "contas", label: "Contas", icon: AtSign, scope: "general", path: "/contas" },
   { key: "saude", label: "Saúde", icon: HeartPulse, scope: "general", path: "/saude", comingIn: "Fase 5" },
   { key: "perfil", label: "Perfil", icon: UserRound, scope: "general", path: "/perfil" },

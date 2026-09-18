@@ -43,6 +43,21 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-postit}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-postit-local-123}
+      # Origem exata do app, como o docs/10 exige. Sem esta variável o MinIO ecoa
+      # QUALQUER origem que perguntar, com Allow-Credentials — e o envio
+      # funcionaria em desenvolvimento para quebrar só na estreia, que é o pior
+      # desfecho possível.
+      #
+      # ⚠️ Lida no boot. O túnel sorteia endereço novo a cada `npm run tunnel`,
+      # então trocar APP_URL no .env exige recriar o container:
+      #   docker compose up -d --force-recreate minio
+      # Um `up -d` sozinho não recria por mudança de variável, e o CORS continua
+      # com o endereço antigo — parecendo que a configuração não funciona.
+      #
+      # O CORS não é a proteção: a política assinada é (docs/11). Isto só impede
+      # que outro site tente usar o armazenamento a partir do navegador de quem
+      # está logado aqui.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${APP_URL:-http://localhost:3010}
     command: server /data --console-address ":9001"
     volumes:
       - minio-dados:/data

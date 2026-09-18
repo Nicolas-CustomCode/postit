@@ -60,10 +60,13 @@ test.describe("casca no computador", () => {
     await expect(menu.getByRole("link", { name: "Contas" })).toBeVisible();
     await expect(menu.getByRole("link", { name: "Perfil" })).toBeVisible();
 
+    // O Acervo passou a existir com o envio de mídia (Fase 1a).
+    await expect(menu.getByRole("link", { name: "Acervo" })).toBeVisible();
+
     // Telas de fases seguintes aparecem, mas não são link: dizem quando chegam.
-    await expect(menu.getByRole("link", { name: "Acervo" })).toHaveCount(0);
-    await expect(menu.getByText("Acervo")).toBeVisible();
-    await expect(menu.getByText("Fase 1").first()).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Saúde" })).toHaveCount(0);
+    await expect(menu.getByText("Saúde")).toBeVisible();
+    await expect(menu.getByText("Fase 5").first()).toBeVisible();
   });
 
   test("quem não é super admin não vê Administração", async ({ page }) => {
