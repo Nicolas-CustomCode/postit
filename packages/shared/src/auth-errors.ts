@@ -30,6 +30,14 @@ export const AUTH_ERROR_CODES = [
   "INSTAGRAM_UNAVAILABLE",
   "ACCOUNT_ACCESS_EXPIRED",
   "ACCOUNT_ALREADY_CONNECTED",
+  // Envio e validação de mídia (ADR 0012; RF-B01, RF-B02).
+  "MEDIA_WRONG_TYPE",
+  "MEDIA_TOO_LARGE",
+  "MEDIA_TOO_NARROW",
+  "MEDIA_RATIO_UNSUPPORTED",
+  "MEDIA_CORRUPT",
+  "MEDIA_UPLOAD_INVALID",
+  "MEDIA_ALREADY_CONFIRMED",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -68,5 +76,18 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   INSTAGRAM_UNAVAILABLE: "O Instagram não respondeu agora. Tente de novo em alguns minutos",
   ACCOUNT_ACCESS_EXPIRED: "A conexão com o Instagram expirou. Reconecte a conta",
   ACCOUNT_ALREADY_CONNECTED: "Esta conta do Instagram já está conectada ao PostIt",
+  /*
+   * Mídia: a mensagem diz **o limite**, e a tela acrescenta o valor do arquivo
+   * quando o conhece — "JPEG de até 8 MB. Este arquivo tem 12,3 MB" (docs/04,
+   * "Estados de interface"). Nunca "arquivo inválido": quem lê precisa saber
+   * qual regra pegou e qual é o limite.
+   */
+  MEDIA_WRONG_TYPE: "O Instagram só aceita JPEG em publicações de feed",
+  MEDIA_TOO_LARGE: "A imagem passa do limite de 8 MB",
+  MEDIA_TOO_NARROW: "A imagem é estreita demais: a largura mínima é 320 pixels",
+  MEDIA_RATIO_UNSUPPORTED: "Proporção fora do permitido. Use entre 4:5 e 1.91:1",
+  MEDIA_CORRUPT: "Não consegui ler esta imagem. O arquivo pode estar corrompido",
+  MEDIA_UPLOAD_INVALID: "Este envio não vale mais. Escolha o arquivo de novo",
+  MEDIA_ALREADY_CONFIRMED: "Este arquivo já foi enviado",
   INTERNAL_ERROR: "Algo deu errado",
 };

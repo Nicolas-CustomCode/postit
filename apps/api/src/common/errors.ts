@@ -160,3 +160,69 @@ export class AccountAccessExpiredError extends AppError {
     super("ACCOUNT_ACCESS_EXPIRED", 422);
   }
 }
+
+/**
+ * Mídia recusada na validação (RF-B02). Um erro por regra, e não um genérico:
+ * o docs/04 é literal ao dizer que a tela mostra "JPEG de até 8 MB. Este
+ * arquivo tem 12 MB", nunca "arquivo inválido". Quem enviou precisa saber qual
+ * regra pegou e qual é o limite — a tela completa a frase com o tamanho que ela
+ * mesma mediu antes de enviar.
+ *
+ * 422 e não 400: a requisição está bem formada; o conteúdo é que não serve.
+ */
+export class MediaWrongTypeError extends AppError {
+  constructor() {
+    super("MEDIA_WRONG_TYPE", 422);
+  }
+}
+
+export class MediaTooLargeError extends AppError {
+  constructor() {
+    super("MEDIA_TOO_LARGE", 422);
+  }
+}
+
+export class MediaTooNarrowError extends AppError {
+  constructor() {
+    super("MEDIA_TOO_NARROW", 422);
+  }
+}
+
+export class MediaRatioUnsupportedError extends AppError {
+  constructor() {
+    super("MEDIA_RATIO_UNSUPPORTED", 422);
+  }
+}
+
+/** Os bytes não formam uma imagem que dê para ler — nem as medidas saem. */
+export class MediaCorruptError extends AppError {
+  constructor() {
+    super("MEDIA_CORRUPT", 422);
+  }
+}
+
+/**
+ * O comprovante de envio não vale: forjado, vencido, ou de outra pessoa.
+ *
+ * **Um erro só para os quatro motivos**, como no `state` do OAuth: distinguir
+ * diria a quem forja exatamente o que ele acertou.
+ */
+export class MediaUploadInvalidError extends AppError {
+  constructor() {
+    super("MEDIA_UPLOAD_INVALID", 400);
+  }
+}
+
+/**
+ * Confirmar duas vezes o mesmo envio.
+ *
+ * Acontece de verdade: a tela repete a chamada depois de um tempo esgotado que
+ * na verdade tinha dado certo. Sem este erro, a segunda tentativa estoura a
+ * unicidade de `chaveObjeto` e o filtro global a transforma em "Algo deu
+ * errado" — o pior desfecho, porque o arquivo está lá e funcionando.
+ */
+export class MediaAlreadyConfirmedError extends AppError {
+  constructor() {
+    super("MEDIA_ALREADY_CONFIRMED", 409);
+  }
+}

@@ -70,3 +70,15 @@ export const connectAccountSchema = z.strictObject({
   state: z.string().min(1).max(512),
 });
 export type ConnectAccountInput = z.infer<typeof connectAccountSchema>;
+
+/**
+ * A confirmação de envio de mídia (ADR 0012).
+ *
+ * Só o comprovante: a chave do objeto viaja dentro dele, assinada. O teto de
+ * tamanho existe porque isto vem de fora — o corpo é pequeno de propósito, e a
+ * API recusa qualquer requisição acima de 1 MB (AGENTS.md, regra 10).
+ */
+export const confirmUploadSchema = z.strictObject({
+  ticket: z.string().min(1).max(1024),
+});
+export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;

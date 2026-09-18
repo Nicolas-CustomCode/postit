@@ -1,6 +1,6 @@
 {
   "name": "@repo/api",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": true,
   "//": "NestJS 11 com Fastify. Um código, dois processos: main.ts (HTTP, só o Next alcança) e worker.ts (filas, sem HTTP). Só o worker publica. Ver docs/05 e docs/adr/0010.",
   "scripts": {
@@ -31,6 +31,7 @@
     "argon2": "0.45.1",
     "dotenv": "17.4.2",
     "fastify": "5.12.4",
+    "image-size": "2.0.4",
     "minio": "8.0.7",
     "otplib": "13.5.0",
     "pg-boss": "12.33.1",
