@@ -63,9 +63,22 @@ export const FAKE_META_LONG_TOKEN = TOKEN_PREFIX + FAKE_META_CODES.ok;
  * baixa sem token nenhum e copia para o MinIO (docs/08). Sem esta rota, o teste
  * da conexão pararia antes de provar que `fotoChaveObjeto` foi gravado.
  */
+/*
+ * ⚠️ **Em hexadecimal minúsculo, e não em base64 — de propósito.** A varredura
+ * de segredos da CI procura `EAA` seguido de 60 ou mais alfanuméricos, que é o
+ * formato do token de acesso da Meta. A versão base64 deste mesmo PNG contém
+ * essa sequência por coincidência, e a varredura reprovava o push inteiro. Em
+ * hexadecimal minúsculo não há letra maiúscula, então nenhum dos padrões
+ * procurados (`EAA`, `AKIA`, `IGAA`, `sk-`) pode casar.
+ *
+ * A regra da CI está certa em ser rígida; quem tinha de mudar era isto aqui.
+ * Vale para qualquer dado binário embutido no código daqui para frente.
+ */
 const ONE_PIXEL_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-  "base64",
+  "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489" +
+    "0000000d4944415478da636460f85f0f0002870180eb47ba92000000004945" +
+    "4e44ae426082",
+  "hex",
 );
 
 const PHOTO_PATH = "/fake-cdn/foto.png";
