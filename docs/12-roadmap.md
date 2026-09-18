@@ -227,14 +227,25 @@ testes** e o app PostIt Dev — nunca numa conta real. Não há homologação ([
 
 O teste 6 é o mais importante do projeto inteiro. Se ele falhar, nada mais importa.
 
+**Confirmados em 18/09/2026, com o envio de mídia (parte 1a):** testes **3** (PNG recusado com a mensagem
+certa), **4** (acima de 8 MB recusado — e **pelo próprio armazenamento**, antes de a API ver o arquivo, que é
+o que o RF-B02 pede), **5** (proporção 2:1 recusada), **12** (`recebidos/` devolve 403 e `publicas/` devolve
+200) e **13** (envio sem política assinada é recusado). Os cinco cobertos por teste automático contra o
+MinIO de verdade, e o V-15 resolvido junto.
+
+Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, **6** a **11**, **14**,
+**15** e **16**.
+
 **Depois do roteiro de fogo: a estreia em produção.** Marcar a versão, fazer o deploy dela no Easypanel e
 seguir a [estreia em produção](10-infra-deploy.md#estreia-em-produção) — cabeçalhos, `X-Real-IP`, V-15, V-16,
 login, push, a primeira publicação acompanhada e o teste de dump e restauração — **antes** de conectar as demais contas reais.
 
 **Validações da lista V do [08](08-integracao-instagram.md)** a resolver nesta fase: V-1 e V-3 (a
-cota), V-5 e V-6 (a URL da mídia), V-13 (`singletonKey` do pg-boss), V-15 (envio direto ao MinIO
-atrás do proxy — pelo túnel e, no proxy de verdade, na estreia), V-22 e V-23 (Traefik do Easypanel, na estreia) e
-V-24 (limite de 100 MB da Cloudflare). Registrar o resultado no próprio documento 08.
+cota), V-5 e V-6 (a URL da mídia), V-13 (`singletonKey` do pg-boss), V-22 e V-23 (Traefik do Easypanel, na
+estreia) e V-24 (limite de 100 MB da Cloudflare). Registrar o resultado no próprio documento 08.
+
+**V-15 foi resolvido em 18/09/2026**, pelo túnel: a assinatura da política não cobre o endereço, então ela
+sobrevive ao proxy. Falta só repetir no proxy de verdade, na estreia.
 
 ---
 

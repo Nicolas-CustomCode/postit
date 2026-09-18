@@ -1,6 +1,6 @@
 {
   "name": "@repo/shared",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "//": "Contrato entre telas e API: schemas zod, tipos de resposta, enums, especificações de mídia, safeRedirect() e política de senha. Compila para CommonJS em dist/, que o Nest e o Next importam igual. Ver docs/05, decisão 5.",
   "main": "dist/index.js",

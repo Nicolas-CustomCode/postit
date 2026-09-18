@@ -116,9 +116,23 @@ Preenchidas na aba **Environment** de cada serviço, com os mesmos nomes de [Var
 ### MinIO
 
 - **Política do bucket:** leitura anônima **só** em `publicas/*`. É ela que impede ler `recebidos/`
-- **CORS:** configurado no próprio MinIO, origem exata `https://app.seudominio`
+- **CORS:** pela variável **`MINIO_API_CORS_ALLOW_ORIGIN`**, com a origem exata do app
 - **Regra de ciclo de vida** para apagar envios abandonados em `recebidos/`
-- Tudo aplicado pelo script de preparação do bucket, rodado pelo terminal do serviço `api`
+- Política e ciclo de vida são aplicados pelo script de preparação do bucket, rodado pelo terminal do
+  serviço `api`. O CORS não: é variável de ambiente do serviço `minio`
+
+**Sobre o CORS, três coisas que custaram tempo e é melhor já saber** (verificado em 18/09/2026):
+
+- **Sem a variável, o MinIO aceita qualquer origem.** O padrão é `*`, e nesse modo ele **ecoa de volta a
+  origem que perguntou**, ainda por cima com `Access-Control-Allow-Credentials: true`. Ou seja: o envio
+  funciona em desenvolvimento e quebraria só na estreia, que é o pior desfecho possível
+  ([documentação](https://docs.min.io/aistor/administration/cors-configuration/));
+- **Ela é lida no boot.** Trocar a origem exige **recriar o container** — `docker compose up -d` sozinho
+  não recria por mudança de variável. No desenvolvimento isso importa toda vez que o túnel sorteia um
+  endereço novo: `docker compose up -d --force-recreate minio`;
+- **O `docs/11` pede "só POST, sem credenciais", e o MinIO não sabe fazer as duas coisas** — ele filtra
+  origem, e só. Restringir método e credenciais depende do proxy à frente. **Lacuna conhecida**, e não
+  crítica: o CORS não é a proteção do envio, a política assinada é.
 
 ---
 

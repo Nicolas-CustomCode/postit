@@ -523,6 +523,26 @@ definem o tamanho máximo e o tipo aceitos na política de envio assinada
 PNG, WebP, HEIC e AVIF são recusados. É a recusa mais comum no dia a dia, e a mensagem precisa
 dizer isso com todas as letras.
 
+#### Como o validador trata esta tabela — decidido em 18/09/2026
+
+Três notas, porque o código **não segue a tabela ao pé da letra** em um ponto, e o
+[AGENTS.md](../AGENTS.md) manda registrar quando isso acontece.
+
+| Item | O que o validador faz | Por quê |
+|---|---|---|
+| Largura **máxima** de 1440 px | **Não é validada.** Só a mínima, 320 px | A Meta não devolve código de erro para largura — ela redimensiona sozinha. Recusar barraria quase toda foto de celular, que passa de 3000 px, e a normalização automática (RF-B06) está marcada como "Depois". O custo é que a imagem publicada não é byte a byte a enviada |
+| "8 MB" | **8.000.000 bytes**, decimal | A Meta não diz a base. 8 MiB seriam 8.388.608. Aceitar o valor maior deixaria passar arquivo que ela recusaria **na hora de publicar**, e esta seção é justamente sobre não deixar isso acontecer. **A confirmar** com um arquivo entre os dois valores |
+| Proporção | Aritmética inteira: `largura × 5 ≥ altura × 4` e `largura × 100 ≤ altura × 191` | Comparar com `1.91` em ponto flutuante traz a pergunta "1,9115 passa?", cuja resposta muda com arredondamento. 1080×1350 dá exatamente o limite e passa |
+
+Dois cuidados que só apareceram ao implementar:
+
+- **A orientação EXIF precisa ser aplicada antes de medir a proporção.** A câmera do celular grava o
+  sensor em paisagem e anota "gire 90°": a foto tirada em pé chega deitada nos bytes. Sem girar, um
+  retrato 3:4 é lido como paisagem 4:3 e **passaria** na validação — para o Instagram recortá-lo depois.
+- **`FF D8 FF` não basta para reconhecer JPEG.** O MPO, a foto 3D de algumas câmeras, começa com os mesmos
+  três bytes, e esta mesma seção diz que ele não é suportado. O que os separa é um segmento APP2 com a
+  marca `MPF`.
+
 ### Reels
 
 | Item | Valor |
@@ -846,7 +866,7 @@ Não são da Meta, mas ficam aqui para a lista de pendências ser uma só.
 |---|---|---|---|---|
 | V-13 | `singletonKey` do pg-boss impede duas tarefas da mesma postagem? | Descreve `singletonKey` e as políticas de fila, sem deixar explícito como se combinam | Usar e manter as outras três camadas de idempotência | Enviar duas tarefas com a mesma chave e observar. Ver [09](09-motor-agendamento.md#idempotência) |
 | V-14 | Esquema do pg-boss convive com as migrações do Prisma? | **Confirmado em 17/09/2026** (pg-boss 12.33.1, esquema versão 42, Prisma 7.10.0) | Esquema separado, fora do `schema.prisma`. Com o esquema `pgboss` já criado e as 12 tabelas dele em uso, `prisma migrate status` respondeu "Database schema is up to date" — **nenhum drift**, porque o Prisma olha só o `public`. A migração `20260917195528_acao_auditoria_tokens_renovados` foi criada e aplicada sem citar `pgboss` em lugar nenhum, e as tabelas, a fila e o agendamento sobreviveram intactos | — |
-| V-15 | Envio direto ao MinIO funciona atrás do proxy? | Não verificado | Política de envio assinada, prefixos `recebidos/` e `publicas/`. Ver [ADR 0012](adr/0012-upload-direto-minio.md) | Enviar um arquivo pelo navegador através do proxy e confirmar: assinatura aceita, limite de tamanho respeitado, CORS só do domínio do app, `recebidos/` não legível publicamente |
+| V-15 | Envio direto ao MinIO funciona atrás do proxy? | **Resolvido em 18/09/2026** | **A assinatura sobrevive ao proxy porque não cobre o endereço** — ela é calculada só sobre o documento da política. Isso permite devolver ao navegador o domínio **público** de mídia no lugar do host interno que o SDK monta sozinho, e foi o que destravou o envio pelo túnel. As quatro conferências do roteiro passaram: assinatura aceita, limite imposto pelo próprio armazenamento, CORS só da origem do app, `recebidos/` devolvendo 403. Detalhes abaixo | — |
 | V-16 | Server Actions recusam requisição de outra origem atrás do proxy? | Não verificado neste projeto | Proxy preserva o `Host`; nenhuma rota POST própria no Next. Ver [11 — CSRF](11-seguranca.md#csrf) | Disparar uma Server Action a partir de uma página em outro domínio e confirmar a recusa; confirmar que ações legítimas funcionam pelo proxy |
 | V-17 | API do `otplib` na versão instalada | **Confirmado em 16/09/2026** (13.5.0) | A 13.x trocou o objeto `authenticator` da 12 por funções soltas: `generateSecret`, `generateURI`, `generateSync` e `verifySync`. A tolerância é `epochTolerance`, em **segundos** (30 = ±1 passo), e a resposta traz `delta`, de onde sai o passo aceito, guardado em `totpUltimoPasso` contra reuso. Código fora do formato de 6 dígitos **lança**, então o formato é conferido antes | — |
 | V-21 | Push web no iPhone | Fora da Meta: documentação da Apple | Push só com o app instalado na tela inicial, iOS 16.4 ou mais novo | Instalar o PWA num iPhone e ativar notificações. Ver [ADR 0017](adr/0017-pwa-e-notificacoes-push.md) |

@@ -191,8 +191,21 @@ decidido em 17/09/2026. Um pacote só, e já traz o `presignedPostPolicy` que o 
 
 **O custo, registrado de propósito:** a API dele é própria do MinIO. A frase acima — "migrar vira
 troca de variável de ambiente" — deixa de valer na parte do código: migrar para S3 ou R2 significa
-reescrever `apps/api/src/storage/`. É por isso que aquilo é um módulo com três métodos e nada mais
-(`putPublic`, `removePublic`, `healthy`), e é a única parte do projeto que importa `minio`.
+reescrever `apps/api/src/storage/`. É por isso que aquilo é um módulo pequeno, com o envio assinado e o
+movimento entre prefixos, e é a única parte do projeto que importa `minio`.
+
+### `image-size` para as dimensões da imagem
+
+**Por quê:** 93 KB, **zero dependências**, e lê só o cabeçalho do arquivo — não decodifica pixel nenhum,
+que é tudo o que a validação precisa. Decidido em 18/09/2026.
+
+**A alternativa descartada foi ler o cabeçalho à mão**, que pareceria simples e erraria dois casos reais:
+JPEG com miniatura embutida no EXIF, cujas medidas um leitor ingênuo confunde com as da imagem principal, e
+**a orientação EXIF** — que inverte largura e altura, e portanto muda a proporção. Foto de celular tem as
+duas coisas. A biblioteca devolve `orientation`; girar é regra nossa, em `apps/api/src/domain/media/`.
+
+**Alternativa descartada:** `sharp`. Faz muito mais, com binário nativo por plataforma e dez vezes o
+tamanho — e nada do que ele faz a mais é usado enquanto redimensionar for "Depois" (RF-B06).
 
 **Alternativa descartada:** arquivos direto no disco. Sem ciclo de vida de objeto e sem envio assinado.
 
