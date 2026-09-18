@@ -49,6 +49,51 @@ const TOKEN_PREFIX = "fake-long-";
 const SIXTY_DAYS_IN_SECONDS = 60 * 24 * 60 * 60;
 
 /**
+ * O token de longa duração da conta de testes, como sai do passo 3.
+ *
+ * Existe exportado para o teste da renovação poder gravar uma conta já
+ * conectada, sem percorrer o OAuth inteiro só para chegar a um token válido.
+ */
+export const FAKE_META_LONG_TOKEN = TOKEN_PREFIX + FAKE_META_CODES.ok;
+
+/**
+ * Um PNG de 1 pixel, servido no lugar do CDN da Meta.
+ *
+ * A foto de perfil não vem da Graph API: vem de um endereço assinado, que a API
+ * baixa sem token nenhum e copia para o MinIO (docs/08). Sem esta rota, o teste
+ * da conexão pararia antes de provar que `fotoChaveObjeto` foi gravado.
+ */
+const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+const PHOTO_PATH = "/fake-cdn/foto.png";
+
+/**
+ * Os números que os insights devolvem. Fixos, para o teste poder afirmar.
+ *
+ * `profile_links_taps` não está aqui de propósito: ela é a métrica que esta
+ * conta **não tem**, e precisa chegar ausente do outro lado.
+ */
+const FAKE_META_INSIGHT_VALUES: Record<string, number> = {
+  reach: 100,
+  views: 250,
+  accounts_engaged: 30,
+  total_interactions: 45,
+};
+
+/** Pedir esta métrica faz a chamada inteira falhar com `code: 100`. */
+export const FAKE_META_BROKEN_METRIC = "derruba_tudo";
+
+/** Um item da resposta de insights. Métrica sem escalar traz só `breakdowns`. */
+interface InsightItem {
+  name: string;
+  period: string;
+  total_value: { value?: number; breakdowns?: unknown[] };
+}
+
+/**
  * A única URI de retorno que esta Meta falsa aceita.
  *
  * Existe para o teste poder provar o que mais dá errado na configuração real: a
@@ -196,10 +241,61 @@ export function createFakeMeta(nodeEnv: string | undefined): FastifyInstance {
         username: roteiro.username,
         name: roteiro.username,
         account_type: "BUSINESS",
+        // Absoluta, como a Meta devolve: é um endereço de CDN, não um caminho
+        // relativo à Graph API.
+        profile_picture_url: `${request.protocol}://${request.host}${PHOTO_PATH}`,
         followers_count: 42,
         follows_count: 7,
         media_count: 3,
       };
+    },
+  );
+
+  /** O CDN de onde a foto de perfil é baixada. Sem token, como no mundo real. */
+  app.get(PHOTO_PATH, async (_request, reply) => {
+    return reply.type("image/png").send(ONE_PIXEL_PNG);
+  });
+
+  /**
+   * Insights da conta (docs/08, "Insights da conta").
+   *
+   * Três comportamentos que a coleta precisa enfrentar, e que só existem aqui
+   * porque a conta real não os produz sob demanda:
+   *
+   * 1. **`profile_links_taps` nunca volta.** É o caso de "métrica que esta conta
+   *    não tem" — contas com menos de 100 seguidores, o mais provável na conta
+   *    de testes. Fica **ausente**, e é assim que o teste prova que ausente não
+   *    virou zero.
+   * 2. **`follows_and_unfollows` volta sem `total_value.value`.** Algumas
+   *    métricas só trazem `breakdowns`, e um parser desatento gravaria
+   *    `undefined` — ou pior, zero.
+   * 3. **Pedir a métrica `derruba_tudo` responde `code: 100`** para a chamada
+   *    inteira, que é o caminho em que a coleta cai para uma métrica por vez.
+   */
+  app.get<{ Params: { version: string; igId: string }; Querystring: { access_token?: string; metric?: string } }>(
+    "/:version/:igId/insights",
+    async (request, reply) => {
+      const token = request.query.access_token ?? "";
+      if (token !== FAKE_META_TOKEN && !token.startsWith(TOKEN_PREFIX)) {
+        return reply.code(400).send(invalidToken);
+      }
+
+      const pedidas = (request.query.metric ?? "").split(",").filter((nome) => nome.length > 0);
+      if (pedidas.length === 0) return reply.code(400).send(erro(100, "Missing metric parameter."));
+      if (pedidas.includes(FAKE_META_BROKEN_METRIC)) {
+        return reply.code(400).send(erro(100, "Unsupported metric for this account."));
+      }
+
+      const dados = pedidas.flatMap((nome): InsightItem[] => {
+        if (nome === "profile_links_taps") return [];
+        // Sem escalar: só o detalhamento, como a Meta faz com algumas métricas.
+        if (nome === "follows_and_unfollows") {
+          return [{ name: nome, period: "day", total_value: { breakdowns: [] } }];
+        }
+        return [{ name: nome, period: "day", total_value: { value: FAKE_META_INSIGHT_VALUES[nome] ?? 1 } }];
+      });
+
+      return { data: dados };
     },
   );
 

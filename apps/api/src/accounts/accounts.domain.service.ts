@@ -3,6 +3,7 @@ import { AccountAlreadyConnectedError } from "../common/errors";
 import { encryptSecret } from "../common/crypto";
 import { ACCOUNTS_CONFIG, type AccountsConfig } from "./accounts.config";
 import { INSTAGRAM_SCOPES, InstagramOAuthService } from "../instagram/oauth.service";
+import { InstagramProfilePhotoService } from "../instagram/profile-photo.service";
 import { InstagramProfileService } from "../instagram/profile.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -22,6 +23,7 @@ export class AccountsDomainService {
     private readonly prisma: PrismaService,
     private readonly oauth: InstagramOAuthService,
     private readonly profiles: InstagramProfileService,
+    private readonly photos: InstagramProfilePhotoService,
     @Inject(ACCOUNTS_CONFIG) private readonly config: AccountsConfig,
   ) {}
 
@@ -49,14 +51,21 @@ export class AccountsDomainService {
 
     const jaExiste = await this.prisma.db.account.findUnique({
       where: { network_externalId: { network: "INSTAGRAM", externalId: perfil.externalId } },
-      select: { id: true, active: true },
+      select: { id: true, active: true, photoObjectKey: true },
     });
 
     const expiresAt = new Date(input.now.getTime() + expiresInSeconds * 1000);
     const tokenEncrypted = encryptSecret(token, this.config.encryptionKey, "instagram-token");
 
     try {
-      return await this.gravar({ jaExiste, perfil, tokenEncrypted, expiresAt });
+      const conta = await this.gravar({ jaExiste, perfil, tokenEncrypted, expiresAt });
+
+      // Depois da transação, nunca dentro: baixar e gravar a foto é rede, e
+      // transação não espera por rede. O método não lança — conta sem avatar
+      // funciona, e a tela já trata a foto ausente.
+      await this.photos.copy(conta.id, perfil.photoUrl, jaExiste?.photoObjectKey ?? null);
+
+      return conta.username;
     } catch (error) {
       /*
        * Duas abas concluindo a conexão da MESMA conta ao mesmo tempo: as duas
@@ -78,7 +87,7 @@ export class AccountsDomainService {
     perfil: { externalId: string; username: string; name: string | null };
     tokenEncrypted: string;
     expiresAt: Date;
-  }): Promise<string> {
+  }): Promise<{ id: string; username: string }> {
     const { jaExiste, perfil, tokenEncrypted, expiresAt } = input;
 
     return this.prisma.db.$transaction(async (tx) => {
@@ -103,7 +112,7 @@ export class AccountsDomainService {
           data: { accountId: jaExiste.id, action: "LONG_LIVED_EXCHANGE", result: "SUCCESS" },
         });
 
-        return perfil.username;
+        return { id: jaExiste.id, username: perfil.username };
       }
 
       const conta = await tx.account.create({
@@ -123,7 +132,7 @@ export class AccountsDomainService {
         data: { accountId: conta.id, action: "LONG_LIVED_EXCHANGE", result: "SUCCESS" },
       });
 
-      return conta.username;
+      return conta;
     });
   }
 }

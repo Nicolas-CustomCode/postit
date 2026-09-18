@@ -17,11 +17,8 @@ async function bootstrap(): Promise<void> {
   context.enableShutdownHooks();
   new Logger("Worker").log(`PostIt ${VERSION} — worker de pé`);
 
-  // Até as filas do pg-boss existirem (Fase 0, Bloco C), nada segura o processo
-  // aberto: ele sairia logo depois de subir, e o Easypanel e o PM2 o
-  // reiniciariam sem parar. Sai junto com a primeira fila. O sinal de parada
-  // continua encerrando normalmente, pelos shutdown hooks.
-  setInterval(() => undefined, 60 * 60 * 1000);
+  // Nada mais a fazer aqui: o pg-boss segura o processo aberto enquanto estiver
+  // ouvindo as filas, e o sinal de parada o encerra pelos shutdown hooks.
 }
 
 bootstrap().catch((error: unknown) => {

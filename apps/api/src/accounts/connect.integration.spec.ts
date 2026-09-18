@@ -10,6 +10,7 @@ import {
 } from "../fake-meta/fake-meta";
 import { createTestUser, TEST_PASSWORD, totpCodeFor } from "../common/testing/factories";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
+import { StorageService } from "../storage/storage.service";
 
 /**
  * Conectar uma conta do Instagram pelo OAuth (RF-A01, RF-A02).
@@ -44,8 +45,30 @@ describe("conectar conta do Instagram", () => {
       IG_REDIRECT_URI: FAKE_META_REDIRECT_URI,
     });
   });
-  beforeEach(() => api.reset());
+  /**
+   * Apaga do MinIO as fotos copiadas: toda conexão bem-sucedida grava uma.
+   *
+   * Vai pelas contas que ainda estão no banco, e nunca varre `publicas/contas/`
+   * inteiro — o teste divide o bucket com o desenvolvimento, e varrer apagaria a
+   * foto de uma conta de verdade.
+   */
+  async function limparFotos(): Promise<void> {
+    const contas = await api.db.account.findMany({
+      where: { photoObjectKey: { not: null } },
+      select: { photoObjectKey: true },
+    });
+    const storage = api.app.get(StorageService);
+    for (const { photoObjectKey } of contas) {
+      if (photoObjectKey !== null) await storage.removePublic(photoObjectKey).catch(() => undefined);
+    }
+  }
+
+  beforeEach(async () => {
+    await limparFotos();
+    await api.reset();
+  });
   afterAll(async () => {
+    await limparFotos();
     await api.close();
     await meta.close();
   });
@@ -122,6 +145,25 @@ describe("conectar conta do Instagram", () => {
     expect(conta.active).toBe(true);
     // 60 dias, com folga de um dia para o teste não depender do relógio.
     expect(conta.tokenExpiresAt.getTime()).toBeGreaterThan(Date.now() + 59 * 24 * 60 * 60 * 1000);
+  });
+
+  /*
+   * A foto vai para o nosso armazenamento na hora de conectar (docs/08). A tela
+   * nunca carrega imagem da Meta: a CSP não libera domínio de terceiro, e o
+   * endereço que a Meta dá é assinado e vence.
+   *
+   * O nome do objeto é aleatório e não carrega nada da conta — quem souber a URL
+   * lê o arquivo, então o nome é a única proteção (docs/11).
+   */
+  it("copia a foto de perfil para o nosso armazenamento", async () => {
+    const token = await entrar();
+    const state = await comecar(token);
+
+    await concluir(token, FAKE_META_CODES.ok, state);
+
+    const conta = await api.db.account.findFirstOrThrow();
+    expect(conta.photoObjectKey).toMatch(/^publicas\/contas\/[0-9a-f]{32}\.png$/);
+    expect(conta.photoObjectKey).not.toContain(FAKE_META_ACCOUNT.username);
   });
 
   /** Marco 15: o token nasce ilegível, e só a chave certa o abre. */

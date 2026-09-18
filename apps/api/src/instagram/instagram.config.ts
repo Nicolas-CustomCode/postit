@@ -1,3 +1,4 @@
+import { decodeEncryptionKey } from "../common/crypto";
 import type { ApiEnv, WorkerEnv } from "../config/env";
 
 /**
@@ -23,6 +24,12 @@ export interface InstagramConfig {
   /** Só a API faz OAuth; no worker estes dois são nulos, e ele nunca precisa. */
   readonly redirectUri: string | null;
   readonly stateSecret: Buffer | null;
+  /**
+   * A mesma chave do `ACCOUNTS_CONFIG`, decodificada aqui em vez de importada de
+   * lá: a renovação de token roda no worker, que não tem módulo de contas. É o
+   * mesmo motivo pelo qual o `ACCOUNTS_CONFIG` não a importa do `AUTH_CONFIG`.
+   */
+  readonly encryptionKey: Buffer;
 }
 
 export function instagramConfigFrom(env: ApiEnv | WorkerEnv): InstagramConfig {
@@ -35,6 +42,7 @@ export function instagramConfigFrom(env: ApiEnv | WorkerEnv): InstagramConfig {
     graphUrl: trimSlash(env.META_GRAPH_URL),
     redirectUri: "IG_REDIRECT_URI" in env ? (env.IG_REDIRECT_URI ?? null) : null,
     stateSecret: "STATE_SECRET" in env ? Buffer.from(env.STATE_SECRET, "hex") : null,
+    encryptionKey: decodeEncryptionKey(env.ENCRYPTION_KEY),
   };
 }
 

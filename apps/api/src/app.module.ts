@@ -8,6 +8,7 @@ import { InternalKeyGuard } from "./common/guards/internal-key.guard";
 import type { ApiEnv } from "./config/env";
 import { HealthController } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.module";
+import { StorageModule } from "./storage/storage.module";
 
 /**
  * Módulos do processo HTTP.
@@ -25,6 +26,7 @@ export class AppModule {
       imports: [
         DiscoveryModule,
         PrismaModule.forUrl(env.DATABASE_URL),
+        StorageModule.forEnv(env),
         AuthModule.forEnv(env),
         AccountsModule.forEnv(env),
       ],

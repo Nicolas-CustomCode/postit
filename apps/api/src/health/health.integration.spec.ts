@@ -36,10 +36,12 @@ describe("API HTTP — integração com o Postgres de teste", () => {
     expect(response.statusCode).toBe(401);
   });
 
-  it("responde versão e banco com a chave certa", async () => {
+  // Banco e MinIO são os dois de que o deploy depende: a verificação de fumaça
+  // confere os dois de uma vez (docs/10).
+  it("responde versão, banco e armazenamento com a chave certa", async () => {
     const response = await app.inject({ method: "GET", url: "/health", headers: { [INTERNAL_KEY_HEADER]: key } });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ version: VERSION, database: "ok" });
+    expect(response.json()).toEqual({ version: VERSION, database: "ok", storage: "ok" });
   });
 
   it("envia CSP que proíbe tudo, porque a API nunca serve página", async () => {

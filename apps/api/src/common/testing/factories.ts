@@ -80,6 +80,11 @@ export async function createTestAccount(
     timezone?: string;
     /** Quando o token vence. Serve para exercitar o aviso do seletor. */
     tokenExpiresAt?: Date;
+    /**
+     * O token em claro, antes da cifra. O padrão não vale em lugar nenhum; o
+     * teste da renovação passa um que a Meta falsa reconhece.
+     */
+    token?: string;
     photoObjectKey?: string | null;
     active?: boolean;
   } = {},
@@ -93,7 +98,7 @@ export async function createTestAccount(
       username,
       name: options.name ?? "Conta de Teste",
       photoObjectKey: options.photoObjectKey === undefined ? null : options.photoObjectKey,
-      tokenEncrypted: encryptSecret("token-falso-de-teste", encryptionKey, "instagram-token"),
+      tokenEncrypted: encryptSecret(options.token ?? "token-falso-de-teste", encryptionKey, "instagram-token"),
       tokenExpiresAt: options.tokenExpiresAt ?? new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
       scopes: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights",
       timezone: options.timezone ?? "America/Sao_Paulo",

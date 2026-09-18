@@ -1,6 +1,6 @@
 {
   "name": "postit",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "//version": "Versão única do projeto. scripts/version.mjs propaga para os pacotes e para packages/shared/src/version.ts. O pre-commit sobe o patch; minor e major são manuais. Ver docs/15.",
   "private": true,
   "workspaces": [
@@ -14,7 +14,7 @@
   "//engines": "O pg-boss 12.x exige Node 22.12 ou mais novo.",
   "packageManager": "npm@10.8.2",
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run dev dev:worker",
     "dev:web": "npm run dev -w @repo/web",
     "dev:api": "npm run dev -w @repo/api",
     "dev:worker": "npm run dev:worker -w @repo/api",
@@ -32,6 +32,8 @@
     "admin:promote": "npm run admin:promote -w @repo/api --",
     "admin:reset-password": "npm run admin:reset-password -w @repo/api --",
     "admin:reset-2fa": "npm run admin:reset-2fa -w @repo/api --",
+    "admin:refresh-tokens": "npm run admin:refresh-tokens -w @repo/api",
+    "admin:collect-metrics": "npm run admin:collect-metrics -w @repo/api",
     "tunnel": "node scripts/tunnel.cjs",
     "media:setup": "docker compose run --rm media-init",
     "version:patch": "node scripts/version.mjs patch",

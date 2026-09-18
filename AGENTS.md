@@ -223,6 +223,8 @@ npm run db:deploy        # produção — nunca db:push nem reset
 npm run db:studio
 npm run db:seed          # dados de exemplo; nunca cria super admin nem conta do Instagram
 npm run admin:create -- --email voce@exemplo.com --name "Você" --super-admin   # primeiro usuário
+npm run admin:refresh-tokens   # força a renovação que o worker faz às 3h UTC
+npm run admin:collect-metrics  # força a coleta de métricas que o worker faz às 6h UTC
 # Produção — só por tag; versão com migration: dump manual antes (docs/10-infra-deploy.md#dump-e-restauração)
 git push --force origin "v1.4.0^{commit}:refs/heads/producao"   # etapa 1: Easypanel; deploy api → worker → web
 scripts/deploy.sh v1.4.0                                         # etapa 2: PM2 e Apache, depois da aprovação

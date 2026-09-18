@@ -1,9 +1,12 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ApiEnv, WorkerEnv } from "../config/env";
+import { InstagramAccountMetricsService } from "./account-metrics.service";
 import { InstagramClient } from "./client";
 import { INSTAGRAM_CONFIG, instagramConfigFrom } from "./instagram.config";
 import { InstagramOAuthService } from "./oauth.service";
+import { InstagramProfilePhotoService } from "./profile-photo.service";
 import { InstagramProfileService } from "./profile.service";
+import { InstagramTokenRefreshService } from "./token-refresh.service";
 
 /**
  * Tudo que fala com a Meta.
@@ -28,8 +31,19 @@ export class InstagramModule {
         InstagramClient,
         InstagramOAuthService,
         InstagramProfileService,
+        InstagramProfilePhotoService,
+        InstagramTokenRefreshService,
+        InstagramAccountMetricsService,
       ],
-      exports: [INSTAGRAM_CONFIG, InstagramClient, InstagramOAuthService, InstagramProfileService],
+      exports: [
+        INSTAGRAM_CONFIG,
+        InstagramClient,
+        InstagramOAuthService,
+        InstagramProfileService,
+        InstagramProfilePhotoService,
+        InstagramTokenRefreshService,
+        InstagramAccountMetricsService,
+      ],
     };
   }
 }

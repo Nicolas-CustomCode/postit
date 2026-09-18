@@ -135,16 +135,40 @@ dia sem coletar é um dia de histórico que pode ser perdido. A tela vem na Fase
 19. Tentar conectar uma conta **não cadastrada** como testadora e receber a orientação de cadastro
 20. Rodar `prisma migrate dev` com o pg-boss já iniciado e confirmar que o esquema `pgboss` não é
     tocado — item V-14
+21. Rodar `admin:collect-metrics` e ver linhas em `MetricaConta` com dias **consecutivos**, o dia batendo
+    com o calendário do fuso da conta, e ao menos uma métrica **ausente** do JSON — não zerada
 
-**Validações a resolver nesta fase:** V-14 (pg-boss com Prisma) e V-16 (origem das Server Actions atrás do
-proxy). **V-17 (API do `otplib`) foi resolvido em 16/09/2026.** **V-18 (URI de retorno pelo túnel https) e
-V-10 (cadastro da conta testadora) foram resolvidos em 17/09/2026** — do V-10 falta só anotar os nomes dos
-menus na próxima conta.
+**Validações a resolver nesta fase:** V-16 (origem das Server Actions atrás do proxy). **V-17 (API do
+`otplib`) foi resolvido em 16/09/2026.** **V-18 (URI de retorno pelo túnel https), V-10 (cadastro da conta
+testadora) e V-14 (pg-boss com Prisma) foram resolvidos em 17/09/2026** — do V-10 falta só anotar os nomes
+dos menus na próxima conta.
 
 **Confirmados em 17/09/2026, com a conta de testes:** marcos **13** (conexão pelo fluxo OAuth completo, pelo
 túnel), **15** (token do Instagram cifrado no banco — coluna começando em `v1:` e ilegível), **18** e **19**
-(as duas recusas explicadas, cobertas por teste contra a Meta falsa). O marco **14** está coberto por teste
-automático; no mundo real depende de haver uma segunda conta de testes.
+(as duas recusas explicadas, cobertas por teste contra a Meta falsa), **17** (nenhum fragmento de segredo nos
+logs dos três processos) e **20** (migração do Prisma com o pg-boss já iniciado, esquema `pgboss` intocado —
+item V-14). O marco **14** está coberto por teste automático; no mundo real depende de haver uma segunda
+conta de testes.
+
+**Confirmado em 18/09/2026:** marco **21** — a primeira coleta gravou **30 linhas** (20/08 a 18/09), dias
+consecutivos, com o dia batendo com o calendário de Brasília. Cinco métricas vieram com valor `0` e
+`follows_and_unfollows` ficou **ausente** do JSON, que é a distinção que a RF-G07 exige. Duas descobertas
+registradas no [08](08-integracao-instagram.md): o retroativo alcança dias **anteriores à conexão** da
+conta, e pedir as seis métricas juntas **é aceito** — o caminho de uma-métrica-por-vez não precisou entrar.
+
+**Confirmado em 18/09/2026:** marco **6** — onze senhas erradas bloquearam a conta, e a tela mostrou
+"Muitas tentativas. Tente de novo a partir das 09:19", com o horário no fuso do aparelho. O bloqueio
+correspondente ficou em `BloqueioAcesso` com nível 1 e 15 minutos. A regra já tinha teste de integração;
+o que faltava era a **frase na tela**, que nenhum teste de tela exercita.
+
+⚠️ **Não existe caminho para liberar um bloqueio antes da hora.** `BLOCK_RELEASED` está no enum de
+auditoria, mas nenhum código o usa — a liberação é da área de administração, que só chega na Fase 4.
+Até lá, quem se bloquear testando espera o prazo ou apaga a linha de `BloqueioAcesso` à mão.
+
+**O marco 16 fica para 18/09/2026 ou depois.** A renovação está pronta e coberta por teste de integração
+contra a Meta falsa, mas a Meta só renova token com **pelo menos 24 horas de idade**, e a conta de testes foi
+conectada em 17/09. Para forçar, use `npm run admin:refresh-tokens` — só age em conta cujo token já passou de
+30 dias, então antes disso é preciso envelhecer `tokenRenovadoEm` ou `criadoEm` daquela linha à mão.
 
 **Risco da fase:** a URI de retorno precisa bater exatamente com a registrada no painel da Meta,
 inclusive barra final. É o erro mais comum e o mais chato de diagnosticar.

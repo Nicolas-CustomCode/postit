@@ -3,7 +3,7 @@ import { NestFactory } from "@nestjs/core";
 import { parseArgs } from "node:util";
 import { readApiEnv } from "../config/env";
 import { CliModule } from "./cli.module";
-import { createUser, promoteUser, resetPassword, resetTwoFactor } from "./commands";
+import { collectMetrics, createUser, promoteUser, refreshTokens, resetPassword, resetTwoFactor } from "./commands";
 
 /**
  * Os comandos de administração, pelo terminal do servidor:
@@ -12,6 +12,8 @@ import { createUser, promoteUser, resetPassword, resetTwoFactor } from "./comman
  *   npm run admin:promote -- --email voce@exemplo.com
  *   npm run admin:reset-password -- --email voce@exemplo.com
  *   npm run admin:reset-2fa -- --email voce@exemplo.com
+ *   npm run admin:refresh-tokens
+ *   npm run admin:collect-metrics
  *
  * Sem HTTP e sem tela: é o caminho que existe justamente para quando ninguém
  * consegue entrar. Todos gravam auditoria com origem CLI.
@@ -48,6 +50,11 @@ async function main(): Promise<void> {
           return resetPassword(app, email(), env.APP_URL);
         case "reset-2fa":
           return resetTwoFactor(app, email());
+        // Os dois que não agem sobre uma pessoa: não pedem --email.
+        case "refresh-tokens":
+          return refreshTokens(app);
+        case "collect-metrics":
+          return collectMetrics(app);
         default:
           throw new Error(`Comando desconhecido: ${command ?? "(nenhum)"}`);
       }

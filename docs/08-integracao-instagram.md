@@ -695,6 +695,40 @@ GET https://graph.instagram.com/v26.0/<IG_ID>/insights
 Escopos: `instagram_business_basic` e `instagram_business_manage_insights`. Fonte:
 [IG User Insights](https://developers.facebook.com/docs/instagram-platform/api-reference/instagram-user/insights).
 
+#### ⚠️ `total_value` devolve UM número, não uma série por dia
+
+**Confirmado na documentação oficial e na prática, em 18/09/2026.** É a restrição que molda a coleta
+inteira:
+
+- `metric_type=total_value` agrega a janela `since`/`until` **inteira** num valor só;
+- `time_series` (o padrão) quebra por dia, **mas só `reach` o suporta**. As outras cinco — `views`,
+  `accounts_engaged`, `total_interactions`, `follows_and_unfollows`, `profile_links_taps` — existem
+  **apenas** em `total_value`.
+
+Como `MetricaConta` guarda **uma linha por dia**, não há como preencher três dias com uma chamada: é
+preciso **uma chamada por dia**, com `since`/`until` delimitando aquele dia. Na rotina são 3 chamadas por
+conta por dia; no retroativo de 30 dias, 30. Medido: cerca de 1 segundo por chamada.
+
+Efeito colateral bom: como somos nós que definimos os limites da janela, **nós escolhemos o que conta como
+"dia"** — e a escolha foi o fuso da conta (`Conta.fusoHorario`), não UTC, para o número bater com o que o
+app do Instagram mostra. O cálculo está em `apps/api/src/domain/metrics/day-window.ts`.
+
+#### O que a conta real devolveu, em 18/09/2026
+
+Primeira coleta da conta de testes (0 seguidores, 0 mídias), 30 dias de retroativo:
+
+| Observação | Resultado |
+|---|---|
+| Pedir as **seis métricas juntas** | **Aceito.** Não houve `code: 100`, e o caminho de uma-métrica-por-vez não precisou ser usado |
+| `follows_and_unfollows` | **Não veio** — sem `total_value.value`. Ficou **ausente** no JSON, que é o correto |
+| As outras cinco | Vieram, todas com valor `0` — coerente com uma conta sem seguidores |
+| Retroativo antes da conexão | **Funciona.** A conta foi conectada em 17/09 e a coleta trouxe desde 20/08: a Meta guarda as métricas da conta independentemente de quando o app foi autorizado |
+
+A lição que vale registrar: **zero e ausente apareceram lado a lado na mesma linha**, que é exatamente a
+distinção que a RF-G07 exige da tela. O alerta de que campo inexistente derruba a chamada com `code: 100`
+vale para `fields` do `/me` — **não** para `metric` dos insights, onde a Meta cumpre o que documenta:
+*"the API will return an empty data set instead of `0`"*.
+
 | Métrica | O que é |
 |---|---|
 | `reach` | Contas únicas que viram algum conteúdo |
@@ -717,9 +751,13 @@ Escopos: `instagram_business_basic` e `instagram_business_manage_insights`. Font
 
 **Fora do MVP:** dados demográficos de seguidores (`follower_demographics`), por decisão de escopo.
 
-**A validar (V-19):** quantos dias para trás a primeira coleta consegue buscar ao conectar uma conta. A
-documentação atual diz que os dados ficam guardados por 90 dias, mas não confirma a janela máxima entre `since` e
-`until` — documentação antiga citava limites menores.
+**V-19 — resolvido em 18/09/2026.** A pergunta era quantos dias para trás a primeira coleta consegue
+buscar. A resposta mudou de forma com a descoberta acima: como cada dia é **uma chamada própria**, não
+existe "janela máxima entre `since` e `until`" a descobrir — cada janela é de um dia só. O que restava era
+escolher **quantos dias** buscar, e a escolha foi **30**: a Meta guarda 90, mas 90 chamadas numa execução
+arriscariam o prazo da tarefa, e 30 ainda deixam quase três semanas de margem para completar uma lacuna
+antes de o dado ser descartado. Confirmado na prática: 30 dias buscados, incluindo dias anteriores à
+conexão da conta.
 
 ---
 
@@ -797,7 +835,7 @@ todos precisam ser confirmados empiricamente na Fase 1 e o resultado registrado 
 | V-11 | Webhooks funcionam com contas testadoras em Standard Access? | A página de Webhooks exige app em modo **Live** e indica Advanced Access | Não usar webhooks no MVP | Testar antes de construir comentários e DMs. Ver [Escopos futuros](#escopos-futuros-comentários-e-mensagens) |
 | V-12 | Novos escopos exigem nova autorização? | Nada explícito | Assumir que sim: cada conta reconecta | Testar ao adicionar o primeiro escopo novo |
 | V-18 | Instagram Login aceita `http://localhost` como URI de retorno? | **Parcialmente resolvido em 17/09/2026:** o túnel rápido com https **funciona** como URI de retorno — a primeira conta foi conectada por ele, de ponta a ponta. `localhost` continua sem teste, e não vale a pena testar: a postura de usar o túnel resolve o caso | Usar túnel rápido com https. Ver [14](14-ambientes-e-desenvolvimento.md) | — |
-| V-19 | Janela retroativa das métricas da conta | Guarda 90 dias; janela máxima entre `since` e `until` não confirmada | Tentar 90 dias na primeira coleta; se recusar, reduzir | Primeira conexão da conta de testes |
+| V-19 | Janela retroativa das métricas da conta | **Resolvido em 18/09/2026** | A pergunta perdeu o sentido original: como só `reach` existe em série temporal, **cada dia é uma chamada própria** e cada janela cobre um dia só. Sobrou escolher quantos dias buscar — **30**, com a Meta guardando 90. Confirmado buscando 30 dias, inclusive anteriores à conexão da conta | — |
 | V-20 | Política de privacidade e exclusão de dados em modo de desenvolvimento | Exigidas para o modo Live; para desenvolvimento, não confirmado | Não publicar páginas de política até ser exigido | Tentar configurar o PostIt Dev sem esses campos |
 
 ### Itens de infraestrutura
@@ -807,7 +845,7 @@ Não são da Meta, mas ficam aqui para a lista de pendências ser uma só.
 | # | Questão | O que a documentação diz | Postura adotada | Como verificar |
 |---|---|---|---|---|
 | V-13 | `singletonKey` do pg-boss impede duas tarefas da mesma postagem? | Descreve `singletonKey` e as políticas de fila, sem deixar explícito como se combinam | Usar e manter as outras três camadas de idempotência | Enviar duas tarefas com a mesma chave e observar. Ver [09](09-motor-agendamento.md#idempotência) |
-| V-14 | Esquema do pg-boss convive com as migrações do Prisma? | Sem guia oficial; [discussão da comunidade](https://github.com/timgit/pg-boss/discussions/391) diz que sim | Esquema separado, fora do `schema.prisma` | Rodar `prisma migrate dev` com o pg-boss já instalado e confirmar que nada tenta mexer em `pgboss` |
+| V-14 | Esquema do pg-boss convive com as migrações do Prisma? | **Confirmado em 17/09/2026** (pg-boss 12.33.1, esquema versão 42, Prisma 7.10.0) | Esquema separado, fora do `schema.prisma`. Com o esquema `pgboss` já criado e as 12 tabelas dele em uso, `prisma migrate status` respondeu "Database schema is up to date" — **nenhum drift**, porque o Prisma olha só o `public`. A migração `20260917195528_acao_auditoria_tokens_renovados` foi criada e aplicada sem citar `pgboss` em lugar nenhum, e as tabelas, a fila e o agendamento sobreviveram intactos | — |
 | V-15 | Envio direto ao MinIO funciona atrás do proxy? | Não verificado | Política de envio assinada, prefixos `recebidos/` e `publicas/`. Ver [ADR 0012](adr/0012-upload-direto-minio.md) | Enviar um arquivo pelo navegador através do proxy e confirmar: assinatura aceita, limite de tamanho respeitado, CORS só do domínio do app, `recebidos/` não legível publicamente |
 | V-16 | Server Actions recusam requisição de outra origem atrás do proxy? | Não verificado neste projeto | Proxy preserva o `Host`; nenhuma rota POST própria no Next. Ver [11 — CSRF](11-seguranca.md#csrf) | Disparar uma Server Action a partir de uma página em outro domínio e confirmar a recusa; confirmar que ações legítimas funcionam pelo proxy |
 | V-17 | API do `otplib` na versão instalada | **Confirmado em 16/09/2026** (13.5.0) | A 13.x trocou o objeto `authenticator` da 12 por funções soltas: `generateSecret`, `generateURI`, `generateSync` e `verifySync`. A tolerância é `epochTolerance`, em **segundos** (30 = ±1 passo), e a resposta traz `delta`, de onde sai o passo aceito, guardado em `totpUltimoPasso` contra reuso. Código fora do formato de 6 dígitos **lança**, então o formato é conferido antes | — |

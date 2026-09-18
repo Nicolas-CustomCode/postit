@@ -28,7 +28,12 @@ operar em fusos diferentes, e o horário de verão muda o deslocamento ao longo 
 ### Negativas
 
 - Toda exibição precisa converter. Esquecer numa tela produz horário errado na cara do usuário
-- A biblioteca de datas precisa carregar a base IANA
+- ~~A biblioteca de datas precisa carregar a base IANA~~ — **resolvido em 18/09/2026 sem biblioteca
+  nenhuma.** O Node 22 já traz a base IANA completa, e o `Intl.DateTimeFormat` faz a conversão
+  instante → fuso. O caminho de volta (rótulo de dia → instante) ele não oferece, mas sai de duas passadas
+  de correção: tratar o rótulo como se fosse UTC, medir o deslocamento **naquele instante** e descontar,
+  duas vezes — a segunda passada é o que acerta os dias de transição de horário de verão. Está em
+  `apps/api/src/domain/metrics/day-window.ts`, com testes cobrindo o dia de 23 horas e o de 25
 - Dois casos-limite exigem decisão explícita, e estão nos testes obrigatórios de
   [09](../09-motor-agendamento.md)
 

@@ -40,11 +40,12 @@ export class AccountsQueryService {
   /**
    * A foto fica no nosso armazenamento, no prefixo público. O endereço é montado
    * aqui, e não guardado no banco, porque ele muda junto com o domínio de mídia
-   * — no computador local ele é o endereço do túnel, que troca.
+   * — no computador local ele é o endereço do túnel, que troca. O bucket entra
+   * no caminho pela mesma razão: é infraestrutura, não dado da conta.
    */
   private photoUrl(objectKey: string | null): string | null {
     if (objectKey === null) return null;
-    return `${this.config.mediaPublicUrl.replace(/\/$/, "")}/${objectKey}`;
+    return `${this.config.mediaPublicUrl.replace(/\/$/, "")}/${this.config.mediaBucket}/${objectKey}`;
   }
 }
 

@@ -95,13 +95,18 @@ async function iniciar() {
 }
 ```
 
-O `WorkerModule` importa os módulos compartilhados com a API — `PrismaModule`, `InstagramModule`,
-`ArmazenamentoModule`, domínio — **mais** dois que só ele tem:
+O `WorkerModule` importa os módulos compartilhados com a API — `PrismaModule`, `StorageModule`,
+domínio — **mais** dois que só ele tem:
 
 | Módulo | Papel | Onde |
 |---|---|---|
-| `QueuesModule` | Cria a instância do pg-boss, cria as filas e registra os agendamentos recorrentes ao iniciar | `apps/api/src/filas/` |
-| `PublishingModule` | Despachante, publicador, tratador de falhas, coletor de métricas, renovador de tokens, manutenção | `apps/api/src/publicacao/` |
+| `QueuesModule` | Cria a instância do pg-boss, cria as filas e registra os agendamentos recorrentes ao iniciar | `apps/api/src/queues/` |
+| `PublishingModule` | Despachante, publicador, tratador de falhas, coletor de métricas, renovador de tokens, manutenção | `apps/api/src/publishing/` |
+
+O `InstagramModule` entra pelo `PublishingModule`, e não pelo `WorkerModule`: `forEnv` devolve um
+módulo novo a cada chamada, então importá-lo nos dois lugares abriria dois de tudo que ele tem
+dentro. Pelo mesmo motivo invertido, `QueuesModule` e `StorageModule` são `@Global()` — há uma
+instância do pg-boss e uma do cliente do MinIO por processo.
 
 O `AppModule`, do processo HTTP, **não importa nenhum dos dois**. É isso que garante a invariante I-9
 de [05](05-arquitetura.md#invariantes): só o worker publica. Um teste de arquitetura confere.
@@ -133,7 +138,7 @@ por minuto.
 4. Numa **única transação**: muda o status para `PROCESSANDO` e cria a tarefa de publicação
 
 ```ts
-// apps/api/src/publicacao/despachante.service.ts — esboço
+// apps/api/src/publishing/dispatcher.service.ts — esboço
 // a forma final depende da versão instalada do pg-boss
 await this.prisma.$transaction(async (tx) => {
   // trava otimista: só muda se ainda estiver AGENDADO
@@ -279,7 +284,7 @@ a cota de 400 containers diários com rapidez surpreendente.
 ## Configuração das filas
 
 ```ts
-// apps/api/src/filas/filas.service.ts — esboço, roda quando o worker inicia
+// apps/api/src/queues/boss.service.ts — esboço, roda quando o worker inicia
 // confirmar nomes das opções na versão instalada
 await this.boss.createQueue('publicar-instagram-falhas')
 
@@ -490,9 +495,20 @@ await this.boss.schedule('coletar-metricas-conta-instagram', '0 6 * * *')   // t
 Para cada conta conectada, busca os dados do perfil e os insights diários da conta — detalhes e fontes em
 [08 — Métricas da conta](08-integracao-instagram.md#métricas-da-conta).
 
+⚠️ **Uma chamada por dia, não uma por execução.** Cinco das seis métricas só existem em
+`metric_type=total_value`, que agrega a janela inteira num número só — ver
+[08](08-integracao-instagram.md#️-total_value-devolve-um-número-não-uma-série-por-dia). Como a tabela quer
+uma linha por dia, cada dia é uma chamada com `since`/`until` próprios: 3 na rotina, 30 no retroativo,
+cerca de 1 segundo cada.
+
 - **Relê os últimos 3 dias** a cada execução e sobrescreve a linha de cada dia: a Meta pode atrasar os números
   em até 48 horas
-- **Na primeira coleta de uma conta nova**, tenta buscar o retroativo possível (item V-19)
+- **Na primeira coleta de uma conta nova**, busca 30 dias para trás — inclusive anteriores à conexão, porque
+  a Meta guarda as métricas da conta independentemente de quando o app foi autorizado (item V-19, resolvido)
+- **Procura lacunas na janela de 30 dias**, e não só os 3 da sobreposição: um retroativo interrompido no
+  meio precisa ser completado na execução seguinte, senão aqueles dias somem quando a Meta os descartar
+- O **dia** de cada linha é o dia civil no fuso da conta, não em UTC — quem calcula é
+  `apps/api/src/domain/metrics/day-window.ts`. O cron é em UTC; o rótulo do dia, não
 - Métrica que a Meta não devolve fica **ausente**, nunca zero
 - Falha de coleta não gera alarme: tenta de novo na execução seguinte, e os 3 dias de sobreposição cobrem um dia
   perdido

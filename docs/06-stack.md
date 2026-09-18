@@ -185,6 +185,15 @@ migração para S3 ou Cloudflare R2, se um dia fizer sentido, vira troca de vari
 O navegador envia direto ao MinIO com permissão assinada pela API, num prefixo privado; só depois de
 validado o arquivo vai para o prefixo público. Ver [ADR 0012](adr/0012-upload-direto-minio.md).
 
+**A biblioteca é o [`minio`](https://www.npmjs.com/package/minio)**, o SDK oficial do próprio MinIO,
+decidido em 17/09/2026. Um pacote só, e já traz o `presignedPostPolicy` que o envio direto do ADR
+0012 vai precisar — com o `@aws-sdk/client-s3` seriam dois pacotes para o mesmo resultado.
+
+**O custo, registrado de propósito:** a API dele é própria do MinIO. A frase acima — "migrar vira
+troca de variável de ambiente" — deixa de valer na parte do código: migrar para S3 ou R2 significa
+reescrever `apps/api/src/storage/`. É por isso que aquilo é um módulo com três métodos e nada mais
+(`putPublic`, `removePublic`, `healthy`), e é a única parte do projeto que importa `minio`.
+
 **Alternativa descartada:** arquivos direto no disco. Sem ciclo de vida de objeto e sem envio assinado.
 
 **Alternativa descartada:** Cloudflare R2. Adiciona dependência externa a uma ferramenta que se propõe

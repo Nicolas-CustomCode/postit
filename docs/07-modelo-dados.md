@@ -573,6 +573,26 @@ de seguir, toques em links do perfil.
 - Métrica que a Meta não fornece fica **ausente** no JSON, nunca zero — a tela precisa distinguir "zero" de
   "indisponível", por exemplo em contas com menos de 100 seguidores
 
+**O formato de `valores`**, com duas seções — o contrato está em `packages/shared/src/metrics-types.ts`:
+
+```json
+{ "profile": { "followers_count": 0, "follows_count": 1, "media_count": 0 },
+  "insights": { "reach": 0, "views": 0, "accounts_engaged": 0, "total_interactions": 0 } }
+```
+
+As chaves são **os nomes da Meta**, como ela os escreve (a exceção do ADR 0023). A separação não é
+decorativa: `profile` é um **retrato de agora** — não dá para saber quantos seguidores a conta tinha
+anteontem —, então ele só entra na linha do dia em que foi lido, e a releitura dos dias anteriores atualiza
+apenas `insights`. É a mesma distinção que o RF-G06 já faz ao dizer "seguidores, contas seguidas e total de
+mídias, **e, por dia**, alcance, visualizações…".
+
+A gravação usa `ON CONFLICT … SET valores = valores || EXCLUDED.valores`: o `||` do `jsonb` mescla no nível
+de cima, então atualizar `insights` preserva o `profile` sem ler-modificar-escrever — que perderia uma
+escrita se o cron e o comando de terminal rodassem juntos.
+
+No exemplo acima, `follows_and_unfollows` e `profile_links_taps` estariam ausentes se a Meta não os
+fornecesse; os zeros são zeros de verdade. **Essa diferença é o dado.**
+
 ### `Notificacao` e `NotificacaoEntrega`
 Uma `Notificacao` é o fato — "a publicação da postagem X falhou". Guarda **só tipo e identificadores**; a frase
 é montada na hora de exibir, com os dados atuais e as permissões de quem lê. Padrão do `nossobuncker`.

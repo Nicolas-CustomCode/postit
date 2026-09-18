@@ -52,7 +52,9 @@ describe("GET /accounts", () => {
     await createTestAccount(api.db, api.config.encryptionKey, {
       username: "alfa.loja",
       name: "Alfa",
-      photoObjectKey: "publicas/contas/alfa/foto.jpg",
+      // Identificador aleatório e sem dado nenhum da conta no nome, como o
+      // serviço de foto grava (docs/11, "O bucket de mídia").
+      photoObjectKey: "publicas/contas/0123456789abcdef0123456789abcdef.jpg",
     });
 
     const contas = (await api.request({ method: "GET", url: "/accounts", token })).body as unknown as {
@@ -68,7 +70,7 @@ describe("GET /accounts", () => {
       name: "Alfa",
       timezone: "America/Sao_Paulo",
       warning: null,
-      photoUrl: expect.stringContaining("/publicas/contas/alfa/foto.jpg"),
+      photoUrl: expect.stringContaining("/publicas/contas/0123456789abcdef0123456789abcdef.jpg"),
     });
     // Sem foto copiada ainda, a tela desenha as iniciais.
     expect(contas[1]?.photoUrl).toBeNull();

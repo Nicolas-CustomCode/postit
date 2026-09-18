@@ -197,6 +197,11 @@ enum AuditAction {
   TWO_FACTOR_RESET      @map("DUAS_ETAPAS_RESETADAS")
   SESSIONS_ENDED        @map("SESSOES_ENCERRADAS")
   BLOCK_RELEASED        @map("BLOQUEIO_LIBERADO")
+  // Alguém forçou a renovação dos tokens pelo terminal, fora do horário diário.
+  // O detalhe de cada conta fica em EventoToken, uma linha por tentativa.
+  TOKENS_REFRESHED      @map("TOKENS_RENOVADOS")
+  // Idem para a coleta de métricas da conta. O resultado fica em MetricaConta.
+  METRICS_COLLECTED     @map("METRICAS_COLETADAS")
 
   @@map("AcaoAuditoria")
 }

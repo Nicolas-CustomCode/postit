@@ -4,6 +4,8 @@ import { AuditService } from "../audit/audit.service";
 import { LinksService } from "../auth/links.service";
 import { SessionService } from "../auth/session.service";
 import { TotpService } from "../auth/totp.service";
+import { InstagramAccountMetricsService } from "../instagram/account-metrics.service";
+import { InstagramTokenRefreshService } from "../instagram/token-refresh.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 
@@ -136,6 +138,85 @@ export async function resetTwoFactor(app: INestApplicationContext, email: string
       `Verificação em duas etapas apagada para ${user.email}.`,
       `Sessões encerradas: ${revoked}`,
       "No próximo login, a pessoa cadastra o aplicativo de novo.",
+    ],
+  };
+}
+
+/**
+ * Força agora a renovação que o worker faria às 3h UTC (docs/09).
+ *
+ * Serve para duas coisas: conferir a renovação sem esperar um dia (marco 16 do
+ * docs/12) e destravar a situação em que o worker ficou dias fora do ar.
+ *
+ * É o **mesmo método** que o tratador da fila chama, e chega nele pelo
+ * `InstagramModule` — o CLI não pode importar `publishing/` nem `queues/`
+ * (AGENTS.md, regra 1). Rodar os dois ao mesmo tempo não estraga nada: quem já
+ * foi renovado deixa de estar no prazo e a segunda execução o ignora.
+ */
+export async function refreshTokens(app: INestApplicationContext): Promise<CommandResult> {
+  const refresh = app.get(InstagramTokenRefreshService);
+  const audit = app.get(AuditService);
+
+  const resultado = await refresh.refreshDue(new Date());
+
+  await audit.record({
+    authorId: null,
+    origin: "CLI",
+    action: "TOKENS_REFRESHED",
+    targetType: "Conta",
+    details: {
+      noPrazo: resultado.due,
+      renovadas: resultado.refreshed,
+      aRepetir: resultado.recoverable,
+      semRecuperacao: resultado.fatal,
+    },
+  });
+
+  return {
+    lines: [
+      `Contas no prazo de renovar: ${resultado.due}`,
+      `Renovadas: ${resultado.refreshed}`,
+      `A repetir (a Meta não respondeu): ${resultado.recoverable}`,
+      `Sem recuperação (precisam ser reconectadas): ${resultado.fatal}`,
+    ],
+  };
+}
+
+/**
+ * Força agora a coleta que o worker faz às 6h UTC (docs/09).
+ *
+ * Serve para conferir a coleta sem esperar um dia, e para recuperar uma conta
+ * cujo retroativo parou no meio — o serviço procura **lacunas**, então rodar de
+ * novo completa o que falta em vez de refazer tudo.
+ *
+ * Chega ao serviço pelo `InstagramModule`, que o CLI pode importar; `publishing/`
+ * e `queues/` ele não pode (AGENTS.md, regra 1).
+ */
+export async function collectMetrics(app: INestApplicationContext): Promise<CommandResult> {
+  const metrics = app.get(InstagramAccountMetricsService);
+  const audit = app.get(AuditService);
+
+  const resultado = await metrics.collectDue(new Date());
+
+  await audit.record({
+    authorId: null,
+    origin: "CLI",
+    action: "METRICS_COLLECTED",
+    targetType: "Conta",
+    details: {
+      contas: resultado.accounts,
+      diasGravados: resultado.days,
+      aRepetir: resultado.recoverable,
+      semRecuperacao: resultado.fatal,
+    },
+  });
+
+  return {
+    lines: [
+      `Contas conectadas: ${resultado.accounts}`,
+      `Dias gravados: ${resultado.days}`,
+      `A repetir (a Meta não respondeu): ${resultado.recoverable}`,
+      `Sem recuperação: ${resultado.fatal}`,
     ],
   };
 }
