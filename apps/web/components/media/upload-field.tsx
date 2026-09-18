@@ -3,11 +3,13 @@
 import { ImageUp, Loader2 } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import {
-  feedImagePreProblem,
+  formatsFor,
+  imageUploadPreProblem,
   targetRatioFor,
-  FEED_IMAGE_MIME,
-  FEED_IMAGE_RATIO_LABEL,
+  IMAGE_SPECS,
+  IMAGE_UPLOAD_SPEC,
   megabytes,
+  type ImageFormat,
   type MediaSummary,
   type MediaPreProblem,
   type UploadPermission,
@@ -20,11 +22,16 @@ import { Progress } from "@/components/ui/progress";
 import { blobToFile, cropToJpeg, loadImage, type LoadedImage } from "@/lib/media/crop-image";
 
 /**
- * Escolher uma imagem e enviá-la (RF-B01, RF-B02).
+ * Escolher uma imagem e enviá-la (RF-B01, RF-B02, RF-B03).
  *
  * O arquivo vai **direto do navegador para o armazenamento**, sem passar pelo
  * Next nem pela API (ADR 0012). O que passa por aqui é só a autorização, que a
  * Server Action busca, e a confirmação depois.
+ *
+ * ⚠️ **O acervo não escolhe formato, e por isso não recorta sozinho.** A faixa
+ * de 4:5 a 1.91:1 vale só para o feed; Stories não tem faixa nenhuma. Quando a
+ * imagem não cabe no feed, a tela **oferece** o recorte em vez de impô-lo — uma
+ * arte 9:16 é perfeita como está, e recortá-la destruiria o formato pretendido.
  *
  * ⚠️ **`XMLHttpRequest`, e não `fetch`.** O `fetch` não relata progresso de
  * envio: ele só avisa quando termina, e a barra saltaria de 0 a 100. O RF-B01
@@ -33,9 +40,13 @@ import { blobToFile, cropToJpeg, loadImage, type LoadedImage } from "@/lib/media
  * ⚠️ **Não dá para usar um `<form action="…">` apontando para o armazenamento**:
  * a CSP tem `form-action 'self'` e o navegador bloquearia o envio (ADR 0014).
  */
+/** O arquivo original fica guardado: "enviar como está" manda ele, sem recorte. */
+type Escolhida = { file: File; imagem: LoadedImage };
+
 type Estado =
   | { fase: "parado" }
-  | { fase: "recortando"; imagem: LoadedImage; ratio: number; nome: string }
+  | { fase: "decidindo"; escolhida: Escolhida; ratioDoFeed: number }
+  | { fase: "recortando"; escolhida: Escolhida; ratio: number }
   | { fase: "enviando"; porcento: number }
   | { fase: "conferindo" }
   | { fase: "pronto"; midia: MediaSummary };
@@ -53,7 +64,7 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
     // O que dá para saber sem abrir o arquivo, a tela confere antes de gastar o
     // envio (docs/02, RF-B02). A API confere tudo de novo — aqui é conveniência,
     // não proteção.
-    const problema = feedImagePreProblem(file);
+    const problema = imageUploadPreProblem(file);
     if (problema !== null) {
       setErro(mensagemLocal(problema, file.size));
       setEstado({ fase: "parado" });
@@ -63,8 +74,7 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
     /*
      * Só aqui as dimensões aparecem: o navegador decodifica a imagem e **já
      * aplica a orientação da câmera**, então a foto tirada em pé chega em pé. É
-     * o que permite oferecer o recorte antes de enviar, em vez de gastar 8 MB
-     * para ouvir "proporção fora do permitido" do outro lado.
+     * o que permite dizer para que formatos ela serve antes de gastar 8 MB.
      */
     let imagem: LoadedImage;
     try {
@@ -75,9 +85,14 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
       return;
     }
 
-    const ratio = targetRatioFor(imagem.width, imagem.height);
-    if (ratio !== null) {
-      setEstado({ fase: "recortando", imagem, ratio, nome: file.name });
+    /*
+     * A imagem entra no acervo de qualquer jeito — o piso já foi conferido. O
+     * que muda é se vale a pena oferecer o recorte: só quando ela não cabe no
+     * feed, que é o formato exigente. Quem vai usá-la em Stories segue direto.
+     */
+    const ratioDoFeed = targetRatioFor(imagem.width, imagem.height, IMAGE_SPECS.FEED_IMAGE);
+    if (ratioDoFeed !== null) {
+      setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioDoFeed });
       return;
     }
 
@@ -90,8 +105,8 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
     setErro(null);
 
     try {
-      const blob = await cropToJpeg(estado.imagem, estado.ratio, position);
-      await enviar(blobToFile(blob, estado.nome));
+      const blob = await cropToJpeg(estado.escolhida.imagem, estado.ratio, position);
+      await enviar(blobToFile(blob, estado.escolhida.file.name));
     } catch {
       setErro("Não consegui recortar a imagem. Tente outra.");
       setEstado({ fase: "parado" });
@@ -134,7 +149,7 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
       <input
         ref={input}
         type="file"
-        accept={FEED_IMAGE_MIME}
+        accept={IMAGE_UPLOAD_SPEC.mime}
         className="sr-only"
         disabled={ocupado}
         onChange={(evento) => {
@@ -145,21 +160,39 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
         }}
       />
 
-      {estado.fase === "recortando" && (
-        <CropPreview
-          image={estado.imagem}
-          ratio={estado.ratio}
-          busy={false}
-          onConfirm={(posicao) => void enviarRecorte(posicao)}
-          onCancel={() => {
+      {estado.fase === "decidindo" && (
+        <FormatChoice
+          image={estado.escolhida.imagem}
+          onSendAsIs={() => void enviar(estado.escolhida.file)}
+          onCrop={() =>
+            setEstado({ fase: "recortando", escolhida: estado.escolhida, ratio: estado.ratioDoFeed })
+          }
+          onChooseAnother={() => {
             setEstado({ fase: "parado" });
             input.current?.click();
           }}
         />
       )}
 
-      {/* Durante o recorte, os botões que valem são os de lá. */}
-      {estado.fase !== "recortando" && (
+      {estado.fase === "recortando" && (
+        <CropPreview
+          image={estado.escolhida.imagem}
+          ratio={estado.ratio}
+          spec={IMAGE_SPECS.FEED_IMAGE}
+          busy={false}
+          onConfirm={(posicao) => void enviarRecorte(posicao)}
+          onCancel={() =>
+            setEstado({
+              fase: "decidindo",
+              escolhida: estado.escolhida,
+              ratioDoFeed: estado.ratio,
+            })
+          }
+        />
+      )}
+
+      {/* Enquanto se decide ou se recorta, os botões que valem são os de lá. */}
+      {estado.fase !== "decidindo" && estado.fase !== "recortando" && (
         <Button
           type="button"
           variant="outline"
@@ -182,7 +215,11 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
 
       {estado.fase === "pronto" && (
         <p className="text-sm text-muted-foreground">
-          Imagem pronta: {estado.midia.width} × {estado.midia.height} pixels.
+          Imagem pronta: {estado.midia.width} × {estado.midia.height} pixels
+          {/* Dizer para que ela serve é o que dá sentido a um acervo que aceita
+              proporções diferentes: a resposta de "onde posso usar isto?" vem
+              agora, não na hora de compor. */}
+          {sufixoDeFormatos(formatsFor(estado.midia.width, estado.midia.height))}.
         </p>
       )}
 
@@ -193,6 +230,66 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
       )}
     </div>
   );
+}
+
+/**
+ * A oferta que substituiu a imposição de recortar (RF-B03).
+ *
+ * Aparece quando a imagem não cabe no feed. Ela **não está errada** — só não
+ * serve a esse formato —, então as duas saídas são legítimas e nenhuma é
+ * destaque sobre a outra.
+ */
+function FormatChoice({
+  image,
+  onSendAsIs,
+  onCrop,
+  onChooseAnother,
+}: {
+  readonly image: LoadedImage;
+  readonly onSendAsIs: () => void;
+  readonly onCrop: () => void;
+  /** Sem esta saída, quem escolheu o arquivo errado ficaria preso aqui. */
+  readonly onChooseAnother: () => void;
+}): ReactNode {
+  const servePara = formatsFor(image.width, image.height);
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border p-4">
+      <div>
+        <p className="text-sm font-medium">
+          Esta imagem é {image.width} × {image.height} pixels
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Ela não cabe no feed, que aceita de {IMAGE_SPECS.FEED_IMAGE.ratioLabel}
+          {sufixoDeFormatos(servePara)}.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2 md:flex-row">
+        <Button type="button" className="h-11 md:h-10" onClick={onSendAsIs}>
+          Enviar como está
+        </Button>
+        <Button type="button" variant="outline" className="h-11 md:h-10" onClick={onCrop}>
+          Recortar para o feed
+        </Button>
+      </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        className="h-11 self-start px-0 text-muted-foreground md:h-10"
+        onClick={onChooseAnother}
+      >
+        Escolher outra imagem
+      </Button>
+    </div>
+  );
+}
+
+/** " — serve para Stories", ou nada quando não há formato a citar. */
+function sufixoDeFormatos(formatos: readonly ImageFormat[]): string {
+  if (formatos.length === 0) return "";
+  return ` — serve para ${formatos.map((formato) => IMAGE_SPECS[formato].label).join(", ")}`;
 }
 
 function rotulo(estado: Estado): string {
@@ -243,7 +340,7 @@ function enviarAoArmazenamento(
 function mensagemLocal(problema: MediaPreProblem, bytes: number): string {
   switch (problema) {
     case "WRONG_TYPE":
-      return "O Instagram só aceita JPEG em publicações de feed. Converta a imagem e tente de novo.";
+      return "O Instagram só aceita JPEG. Converta a imagem e tente de novo.";
     case "EMPTY":
       return "Este arquivo está vazio.";
     case "TOO_LARGE":
@@ -260,6 +357,5 @@ function mensagemLocal(problema: MediaPreProblem, bytes: number): string {
  */
 function completarMensagem(code: string, message: string, bytes: number): string {
   if (code === "MEDIA_TOO_LARGE") return `${message}. Este arquivo tem ${megabytes(bytes)} MB.`;
-  if (code === "MEDIA_RATIO_UNSUPPORTED") return `${message}. A faixa aceita é de ${FEED_IMAGE_RATIO_LABEL}.`;
   return message;
 }

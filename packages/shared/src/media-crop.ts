@@ -1,12 +1,17 @@
-import { FEED_IMAGE_MAX_RATIO, FEED_IMAGE_MIN_RATIO } from "./media-types";
+import type { ImageSpec } from "./media-formats";
 
 /**
- * O recorte que faz uma imagem caber nas proporções do feed (RF-B02, RF-B06).
+ * O recorte que faz uma imagem caber na proporção de **um formato** (RF-B02,
+ * RF-B03).
  *
  * **Por que isto existe.** Foto de celular tirada em pé é 3:4, e o feed do
  * Instagram só aceita até 4:5 — ou seja, a foto mais comum que existe seria
  * recusada. O app do Instagram corta sozinho e ninguém percebe; aqui a pessoa vê
  * o corte e escolhe o que fica dentro.
+ *
+ * ⚠️ **A faixa vem por parâmetro, não de uma constante.** Cada formato tem a
+ * sua, e Stories não tem nenhuma: recortar contra a faixa do feed uma imagem que
+ * ia para Stories destruiria justamente o formato que a pessoa queria.
  *
  * Regra pura, sem navegador: recebe medidas e devolve um retângulo. Quem desenha
  * é o componente; quem testa é o Jest.
@@ -23,17 +28,19 @@ export interface CropRect {
 export type CropPosition = number;
 
 /**
- * Precisa recortar? `null` quando a imagem já cabe como está.
+ * Precisa recortar para caber neste formato? `null` quando já cabe como está —
+ * inclusive quando o formato não tem faixa nenhuma, como Stories.
  *
  * Devolve a proporção alvo — a **mais próxima** da original, para o corte tirar
- * o mínimo possível: uma foto alta demais vira 4:5, uma larga demais vira
- * 1.91:1.
+ * o mínimo possível: no feed, uma foto alta demais vira 4:5, uma larga demais
+ * vira 1.91:1.
  */
-export function targetRatioFor(width: number, height: number): number | null {
+export function targetRatioFor(width: number, height: number, spec: ImageSpec): number | null {
   if (height <= 0 || width <= 0) return null;
+  if (spec.ratio === null) return null;
 
-  const minimo = FEED_IMAGE_MIN_RATIO.width / FEED_IMAGE_MIN_RATIO.height;
-  const maximo = FEED_IMAGE_MAX_RATIO.width / FEED_IMAGE_MAX_RATIO.height;
+  const minimo = spec.ratio.min.width / spec.ratio.min.height;
+  const maximo = spec.ratio.max.width / spec.ratio.max.height;
   const atual = width / height;
 
   if (atual < minimo) return minimo;

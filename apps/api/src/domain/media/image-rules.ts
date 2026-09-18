@@ -1,33 +1,15 @@
-import {
-  FEED_IMAGE_MAX_BYTES,
-  FEED_IMAGE_MAX_RATIO,
-  FEED_IMAGE_MIME,
-  FEED_IMAGE_MIN_RATIO,
-  FEED_IMAGE_MIN_WIDTH,
-} from "@repo/shared";
+import { IMAGE_MIME } from "@repo/shared";
 
 /**
- * As regras de imagem de feed (RF-B02; docs/08, "Imagens — feed").
+ * O que só os **bytes** do arquivo revelam (RF-B02; docs/08).
  *
- * Regra pura: sem Nest, sem Prisma, sem rede. Os limites vêm de
- * `packages/shared`, os mesmos que a tela usa para avisar antes do envio — aqui
- * é onde se decide de verdade (AGENTS.md, regra 17).
+ * As especificações — o que cada formato aceita de tipo, tamanho e proporção —
+ * ficam em `packages/shared`, porque a tela também precisa delas. Aqui mora o que
+ * exige o buffer em mãos: reconhecer o formato pela assinatura e ler a rotação da
+ * câmera.
+ *
+ * Regra pura: sem Nest, sem Prisma, sem rede.
  */
-
-/** O que impede esta imagem de virar uma postagem. `null` quando nada impede. */
-export type ImageProblem =
-  | "MEDIA_WRONG_TYPE"
-  | "MEDIA_TOO_LARGE"
-  | "MEDIA_TOO_NARROW"
-  | "MEDIA_RATIO_UNSUPPORTED";
-
-export interface ImageFacts {
-  /** O tipo lido dos **bytes**, nunca o declarado pelo navegador. */
-  readonly mimeType: string;
-  readonly bytes: number;
-  readonly width: number;
-  readonly height: number;
-}
 
 /**
  * Largura e altura **como a imagem aparece**, aplicando a rotação do EXIF.
@@ -37,11 +19,10 @@ export interface ImageFacts {
  * campo do EXIF. A foto que a pessoa tirou em pé chega, nos bytes, deitada.
  *
  * O caso concreto: uma foto tirada em pé chega como 4032×3024 com orientação 6.
- * Sem girar, a proporção calculada é 1,33 — dentro da faixa, **aceita**. Girada,
- * a proporção real é 0,75, abaixo do mínimo de 4:5 — e tem de ser **recusada**,
- * com o aviso de recortar. Ou seja, sem esta correção o sistema aprova uma
- * imagem que o Instagram vai cortar sozinho, e a pessoa descobre depois de
- * publicada.
+ * Sem girar, a proporção calculada é 1,33 — dentro da faixa do feed. Girada, a
+ * proporção real é 0,75, que não cabe no feed e só serve a Stories. Ou seja, sem
+ * esta correção o sistema diria que a imagem serve para o feed, para o Instagram
+ * recortá-la depois sem avisar.
  *
  * O erro não apareceria em teste feito com imagem salva de editor: só com foto
  * tirada na hora, que é o que o roteiro da fase manda usar.
@@ -56,44 +37,6 @@ export function orientedSize(
 ): { width: number; height: number } {
   const gira = orientation !== undefined && orientation >= 5 && orientation <= 8;
   return gira ? { width: height, height: width } : { width, height };
-}
-
-/**
- * Decide se a imagem serve para o feed.
- *
- * A ordem das conferências é a ordem em que elas ajudam quem enviou: tipo
- * primeiro, porque é o erro mais comum e o mais fácil de corrigir (docs/08 diz
- * que PNG é "a recusa mais comum no dia a dia"); proporção por último, porque é
- * a que exige editar a imagem.
- */
-export function validateFeedImage(facts: ImageFacts): ImageProblem | null {
-  if (facts.mimeType !== FEED_IMAGE_MIME) return "MEDIA_WRONG_TYPE";
-  if (facts.bytes > FEED_IMAGE_MAX_BYTES) return "MEDIA_TOO_LARGE";
-  if (facts.width < FEED_IMAGE_MIN_WIDTH) return "MEDIA_TOO_NARROW";
-  if (!ratioAllowed(facts.width, facts.height)) return "MEDIA_RATIO_UNSUPPORTED";
-  return null;
-}
-
-/**
- * A proporção cabe na faixa de 4:5 a 1.91:1?
- *
- * **Aritmética inteira, sem divisão.** Comparar `largura / altura` com `1.91`
- * traz a pergunta "1,9115 passa?", e a resposta passa a depender de
- * arredondamento de ponto flutuante. Multiplicando cruzado, 1080×1350 dá
- * exatamente o limite inferior e passa, sem ambiguidade nenhuma.
- *
- * Altura zero seria divisão por zero na forma ingênua; aqui vira `false`, que é
- * o que se quer de uma imagem sem altura.
- */
-function ratioAllowed(width: number, height: number): boolean {
-  if (height <= 0 || width <= 0) return false;
-
-  // largura/altura >= 4/5   ⇔   largura * 5 >= altura * 4
-  const acimaDoMinimo = width * FEED_IMAGE_MIN_RATIO.height >= height * FEED_IMAGE_MIN_RATIO.width;
-  // largura/altura <= 191/100   ⇔   largura * 100 <= altura * 191
-  const abaixoDoMaximo = width * FEED_IMAGE_MAX_RATIO.height <= height * FEED_IMAGE_MAX_RATIO.width;
-
-  return acimaDoMinimo && abaixoDoMaximo;
 }
 
 /**
@@ -113,7 +56,7 @@ export function detectImageType(bytes: Buffer): string | null {
   if (!(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)) return null;
   if (hasMpfMarker(bytes)) return null;
 
-  return FEED_IMAGE_MIME;
+  return IMAGE_MIME;
 }
 
 /** Procura o APP2 com `MPF\0` percorrendo os segmentos do começo do arquivo. */

@@ -63,7 +63,11 @@ test.describe("acervo — enviar imagem", () => {
   test("a tela explica os limites do Instagram antes de escolher o arquivo", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Acervo" })).toBeVisible();
     await expect(page.getByText(/JPEG de até 8 MB/)).toBeVisible();
-    await expect(page.getByText(/4:5 e 1\.91:1/)).toBeVisible();
+    await expect(page.getByText(/320 pixels de largura/)).toBeVisible();
+
+    // E não promete uma faixa de proporção: ela depende do formato de destino,
+    // que só a composição conhece (RF-B03).
+    await expect(page.getByText(/4:5 e 1\.91:1/)).toHaveCount(0);
   });
 
   test("o Acervo aparece na navegação como tela pronta", async ({ page, isMobile }) => {
@@ -102,36 +106,67 @@ test.describe("acervo — enviar imagem", () => {
   });
 
   /*
-   * O caso que motivou o recorte: foto de celular tirada em pé é 3:4, e o feed
-   * aceita no máximo 4:5. Antes, ela era simplesmente recusada — a foto mais
-   * comum que existe não entrava. Agora a tela oferece o corte.
-   *
-   * A imagem é montada com as medidas de uma foto de celular em pé.
+   * A foto de celular tirada em pé é 3:4, e o feed aceita no máximo 4:5. Ela não
+   * está errada — só não serve a esse formato —, então a tela **oferece** as duas
+   * saídas em vez de recortar sozinha. Recortar à força destruiria uma arte 9:16
+   * feita para Stories, que é válida como está (RF-B03).
    */
-  test("foto em pé abre o recorte em vez de ser recusada", async ({ page }) => {
+  test("foto que não cabe no feed oferece as duas saídas", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
       name: "foto-em-pe.jpg",
       mimeType: "image/jpeg",
       buffer: imagemDe(1512, 2016),
     });
 
-    await expect(page.getByText(/precisa ser recortada/i)).toBeVisible();
-    await expect(page.getByRole("img", { name: /prévia do recorte/i })).toBeVisible();
-    await expect(page.getByLabel(/do topo à base/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /usar este recorte/i })).toBeVisible();
+    await expect(page.getByText(/não cabe no feed/i)).toBeVisible();
+    await expect(page.getByText(/serve para Stories/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /recortar para o feed/i })).toBeVisible();
+    // A terceira saída: quem escolheu o arquivo errado não pode ficar preso aqui.
+    await expect(page.getByRole("button", { name: /escolher outra imagem/i })).toBeVisible();
 
     // E nenhuma recusa: o caminho deixou de terminar em erro.
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   });
 
-  test("foto que já cabe não passa pelo recorte", async ({ page }) => {
+  test("quem escolhe recortar chega na prévia, com a faixa do feed", async ({ page }) => {
+    await page.setInputFiles('input[type="file"]', {
+      name: "foto-em-pe.jpg",
+      mimeType: "image/jpeg",
+      buffer: imagemDe(1512, 2016),
+    });
+
+    await page.getByRole("button", { name: /recortar para o feed/i }).click();
+
+    await expect(page.getByText(/Recortar para Feed/i)).toBeVisible();
+    await expect(page.getByText(/4:5 a 1\.91:1/)).toBeVisible();
+    await expect(page.getByRole("img", { name: /prévia do recorte/i })).toBeVisible();
+    await expect(page.getByLabel(/do topo à base/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /usar este recorte/i })).toBeVisible();
+  });
+
+  test("dá para voltar do recorte e enviar como está", async ({ page }) => {
+    await page.setInputFiles('input[type="file"]', {
+      name: "foto-em-pe.jpg",
+      mimeType: "image/jpeg",
+      buffer: imagemDe(1512, 2016),
+    });
+
+    await page.getByRole("button", { name: /recortar para o feed/i }).click();
+    await page.getByRole("button", { name: "Voltar" }).click();
+
+    await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
+  });
+
+  test("foto que já cabe no feed não pergunta nada", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
       name: "quadrada.jpg",
       mimeType: "image/jpeg",
       buffer: imagemDe(1080, 1080),
     });
 
-    await expect(page.getByText(/precisa ser recortada/i)).toHaveCount(0);
+    await expect(page.getByText(/não cabe no feed/i)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /recortar para o feed/i })).toHaveCount(0);
   });
 
   test("um arquivo vazio é recusado", async ({ page }) => {

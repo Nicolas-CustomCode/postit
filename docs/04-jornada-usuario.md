@@ -161,9 +161,9 @@ apagado e nunca fica público. Ver [ADR 0012](adr/0012-upload-direto-minio.md).
 |---|---|
 | Arquivo escolhido fora do básico | A tela recusa antes de enviar: tipo ou tamanho já visivelmente fora das especificações |
 | Envio em andamento | Barra de progresso real, do navegador direto ao armazenamento |
-| Validando | "Conferindo o arquivo" — a API está inspecionando dimensões, proporção e, se vídeo, codecs e duração |
+| Validando | "Conferindo o arquivo" — a API está inspecionando dimensões e, se vídeo, codecs e duração |
 | Mídia recusada | Mensagem específica: "JPEG de até 8 MB. Este arquivo tem 12 MB" — nunca "arquivo inválido" |
-| Proporção fora | Prévia com o recorte que o Instagram faria, e a faixa aceita de 4:5 a 1.91:1 |
+| Proporção fora do feed | **Não é recusa**: a tela diz para que formatos a imagem serve e oferece duas saídas — "enviar como está" ou "recortar para o feed", com prévia do corte e a faixa de 4:5 a 1.91:1. Uma arte 9:16 é válida para Stories, e recortá-la à força destruiria o formato pretendido |
 | Legenda no limite | Contador vira alerta ao passar de 2200 caracteres, 30 hashtags ou 20 menções |
 | Marcando pessoas | Sobreposição da imagem com os pontos arrastáveis |
 | Horário no passado | Campo recusa e explica |

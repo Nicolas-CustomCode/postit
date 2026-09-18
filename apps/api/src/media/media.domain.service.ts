@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { createHash, randomBytes } from "node:crypto";
 import { imageSize } from "image-size";
-import { FEED_IMAGE_MAX_BYTES, FEED_IMAGE_MIME, type MediaSummary } from "@repo/shared";
+import { IMAGE_UPLOAD_SPEC, validateImageUpload, type ImageProblem, type MediaSummary } from "@repo/shared";
 import {
   MediaAlreadyConfirmedError,
   MediaCorruptError,
@@ -11,7 +11,7 @@ import {
   MediaUploadInvalidError,
   MediaWrongTypeError,
 } from "../common/errors";
-import { detectImageType, orientedSize, validateFeedImage, type ImageProblem } from "../domain/media/image-rules";
+import { detectImageType, orientedSize } from "../domain/media/image-rules";
 import { PrismaService } from "../prisma/prisma.service";
 import { PUBLIC_PREFIX, RECEIVED_PREFIX, StorageService } from "../storage/storage.service";
 import { MEDIA_CONFIG, type MediaConfig } from "./media.config";
@@ -27,6 +27,12 @@ import { readUploadTicket, signUploadTicket } from "./upload-ticket";
  *
  * A regra que dá sentido a tudo: **o arquivo só fica público depois de
  * validado**. Até lá ele mora em `recebidos/`, que ninguém de fora lê.
+ *
+ * ⚠️ **O que se valida aqui é o piso, não o formato.** Proporção depende do
+ * formato de destino, que só existe na postagem (RF-B03): uma arte 9:16 é
+ * inválida para o feed e perfeita para Stories. O acervo é compartilhado e a
+ * mesma mídia serve a várias postagens (RF-B04), então ela entra pelo que vale em
+ * qualquer formato, e a pergunta "isto serve?" fica para a composição.
  */
 @Injectable()
 export class MediaDomainService {
@@ -51,10 +57,10 @@ export class MediaDomainService {
 
     const politica = await this.storage.signedUpload({
       key: objectKey,
-      contentType: FEED_IMAGE_MIME,
+      contentType: IMAGE_UPLOAD_SPEC.mime,
       // Um byte: arquivo vazio é recusado pelo próprio armazenamento.
       minBytes: 1,
-      maxBytes: FEED_IMAGE_MAX_BYTES,
+      maxBytes: IMAGE_UPLOAD_SPEC.maxBytes,
       ttlSeconds: this.config.uploadTtlSeconds,
       now,
     });
@@ -63,8 +69,8 @@ export class MediaDomainService {
       {
         objectKey,
         userId,
-        contentType: FEED_IMAGE_MIME,
-        maxBytes: FEED_IMAGE_MAX_BYTES,
+        contentType: IMAGE_UPLOAD_SPEC.mime,
+        maxBytes: IMAGE_UPLOAD_SPEC.maxBytes,
         expiresAt: politica.expiresAt.getTime(),
       },
       this.config.uploadSecret,
@@ -176,19 +182,28 @@ export class MediaDomainService {
       throw new MediaCorruptError();
     }
 
+    // Medida ausente ou degenerada é arquivo quebrado, não regra violada — a
+    // mensagem precisa mandar trocar o arquivo, não redimensioná-lo.
     if (medidas.width === undefined || medidas.height === undefined) throw new MediaCorruptError();
+    if (medidas.width <= 0 || medidas.height <= 0) throw new MediaCorruptError();
 
     // A rotação do EXIF entra aqui: a foto tirada em pé chega deitada nos bytes,
-    // e sem girar a proporção sai errada.
+    // e as medidas gravadas na `Midia` são as que a composição vai usar para
+    // decidir a que formatos ela serve.
     const { width, height } = orientedSize(medidas.width, medidas.height, medidas.orientation);
 
-    const problema = validateFeedImage({ mimeType, bytes: bytes.length, width, height });
+    const problema = validateImageUpload({ mimeType, bytes: bytes.length, width, height });
     if (problema !== null) throw problemToError(problema);
 
     return { mimeType, bytes: bytes.length, width, height };
   }
 }
 
+/**
+ * O `MEDIA_RATIO_UNSUPPORTED` não sai do envio — proporção é decisão do formato,
+ * e a composição é que a toma (RF-B03). Fica aqui porque `ImageProblem` é o mesmo
+ * tipo das duas validações, e o switch precisa ser exaustivo.
+ */
 function problemToError(problem: ImageProblem): Error {
   switch (problem) {
     case "MEDIA_WRONG_TYPE":

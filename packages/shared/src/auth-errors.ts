@@ -82,10 +82,12 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
    * "Estados de interface"). Nunca "arquivo inválido": quem lê precisa saber
    * qual regra pegou e qual é o limite.
    */
-  MEDIA_WRONG_TYPE: "O Instagram só aceita JPEG em publicações de feed",
+  MEDIA_WRONG_TYPE: "O Instagram só aceita JPEG em imagens",
   MEDIA_TOO_LARGE: "A imagem passa do limite de 8 MB",
   MEDIA_TOO_NARROW: "A imagem é estreita demais: a largura mínima é 320 pixels",
-  MEDIA_RATIO_UNSUPPORTED: "Proporção fora do permitido. Use entre 4:5 e 1.91:1",
+  // Sem a faixa no texto: ela muda com o formato de destino (RF-B03), e quem
+  // sabe qual formato está em jogo é a tela. Ela completa a frase.
+  MEDIA_RATIO_UNSUPPORTED: "Proporção fora do permitido para este formato",
   MEDIA_CORRUPT: "Não consegui ler esta imagem. O arquivo pode estar corrompido",
   MEDIA_UPLOAD_INVALID: "Este envio não vale mais. Escolha o arquivo de novo",
   MEDIA_ALREADY_CONFIRMED: "Este arquivo já foi enviado",

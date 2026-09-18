@@ -508,6 +508,12 @@ usuário antes do envio, e a API as usa para validar de verdade depois do envio 
 definem o tamanho máximo e o tipo aceitos na política de envio assinada
 ([ADR 0012](adr/0012-upload-direto-minio.md)).
 
+> ⚠️ **As tabelas abaixo não são intercambiáveis, e a diferença tem consequência.** A faixa apertada
+> de proporção — 4:5 a 1.91:1 — vale **só para imagem de feed e itens de carrossel**. Stories não tem
+> faixa obrigatória, e os vídeos aceitam de 0.01:1 a 10:1. Por isso o envio valida só o **piso comum**
+> (tipo, tamanho, largura mínima) e a proporção fica para a composição, contra o formato escolhido
+> (RF-B03). Ver "Como o validador trata estas tabelas", logo abaixo.
+
 ### Imagens — feed e itens de carrossel
 
 | Item | Valor |
@@ -523,25 +529,40 @@ definem o tamanho máximo e o tipo aceitos na política de envio assinada
 PNG, WebP, HEIC e AVIF são recusados. É a recusa mais comum no dia a dia, e a mensagem precisa
 dizer isso com todas as letras.
 
-#### Como o validador trata esta tabela — decidido em 18/09/2026
+#### Como o validador trata estas tabelas — decidido em 18/09/2026
 
-Três notas, porque o código **não segue a tabela ao pé da letra** em um ponto, e o
-[AGENTS.md](../AGENTS.md) manda registrar quando isso acontece.
+O código **não segue as tabelas ao pé da letra** em três pontos, e o [AGENTS.md](../AGENTS.md) manda
+registrar quando isso acontece.
+
+**Onde cada regra é conferida.** O envio (`validateImageUpload`) aplica só o que vale para qualquer
+formato; a composição (`validateImageFormat`) aplica a faixa do formato escolhido.
+
+| Regra | Conferida no envio? | Valor |
+|---|---|---|
+| Só JPEG | **Sim** | Vale para imagem em todo formato |
+| Tamanho máximo | **Sim** | 8 MB em todo formato de imagem |
+| Largura mínima | **Sim** | 320 px |
+| Proporção | **Não** | Faixa do formato, na composição |
+| Largura máxima | **Nunca** | Ver abaixo |
 
 | Item | O que o validador faz | Por quê |
 |---|---|---|
 | Largura **máxima** de 1440 px | **Não é validada.** Só a mínima, 320 px | A Meta não devolve código de erro para largura — ela redimensiona sozinha. Recusar barraria quase toda foto de celular, que passa de 3000 px, e a normalização automática (RF-B06) está marcada como "Depois". O custo é que a imagem publicada não é byte a byte a enviada |
 | "8 MB" | **8.000.000 bytes**, decimal | A Meta não diz a base. 8 MiB seriam 8.388.608. Aceitar o valor maior deixaria passar arquivo que ela recusaria **na hora de publicar**, e esta seção é justamente sobre não deixar isso acontecer. **A confirmar** com um arquivo entre os dois valores |
-| Proporção | Aritmética inteira: `largura × 5 ≥ altura × 4` e `largura × 100 ≤ altura × 191` | Comparar com `1.91` em ponto flutuante traz a pergunta "1,9115 passa?", cuja resposta muda com arredondamento. 1080×1350 dá exatamente o limite e passa |
+| Largura mínima de 320 px | **Aplicada a toda imagem**, não só à de feed | A Meta documenta o mínimo só para feed e não publica nenhum para Stories. Uma imagem de 100 px não serve para nada na prática, então o piso do acervo adota o número do feed. **É prudência nossa, não fonte** |
+| Proporção | **Sai do envio.** Aritmética inteira na composição: `largura × 5 ≥ altura × 4` e `largura × 100 ≤ altura × 191` para o feed | Não existe faixa comum a todos os formatos, então exigir uma no envio escolheria um formato às escondidas — era o que acontecia, e uma arte 9:16 de Stories era recusada e recortada para 4:5. Os inteiros evitam a pergunta "1,9115 passa?", cuja resposta muda com arredondamento; 1080×1350 dá exatamente o limite e passa |
 
-Dois cuidados que só apareceram ao implementar:
+Três cuidados que só apareceram ao implementar:
 
-- **A orientação EXIF precisa ser aplicada antes de medir a proporção.** A câmera do celular grava o
-  sensor em paisagem e anota "gire 90°": a foto tirada em pé chega deitada nos bytes. Sem girar, um
-  retrato 3:4 é lido como paisagem 4:3 e **passaria** na validação — para o Instagram recortá-lo depois.
+- **A orientação EXIF precisa ser aplicada antes de medir.** A câmera do celular grava o sensor em
+  paisagem e anota "gire 90°": a foto tirada em pé chega deitada nos bytes. São as medidas **giradas**
+  que ficam gravadas na `Midia`, e é delas que a composição tira os formatos que a imagem atende — sem
+  girar, um retrato 3:4 seria oferecido para o feed como se fosse paisagem 4:3.
 - **`FF D8 FF` não basta para reconhecer JPEG.** O MPO, a foto 3D de algumas câmeras, começa com os mesmos
   três bytes, e esta mesma seção diz que ele não é suportado. O que os separa é um segmento APP2 com a
   marca `MPF`.
+- **Recomendado não é obrigatório.** Para imagem de Stories a Meta só diz "9:16 recomendado". Sem faixa
+  publicada não há o que validar, e inventar um limite recusaria material legítimo.
 
 ### Reels
 
@@ -578,6 +599,10 @@ Mesmos codecs, container e taxa de quadros dos Reels. As diferenças:
 ### Stories — imagem
 
 JPEG, até 8 MB, sRGB, 9:16 recomendado.
+
+**É tudo que a documentação publica** — não há faixa de proporção obrigatória, nem largura mínima ou
+máxima. O validador respeita isso: `IMAGE_SPECS.STORIES` tem `ratio: null`, e uma imagem só é recusada
+para Stories pelo piso comum (JPEG, 8 MB, 320 px). Ver "A validar em desenvolvimento".
 
 ### Vídeo de feed
 
@@ -856,6 +881,7 @@ todos precisam ser confirmados empiricamente na Fase 1 e o resultado registrado 
 | V-12 | Novos escopos exigem nova autorização? | Nada explícito | Assumir que sim: cada conta reconecta | Testar ao adicionar o primeiro escopo novo |
 | V-18 | Instagram Login aceita `http://localhost` como URI de retorno? | **Parcialmente resolvido em 17/09/2026:** o túnel rápido com https **funciona** como URI de retorno — a primeira conta foi conectada por ele, de ponta a ponta. `localhost` continua sem teste, e não vale a pena testar: a postura de usar o túnel resolve o caso | Usar túnel rápido com https. Ver [14](14-ambientes-e-desenvolvimento.md) | — |
 | V-19 | Janela retroativa das métricas da conta | **Resolvido em 18/09/2026** | A pergunta perdeu o sentido original: como só `reach` existe em série temporal, **cada dia é uma chamada própria** e cada janela cobre um dia só. Sobrou escolher quantos dias buscar — **30**, com a Meta guardando 90. Confirmado buscando 30 dias, inclusive anteriores à conexão da conta | — |
+| V-21 | Imagem de Stories tem faixa de proporção obrigatória? | Só "9:16 recomendado", sem mínimo nem máximo | **Não validar proporção para Stories** (`ratio: null`). Como consequência, uma imagem 1:20 entra no acervo: ela não serve ao feed, e não há fonte que a recuse em Stories. Inventar um limite recusaria material legítimo | Publicar um Story com proporção extrema — 4000×400 — e observar se a Meta recusa, enquadra ou corta |
 | V-20 | Política de privacidade e exclusão de dados em modo de desenvolvimento | Exigidas para o modo Live; para desenvolvimento, não confirmado | Não publicar páginas de política até ser exigido | Tentar configurar o PostIt Dev sem esses campos |
 
 ### Itens de infraestrutura

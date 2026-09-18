@@ -1,18 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { cropAxis, cropRect, FEED_IMAGE_RATIO_LABEL } from "@repo/shared";
+import { cropAxis, cropRect, type ImageSpec } from "@repo/shared";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import type { LoadedImage } from "@/lib/media/crop-image";
 
 /**
- * Escolher o que fica dentro do recorte (RF-B02; docs/04, "Proporção fora").
+ * Escolher o que fica dentro do recorte (RF-B02, RF-B03; docs/04, "Proporção
+ * fora").
  *
  * **Por que esta tela existe.** O feed do Instagram aceita de 4:5 a 1.91:1, e
  * foto de celular tirada em pé é 3:4 — mais alta que o limite. O app do
  * Instagram corta sozinho e ninguém percebe; aqui a pessoa vê o corte antes e
  * decide o que sobra, em vez de descobrir depois de publicado.
+ *
+ * ⚠️ **Só aparece quando a pessoa pede.** Recortar é escolha, não obstáculo: uma
+ * arte 9:16 feita para Stories é válida como está, e recortá-la para 4:5 sem
+ * perguntar destruiria o formato que ela queria. Quem chama diz **para qual
+ * formato** é o recorte.
  *
  * **Um controle deslizante, e não arrastar com o dedo.** Só um eixo importa —
  * numa foto em pé, a largura já está inteira e o que se escolhe é a faixa
@@ -22,12 +28,15 @@ import type { LoadedImage } from "@/lib/media/crop-image";
 export function CropPreview({
   image,
   ratio,
+  spec,
   onConfirm,
   onCancel,
   busy,
 }: {
   readonly image: LoadedImage;
   readonly ratio: number;
+  /** O formato de destino do recorte — dá o nome e a faixa da explicação. */
+  readonly spec: ImageSpec;
   readonly onConfirm: (position: number) => void;
   readonly onCancel: () => void;
   readonly busy: boolean;
@@ -70,9 +79,9 @@ export function CropPreview({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="text-sm font-medium">Esta foto precisa ser recortada</p>
+        <p className="text-sm font-medium">Recortar para {spec.label}</p>
         <p className="text-sm text-muted-foreground">
-          O Instagram aceita de {FEED_IMAGE_RATIO_LABEL} no feed. Escolha a parte que fica.
+          O Instagram aceita de {spec.ratioLabel} nesse formato. Escolha a parte que fica.
         </p>
       </div>
 
@@ -105,7 +114,7 @@ export function CropPreview({
           {busy ? "Enviando…" : "Usar este recorte"}
         </Button>
         <Button type="button" variant="outline" className="h-11 md:h-10" disabled={busy} onClick={onCancel}>
-          Escolher outra imagem
+          Voltar
         </Button>
       </div>
     </div>

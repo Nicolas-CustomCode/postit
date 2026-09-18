@@ -56,7 +56,9 @@ ela. Nada de escolher a conta de novo a cada postagem, filtro ou métrica (RF-A0
 
 - **Notificações** lista avisos de todas as contas, cada um com a conta indicada. Tocar abre a postagem já na
   conta dela
-- **Acervo** é compartilhado: uma mídia enviada pode ser usada em qualquer conta
+- **Acervo** é compartilhado: uma mídia enviada pode ser usada em qualquer conta **e em qualquer
+  formato**. Por isso o envio não pergunta o formato de destino e não confere proporção — quem faz
+  isso é a composição, contra o formato escolhido (RF-B03)
 - **Saúde** mostra todas as contas lado a lado — cota, token, falhas —, porque é onde se percebe problema em conta
   que ninguém está olhando
 

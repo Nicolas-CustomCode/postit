@@ -212,7 +212,7 @@ testes** e o app PostIt Dev — nunca numa conta real. Não há homologação ([
 | 2 | Conferir o perfil no Instagram | A postagem está lá, com legenda e texto alternativo corretos |
 | 3 | Enviar um PNG | Recusado no envio, com a mensagem certa |
 | 4 | Enviar JPEG de 12 MB | Recusado no envio, informando o limite de 8 MB |
-| 5 | Enviar imagem 2:1 | Recusado, informando a faixa de 4:5 a 1.91:1 |
+| 5 | Enviar imagem 9:16 e usá-la numa postagem de feed | **Entra no acervo** (serve para Stories); a composição recusa para o feed, informando a faixa de 4:5 a 1.91:1, e oferece o recorte |
 | 6 | Executar o publicador da mesma postagem duas vezes em paralelo | **Uma única publicação** |
 | 7 | Parar o worker, deixar passar 20 minutos do horário de uma postagem agendada e religar | **Nada é publicado**; a postagem vai para `FALHOU` com a causa "sistema indisponível" |
 | 8 | Invalidar o token e agendar | Vai para `FALHOU`, mensagem pede reconexão, conta sinalizada |
@@ -229,12 +229,17 @@ O teste 6 é o mais importante do projeto inteiro. Se ele falhar, nada mais impo
 
 **Confirmados em 18/09/2026, com o envio de mídia (parte 1a):** testes **3** (PNG recusado com a mensagem
 certa), **4** (acima de 8 MB recusado — e **pelo próprio armazenamento**, antes de a API ver o arquivo, que é
-o que o RF-B02 pede), **5** (proporção 2:1 recusada), **12** (`recebidos/` devolve 403 e `publicas/` devolve
-200) e **13** (envio sem política assinada é recusado). Os cinco cobertos por teste automático contra o
-MinIO de verdade, e o V-15 resolvido junto.
+o que o RF-B02 pede), **12** (`recebidos/` devolve 403 e `publicas/` devolve 200) e **13** (envio sem
+política assinada é recusado). Os quatro cobertos por teste automático contra o MinIO de verdade, e o V-15
+resolvido junto.
 
-Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, **6** a **11**, **14**,
-**15** e **16**.
+⚠️ **O teste 5 mudou de sinal** na mesma data. Ele dizia "imagem 2:1 é recusada no envio", o que só
+valeria se o acervo fosse de feed — e ele é compartilhado entre formatos (RF-B03, RF-B04). A metade do
+envio está confirmada (a imagem entra, e a tela oferece o recorte para o feed); a metade da composição
+espera a parte 1b.
+
+Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
+**5**, **6** a **11**, **14**, **15** e **16**.
 
 **Depois do roteiro de fogo: a estreia em produção.** Marcar a versão, fazer o deploy dela no Easypanel e
 seguir a [estreia em produção](10-infra-deploy.md#estreia-em-produção) — cabeçalhos, `X-Real-IP`, V-15, V-16,

@@ -94,13 +94,17 @@ com dimensões, duração (se vídeo), tamanho, mime e hash. Envio sem permissã
 tamanho autorizado, é recusado pelo armazenamento.
 
 ### RF-B02 — Validar a mídia no envio **[MVP]**
-No momento do envio, o sistema verifica formato, tamanho, proporção, duração e codec contra as
-especificações da Meta e recusa o que não passa.
+No momento do envio, o sistema verifica formato, tamanho, duração e codec contra as especificações da
+Meta e recusa o que não passa.
 
-**Aceite:** um PNG, um JPEG de 12 MB, uma imagem 2:1 ou um vídeo de 2 segundos são recusados **no
-envio**, com mensagem dizendo qual regra foi violada e qual é o limite. Nenhuma cota é consumida. O que
-dá para conferir sem abrir o arquivo — tipo e tamanho — a tela confere antes de enviar; o resto a API
-confere logo após o envio. **Arquivo recusado é apagado do armazenamento e nunca fica acessível
+⚠️ **Proporção não entra aqui** — ela depende do formato de destino, e quem a confere é o RF-B03. O
+envio aplica só o que reprova em **qualquer** formato: um JPEG de 8 MB é grande demais tanto para o
+feed quanto para Stories, mas 9:16 só é problema no feed.
+
+**Aceite:** um PNG, um JPEG de 12 MB ou um vídeo de 2 segundos são recusados **no envio**, com
+mensagem dizendo qual regra foi violada e qual é o limite. Nenhuma cota é consumida. O que dá para
+conferir sem abrir o arquivo — tipo e tamanho — a tela confere antes de enviar; o resto a API confere
+logo após o envio. **Arquivo recusado é apagado do armazenamento e nunca fica acessível
 publicamente.**
 
 ### RF-B03 — Validar por formato de destino **[MVP]**
@@ -108,7 +112,11 @@ A mesma mídia pode ser válida para um formato e inválida para outro. A valida
 formato escolhido na postagem.
 
 **Aceite:** um vídeo de 5 minutos é aceito para Reels e recusado para Stories (limite de 60s), com
-a mensagem certa em cada caso.
+a mensagem certa em cada caso. Uma imagem 9:16 é aceita para Stories e recusada para o feed, que aceita
+de 4:5 a 1.91:1 — e nesse caso o sistema **oferece o recorte**, sem impô-lo.
+
+**Estado:** o envio genérico está pronto desde 18/09/2026; a conferência por formato acontece na tela
+de composição.
 
 ### RF-B04 — Reaproveitar mídia **[MVP]**
 Uma mídia já enviada pode ser usada em mais de uma postagem.

@@ -145,6 +145,11 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
 10. **Mídia só fica pública depois de validada.** O navegador envia para `recebidos/` com política
     assinada; a API valida e move para `publicas/`. Validar no envio, não na publicação. Nenhuma rota
     da API aceita corpo acima de 1 MB.
+    **O envio valida o piso; o formato valida o resto.** A faixa de proporção 4:5 a 1.91:1 é **do
+    feed** — Stories não tem faixa nenhuma. O acervo é compartilhado entre contas e formatos, então
+    ele aceita pelo que vale em qualquer formato (`validateImageUpload`) e a composição confere o
+    formato escolhido (`validateImageFormat`), ambos em `packages/shared/src/media-formats.ts`.
+    Recortar é oferta, nunca imposição: recortar uma arte 9:16 para 4:5 destrói o formato pretendido.
 11. **Verificação em duas etapas é obrigatória para todos.** Senha certa cria só um desafio; sessão só
     nasce depois do código. Não crie atalho, modo de teste nem exceção por usuário. Detalhes em
     [docs/adr/0013-autenticacao-com-duas-etapas.md](docs/adr/0013-autenticacao-com-duas-etapas.md).

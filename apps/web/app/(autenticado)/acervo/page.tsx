@@ -37,14 +37,15 @@ export default async function AcervoPage(): Promise<ReactNode> {
         <CardHeader>
           <CardTitle className="font-heading text-lg">Enviar imagem</CardTitle>
           <CardDescription>
-            JPEG de até 8 MB, com proporção entre 4:5 e 1.91:1 — os limites do próprio Instagram.
+            JPEG de até 8 MB, com pelo menos 320 pixels de largura — os limites do próprio Instagram.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <UploadField />
           <p className="text-sm text-muted-foreground">
-            O arquivo vai direto para o nosso armazenamento e só fica disponível depois de conferido. O que
-            não passa nas regras é recusado na hora, com o motivo.
+            O arquivo vai direto para o nosso armazenamento e só fica disponível depois de conferido. A
+            proporção não impede o envio: cada formato de postagem aceita a sua, e a conferência acontece na
+            hora de compor.
           </p>
         </CardContent>
       </Card>

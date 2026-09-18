@@ -1,18 +1,19 @@
-import { FEED_IMAGE_MAX_BYTES } from "@repo/shared";
+import { IMAGE_MAX_BYTES } from "@repo/shared";
 import { createTestUser, TEST_PASSWORD, totpCodeFor } from "../common/testing/factories";
 import { jpegBytes, pngBytes } from "../common/testing/image-fixtures";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
 import { PUBLIC_PREFIX, StorageService } from "../storage/storage.service";
 
 /**
- * Enviar e validar uma imagem de feed, de ponta a ponta (RF-B01, RF-B02).
+ * Enviar e validar uma imagem, de ponta a ponta (RF-B01, RF-B02).
  *
  * Contra o Postgres e o MinIO de verdade: o que se quer provar é que o arquivo
  * recusado **some** e que o aceito **fica público**, e nenhum dos dois se prova
  * com armazenamento falso.
  *
- * Cobre os testes 3, 4 e 5 do roteiro da Fase 1 (docs/12): PNG, arquivo grande
- * demais e proporção 2:1, cada um com a recusa certa.
+ * Cobre os testes 3 e 4 do roteiro da Fase 1 (docs/12) — PNG e arquivo grande
+ * demais. O teste 5 mudou de sinal: proporção deixou de ser condição de envio
+ * (RF-B03), e o bloco "proporção não impede o envio" registra o porquê.
  */
 describe("envio de mídia", () => {
   let api: TestApp;
@@ -182,15 +183,11 @@ describe("envio de mídia", () => {
 
       const status = await enviar(
         permissao,
-        jpegBytes({ width: 1080, height: 1080, padToBytes: FEED_IMAGE_MAX_BYTES + 1_000 }),
+        jpegBytes({ width: 1080, height: 1080, padToBytes: IMAGE_MAX_BYTES + 1_000 }),
       );
 
       expect(status).toBeGreaterThanOrEqual(400);
       expect(await api.db.media.count()).toBe(0);
-    });
-
-    it("proporção 2:1 é recusada (teste 5)", async () => {
-      await recusa(jpegBytes({ width: 2000, height: 1000 }), "MEDIA_RATIO_UNSUPPORTED");
     });
 
     it("imagem estreita demais é recusada", async () => {
@@ -200,17 +197,43 @@ describe("envio de mídia", () => {
     it("MPO é recusado, mesmo começando igual a um JPEG", async () => {
       await recusa(jpegBytes({ width: 1080, height: 1080, mpo: true }), "MEDIA_WRONG_TYPE");
     });
+  });
+
+  /*
+   * O teste 5 do roteiro dizia "proporção 2:1 é recusada". **Deixou de valer**:
+   * a faixa de 4:5 a 1.91:1 é do feed, e o acervo é compartilhado entre formatos
+   * (RF-B03, RF-B04). Uma arte 9:16 de Stories é válida, e recusá-la aqui — ou
+   * recortá-la para 4:5 — destruiria o formato pretendido.
+   *
+   * A proporção volta a ser conferida na composição, contra o formato escolhido.
+   */
+  describe("proporção não impede o envio", () => {
+    const aceita = async (corpo: Buffer, medidas: { width: number; height: number }) => {
+      const token = await entrar();
+      const resposta = await enviarEConfirmar(token, corpo);
+
+      expect(resposta.statusCode).toBe(201);
+      expect(resposta.body).toMatchObject(medidas);
+
+      await api.app.get(StorageService).removePublic(await objetoPublico(resposta.body["id"] as string));
+    };
+
+    it("2:1 entra no acervo, ainda que não sirva ao feed", async () => {
+      await aceita(jpegBytes({ width: 2000, height: 1000 }), { width: 2000, height: 1000 });
+    });
+
+    it("9:16 entra no acervo — é a proporção de Stories", async () => {
+      await aceita(jpegBytes({ width: 1080, height: 1920 }), { width: 1080, height: 1920 });
+    });
 
     /*
      * A foto tirada em pé no celular: chega deitada nos bytes, com marca de
-     * rotação. Sem aplicar a rotação, passaria como paisagem válida e o
-     * Instagram a cortaria sozinho.
+     * rotação. O que a rotação decide agora não é aceitar ou recusar, e sim
+     * **quais medidas ficam gravadas** — e é delas que a composição vai tirar os
+     * formatos que a imagem atende.
      */
-    it("foto de celular em pé é avaliada girada, e recusada pela proporção", async () => {
-      await recusa(
-        jpegBytes({ width: 4032, height: 3024, orientation: 6 }),
-        "MEDIA_RATIO_UNSUPPORTED",
-      );
+    it("a foto de celular em pé é gravada girada, não deitada", async () => {
+      await aceita(jpegBytes({ width: 4032, height: 3024, orientation: 6 }), { width: 3024, height: 4032 });
     });
   });
 

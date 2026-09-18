@@ -481,6 +481,13 @@ mesma mídia pode servir a mais de uma postagem (RF-B04).
 Os campos `codecVideo`, `codecAudio` e `moovNoInicio` são resultado da inspeção no envio e servem
 para recusar cedo o que a Meta recusaria tarde. O `hashSha256` detecta reenvio do mesmo arquivo.
 
+⚠️ **`Midia` guarda fatos, nunca intenção de uso.** Não há — e não deve haver — coluna dizendo
+"esta é de Stories": a mesma imagem serve a formatos diferentes (RF-B03) e a postagens diferentes
+(RF-B04), e o formato mora em `Postagem.formato`. Quem decide se uma mídia serve a um formato são
+`largura` e `altura`, comparadas com a faixa daquele formato na hora de compor. Por isso as medidas
+são gravadas **já com a rotação do EXIF aplicada**: a foto tirada em pé chega deitada nos bytes, e
+guardá-la deitada faria a composição oferecê-la para o feed por engano.
+
 ### `Postagem`
 A unidade central. Existe no nosso banco muito antes de existir no Instagram — e pode nunca chegar
 a existir lá, se for cancelada.
