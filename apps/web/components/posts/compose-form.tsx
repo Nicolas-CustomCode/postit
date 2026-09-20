@@ -8,15 +8,16 @@ import {
   CAPTION_MAX_HASHTAGS,
   CAPTION_MAX_LENGTH,
   CAPTION_MAX_MENTIONS,
+  IMAGE_SPECS,
+  POST_FORMAT_LABELS,
   type ActionConflict,
   type PostDetail,
 } from "@repo/shared";
 import { LocalDate } from "@/components/local-date";
 import { UploadField } from "@/components/media/upload-field";
-import { PostStatusBadge } from "@/components/posts/post-status-badge";
+import { ComposeSection } from "@/components/posts/compose-section";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   discardPostAction,
   markPostReadyAction,
@@ -97,14 +98,7 @@ export function ComposeForm({ username, post }: { readonly username: string; rea
     );
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <PostStatusBadge status={post.status} />
-        <span className="text-sm text-muted-foreground">
-          Criada por {post.createdByName} · <LocalDate iso={post.updatedAt} format="comHora" />
-        </span>
-      </div>
-
+    <div className="flex flex-col gap-4">
       {conflito !== null && (
         <Alert role="alert">
           <AlertDescription className="flex flex-col gap-3">
@@ -148,8 +142,24 @@ export function ComposeForm({ username, post }: { readonly username: string; rea
         </Alert>
       )}
 
-      <div className="flex flex-col gap-3">
-        <Label>Imagem</Label>
+      {/*
+       * O formato é fixo nesta fase; o artboard mostra pílulas de escolha, que
+       * chegam na Fase 2 junto com carrossel, vídeo, Reels e Stories.
+       */}
+      <ComposeSection title="Formato">
+        <p className="inline-flex h-10 w-fit items-center rounded-full border bg-muted px-4 text-sm font-semibold">
+          {POST_FORMAT_LABELS[post.format]}
+        </p>
+      </ComposeSection>
+
+      <ComposeSection
+        title="Mídia"
+        aside={
+          <span className="text-[13px] text-muted-foreground">
+            JPEG até 8 MB, proporção de {IMAGE_SPECS.FEED_IMAGE.ratioLabel}
+          </span>
+        }
+      >
         {imagem !== undefined && (
           /*
            * O endereço vem do nosso armazenamento e muda junto com o túnel; o
@@ -182,27 +192,29 @@ export function ComposeForm({ username, post }: { readonly username: string; rea
             })
           }
         />
-      </div>
+      </ComposeSection>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="legenda">Legenda</Label>
+      <ComposeSection title="Legenda">
+        <label htmlFor="legenda" className="sr-only">
+          Legenda
+        </label>
         <textarea
           id="legenda"
           value={caption}
           disabled={ocupado}
           onChange={(evento) => setCaption(evento.target.value)}
-          rows={8}
-          className="w-full rounded-lg border bg-transparent p-3 text-sm"
+          rows={7}
+          className="min-h-33 w-full rounded-[10px] border bg-transparent px-3.5 py-3 text-[15px]/relaxed focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none"
           placeholder="O que vai junto com a imagem"
         />
 
         {/* Os três contadores do RF-C03, com os limites da Meta. */}
-        <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground tabular-nums">
           <Contador atual={contagem.length} limite={CAPTION_MAX_LENGTH} nome="caracteres" />
           <Contador atual={contagem.hashtags} limite={CAPTION_MAX_HASHTAGS} nome="hashtags" />
           <Contador atual={contagem.mentions} limite={CAPTION_MAX_MENTIONS} nome="menções" />
         </p>
-      </div>
+      </ComposeSection>
 
       {erro !== null && (
         <Alert variant="destructive" role="alert">
@@ -210,7 +222,12 @@ export function ComposeForm({ username, post }: { readonly username: string; rea
         </Alert>
       )}
 
-      <div className="flex flex-col gap-2 md:flex-row">
+      {/*
+       * No celular as ações ficam **fixas no rodapé** (docs/13, "Compor"): com o
+       * formulário mais alto que a tela, um botão no fim do documento some de
+       * vista justo quando se precisa dele.
+       */}
+      <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mx-0 md:flex-row md:border-0 md:bg-transparent md:p-0">
         <Button
           type="button"
           className="h-11 md:h-10"
@@ -222,7 +239,7 @@ export function ComposeForm({ username, post }: { readonly username: string; rea
           }
         >
           {ocupado ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-          Salvar
+          Salvar rascunho
         </Button>
 
         <Button
@@ -274,11 +291,22 @@ export function ComposeForm({ username, post }: { readonly username: string; rea
   );
 }
 
-/** Passar do limite fica em vermelho — e o número diz de quanto foi. */
+/**
+ * Um contador da legenda, no formato do artboard: o número em destaque, o limite
+ * com separador de milhar, e o nome por extenso.
+ *
+ * Passar do limite fica em vermelho — e o número continua visível, porque saber
+ * **de quanto** foi é o que diz quanto cortar.
+ */
 function Contador({ atual, limite, nome }: { readonly atual: number; readonly limite: number; readonly nome: string }) {
+  const excedeu = atual > limite;
+
   return (
-    <span className={cn(atual > limite && "font-semibold text-destructive")}>
-      {atual} / {limite} {nome}
+    <span className={cn(excedeu && "text-destructive")}>
+      <strong className={cn("font-semibold", excedeu ? "text-destructive" : "text-foreground")}>
+        {atual.toLocaleString("pt-BR")}
+      </strong>{" "}
+      / {limite.toLocaleString("pt-BR")} {nome}
     </span>
   );
 }

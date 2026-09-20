@@ -17,19 +17,30 @@ export function PageHeader({
   title,
   description,
   actions,
+  besideTitle,
 }: {
   /** O caminho até aqui, do mais geral ao mais específico. */
   readonly trail: readonly string[];
   readonly title: string;
   readonly description?: string;
   readonly actions?: ReactNode;
+  /**
+   * O que fica **colado no título**, e não à direita: a pílula de status e o
+   * "Salvo às 14:32" da composição. O artboard os põe aí de propósito — eles
+   * dizem respeito ao que se está olhando, enquanto `actions` são o que se pode
+   * fazer com aquilo.
+   */
+  readonly besideTitle?: ReactNode;
 }): ReactNode {
   return (
     <div className="flex flex-col gap-2">
       {trail.length === 0 ? null : <p className="text-[13px] text-muted-foreground">{trail.join(" / ")}</p>}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-heading text-[30px] font-extrabold tracking-[-0.02em] md:text-[34px]">{title}</h1>
+        <div className="flex flex-wrap items-center gap-3.5">
+          <h1 className="font-heading text-[30px] font-extrabold tracking-[-0.02em] md:text-[34px]">{title}</h1>
+          {besideTitle}
+        </div>
         {actions}
       </div>
 

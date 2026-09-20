@@ -49,7 +49,7 @@ export default async function PostagensPage({
       )}
 
       {posts.length === 0 ? (
-        <Card className="flex flex-col items-center gap-2 p-8 text-center">
+        <Card className="flex flex-col items-center gap-2 rounded-2xl p-8 text-center">
           <p className="font-heading text-lg">Nenhuma postagem ainda</p>
           <p className="text-sm text-muted-foreground">
             {podeEditar
@@ -63,10 +63,10 @@ export default async function PostagensPage({
             <li key={post.id}>
               <Link
                 href={`/c/${username}/postagens/${post.id}`}
-                className="flex min-h-20 items-center gap-3 rounded-lg border p-3 hover:bg-muted"
+                className="flex min-h-20 items-center gap-3 rounded-2xl border bg-card p-3 hover:bg-muted"
               >
                 {post.thumbnailUrl === null ? (
-                  <span className="flex size-16 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <span className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                     <ImageOff className="size-5" aria-hidden />
                   </span>
                 ) : (
@@ -75,7 +75,7 @@ export default async function PostagensPage({
                    * exigiria domínio fixo na configuração.
                    */
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={post.thumbnailUrl} alt="" className="size-16 shrink-0 rounded-md object-cover" />
+                  <img src={post.thumbnailUrl} alt="" className="size-16 shrink-0 rounded-xl object-cover" />
                 )}
 
                 <span className="flex min-w-0 flex-1 flex-col gap-1">

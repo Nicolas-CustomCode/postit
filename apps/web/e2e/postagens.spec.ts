@@ -46,7 +46,9 @@ test.describe("postagens", () => {
     await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
     await expect(page.getByRole("heading", { name: "Compor" })).toBeVisible();
     await expect(page.getByLabel("Legenda")).toHaveValue("Um dia bonito na loja");
-    await expect(page.getByText("Rascunho")).toBeVisible();
+    // `exact` porque getByText é insensível a maiúsculas: sem ele, "Rascunho" da
+    // pílula casa também com o botão "Salvar rascunho".
+    await expect(page.getByText("Rascunho", { exact: true })).toBeVisible();
   });
 
   test("a postagem criada aparece na lista, com o trecho e a situação", async ({ page }) => {
@@ -55,7 +57,7 @@ test.describe("postagens", () => {
 
     const item = conteudo(page).getByRole("link", { name: /promoção de inverno/i });
     await expect(item).toBeVisible();
-    await expect(item.getByText("Rascunho")).toBeVisible();
+    await expect(item.getByText("Rascunho", { exact: true })).toBeVisible();
   });
 
   /*
@@ -70,7 +72,7 @@ test.describe("postagens", () => {
 
     await expect(page.getByText("3 / 30 hashtags")).toBeVisible();
     await expect(page.getByText("1 / 20 menções")).toBeVisible();
-    await expect(page.getByText("43 / 2200 caracteres")).toBeVisible();
+    await expect(page.getByText("43 / 2.200 caracteres")).toBeVisible();
 
     // E-mail não conta como menção: sem essa regra, escrever um contato na
     // legenda daria uma recusa incompreensível.
@@ -97,7 +99,7 @@ test.describe("postagens", () => {
 
     const legenda = page.getByLabel("Legenda");
     await legenda.fill("O que eu estava escrevendo");
-    await page.getByRole("button", { name: "Salvar" }).click();
+    await page.getByRole("button", { name: /salvar rascunho/i }).click();
 
     // Dentro de `main`: o anunciador de rotas do Next também tem role="alert".
     await expect(conteudo(page).getByRole("alert")).toContainText(/foi alterada por/i);
@@ -116,7 +118,7 @@ test.describe("postagens", () => {
     await salvarComoOutraPessoa(postId, "Mexida por outra pessoa");
 
     await page.getByLabel("Legenda").fill("O que eu estava escrevendo");
-    await page.getByRole("button", { name: "Salvar" }).click();
+    await page.getByRole("button", { name: /salvar rascunho/i }).click();
     await page.getByRole("button", { name: /descartar minhas alterações/i }).click();
 
     await expect(page.getByLabel("Legenda")).toHaveValue("Mexida por outra pessoa");

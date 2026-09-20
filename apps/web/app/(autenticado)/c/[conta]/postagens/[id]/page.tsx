@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { can } from "@repo/shared";
+import { LocalDate } from "@/components/local-date";
 import { PageHeader } from "@/components/nav/page-header";
 import { ComposeForm } from "@/components/posts/compose-form";
+import { PostStatusBadge } from "@/components/posts/post-status-badge";
 import { requireSession } from "@/lib/auth/session";
 import { getPost } from "@/lib/data/posts";
 
@@ -28,8 +30,24 @@ export default async function ComporPage({
   const post = await getPost(username, id);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
-      <PageHeader trail={["Nesta conta", "Postagens", "Compor"]} title="Compor" />
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
+      <PageHeader
+        trail={[`@${username}`, "Postagens", "Compor"]}
+        title="Compor"
+        /*
+         * Colado no título, como no artboard: a situação e quando foi salva
+         * dizem respeito ao que se está olhando. As ações ficam com o
+         * formulário, porque dependem do que ele tem em mãos.
+         */
+        besideTitle={
+          <>
+            <PostStatusBadge status={post.status} />
+            <span className="text-[13px] text-muted-foreground tabular-nums">
+              Salvo em <LocalDate iso={post.updatedAt} format="comHora" />
+            </span>
+          </>
+        }
+      />
       <ComposeForm username={username} post={post} />
     </main>
   );

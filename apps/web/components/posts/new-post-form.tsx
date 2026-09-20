@@ -4,9 +4,9 @@ import { Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { POST_FORMAT_LABELS } from "@repo/shared";
+import { ComposeSection } from "@/components/posts/compose-section";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { createPostAction } from "@/lib/actions/posts";
 
 /**
@@ -44,27 +44,35 @@ export function NewPostForm({ username }: { readonly username: string }): ReactN
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <Label>Formato</Label>
-        <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+    <div className="flex flex-col gap-4">
+      {/*
+       * Uma pílula, como o artboard desenha o seletor de formato — só que com
+       * uma opção. Vira escolha na Fase 2, quando os outros formatos existirem.
+       */}
+      <ComposeSection title="Formato">
+        <p className="inline-flex h-10 w-fit items-center rounded-full border bg-muted px-4 text-sm font-semibold">
           {POST_FORMAT_LABELS.FEED_IMAGE}
         </p>
-      </div>
+      </ComposeSection>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="legenda">Legenda</Label>
+      <ComposeSection
+        title="Legenda"
+        aside={<span className="text-[13px] text-muted-foreground">Dá para deixar para depois</span>}
+      >
+        <label htmlFor="legenda" className="sr-only">
+          Legenda
+        </label>
         <textarea
           id="legenda"
           value={caption}
           disabled={ocupado}
           onChange={(evento) => setCaption(evento.target.value)}
           rows={6}
-          className="w-full rounded-lg border bg-transparent p-3 text-sm"
-          placeholder="Pode começar por aqui, ou deixar para depois"
+          className="w-full rounded-[10px] border bg-transparent px-3.5 py-3 text-[15px]/relaxed focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none"
+          placeholder="Pode começar por aqui"
         />
-        <p className="text-xs text-muted-foreground">A imagem e os contadores vêm na tela seguinte.</p>
-      </div>
+        <p className="text-[13px] text-muted-foreground">A imagem e os contadores vêm na tela seguinte.</p>
+      </ComposeSection>
 
       {erro !== null && (
         <Alert variant="destructive" role="alert">

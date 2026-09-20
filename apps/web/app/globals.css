@@ -40,6 +40,32 @@
    * artefato (artboard SeletorConta).
    */
   --warning: #9a4705;
+
+  /*
+   * Cores dos status da postagem (docs/13, "Cores dos status"; artboards
+   * ComposicaoDesktop e RevisaoDesktop).
+   *
+   * Cada status tem o par texto/fundo, e eles **andam sempre juntos** — separá-los
+   * faria o contraste depender de sorte. A pílula mostra o nome escrito e um ponto
+   * da cor do texto: cor sozinha não é sinal, por acessibilidade.
+   *
+   * `cancelado` não tem fundo de propósito: é só borda e texto riscado.
+   */
+  --status-rascunho: #525b6e;
+  --status-rascunho-bg: #eceff5;
+  --status-revisao: #9a4705;
+  --status-revisao-bg: #fdefc8;
+  --status-aprovado: #0b6b80;
+  --status-aprovado-bg: #d3f5fb;
+  --status-agendado: #3544e6;
+  --status-agendado-bg: #e4e8ff;
+  --status-processando: #6232c9;
+  --status-processando-bg: #efe7ff;
+  --status-publicado: #13733a;
+  --status-publicado-bg: #d9f7e3;
+  --status-falhou: #b91c1c;
+  --status-falhou-bg: #fde2e2;
+  --status-cancelado: #6b7280;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -63,6 +89,22 @@
     --accent-foreground: #eef0f8;
     --destructive: #f87171;
     --warning: #f0a35e;
+
+    --status-rascunho: #b4bbcb;
+    --status-rascunho-bg: #262a3b;
+    --status-revisao: #fbbf45;
+    --status-revisao-bg: #3b2c0c;
+    --status-aprovado: #4fd8ee;
+    --status-aprovado-bg: #0c3440;
+    --status-agendado: #8fa2ff;
+    --status-agendado-bg: #232a5c;
+    --status-processando: #b69cff;
+    --status-processando-bg: #2e2257;
+    --status-publicado: #5ee08e;
+    --status-publicado-bg: #0f3a23;
+    --status-falhou: #ff8a8a;
+    --status-falhou-bg: #431717;
+    --status-cancelado: #8d94a6;
   }
 }
 
