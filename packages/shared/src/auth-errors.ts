@@ -48,6 +48,8 @@ export const AUTH_ERROR_CODES = [
   "POST_TOO_MANY_MENTIONS",
   "POST_MEDIA_REQUIRED",
   "SELF_APPROVAL_FORBIDDEN",
+  "SCHEDULE_TIME_DOES_NOT_EXIST",
+  "SCHEDULE_IN_PAST",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -134,5 +136,8 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   POST_TOO_MANY_MENTIONS: "A legenda passa de 20 menções",
   POST_MEDIA_REQUIRED: "Escolha uma imagem antes de marcar a postagem como pronta",
   SELF_APPROVAL_FORBIDDEN: "Você não pode aprovar a própria postagem",
+  // O relógio pula essa hora nesse dia, por causa do horário de verão (ADR 0006).
+  SCHEDULE_TIME_DOES_NOT_EXIST: "Esse horário não existe nesse dia, por causa da mudança de horário de verão",
+  SCHEDULE_IN_PAST: "Esse horário já passou. Escolha um horário futuro",
   INTERNAL_ERROR: "Algo deu errado",
 };

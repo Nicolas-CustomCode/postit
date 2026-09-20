@@ -46,6 +46,24 @@ export const setPostMediaSchema = z.strictObject({
 /** Marcar como pronta e descartar não mudam conteúdo — só a versão viaja. */
 export const postVersionSchema = z.strictObject({ version });
 
+/**
+ * Agendar: **campos civis, não instante** (RF-D01; ADR 0006).
+ *
+ * ⚠️ A tela manda o dia e a hora que a pessoa escolheu, e a **API** converte
+ * usando o fuso da conta. Mandar um instante pronto significaria confiar na
+ * conversão feita no navegador — e é justamente ali que o fuso do aparelho
+ * entraria por engano, dando o horário certo em Lisboa e errado no Brasil.
+ *
+ * Sem segundos na hora: é o que `<input type="time">` entrega.
+ */
+export const schedulePostSchema = z.strictObject({
+  version,
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+});
+
+export type SchedulePostInput = z.infer<typeof schedulePostSchema>;
+
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type SetCaptionInput = z.infer<typeof setCaptionSchema>;
 export type SetPostMediaInput = z.infer<typeof setPostMediaSchema>;

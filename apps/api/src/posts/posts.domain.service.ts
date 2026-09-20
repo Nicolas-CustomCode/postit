@@ -8,11 +8,20 @@ import {
   PostNotReadyError,
   PostTransitionInvalidError,
   PostVersionConflictError,
+  ScheduleInPastError,
+  ScheduleTimeDoesNotExistError,
   SelfApprovalForbiddenError,
 } from "../common/errors";
 import { selfApprovalRefused } from "../domain/post/approval-rules";
 import { postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
-import { canMarkReady, isEditable, READY_CHAIN, statusAfterContentEdit } from "../domain/post/post-state";
+import {
+  canMarkReady,
+  isEditable,
+  keepsSchedule,
+  READY_CHAIN,
+  statusAfterContentEdit,
+} from "../domain/post/post-state";
+import { canCancel, resolveSchedule, scheduleMoveFor, type ScheduleProblem } from "../domain/post/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -141,7 +150,51 @@ export class PostsDomainService {
     });
   }
 
-  /** Descartar um rascunho. Cancelar o que já está agendado é RF-D05, na 1c. */
+  /**
+   * Marcar o horário de publicação (RF-D01, RF-D03, RF-D04; ADR 0006).
+   *
+   * **Uma rota para agendar e reagendar.** A tela sabe "este é o horário"; quem
+   * decide se isso é uma transição ou só a troca do campo é o domínio, com o
+   * status lido aqui. Obrigar a tela a escolher o verbo a partir de um status que
+   * pode ter mudado daria 409 sem motivo.
+   *
+   * ⚠️ **A conversão acontece aqui, com o fuso da conta** — nunca no navegador.
+   * O que chega é o relógio que a pessoa escolheu; converter na tela deixaria o
+   * fuso do aparelho entrar por engano, acertando em Lisboa e errando no Brasil.
+   */
+  async schedule(input: Scope & { day: string; time: string; now: Date }): Promise<Saved> {
+    const post = await this.load(input);
+
+    const movimento = scheduleMoveFor(post.status);
+    if (movimento === null) throw new PostTransitionInvalidError();
+
+    const resolvido = resolveSchedule({
+      day: input.day,
+      time: input.time,
+      timeZone: post.account.timezone,
+      now: input.now,
+    });
+    if ("problem" in resolvido) throw scheduleError(resolvido.problem);
+
+    return this.applyUserWrite(input, post.status, {
+      // Reagendar não mexe no status: `AGENDADO` continua `AGENDADO`, e por isso
+      // não passa por `canTransition` (RF-D04; AGENTS.md, regra 8).
+      ...(movimento === "TRANSITION" ? { status: "SCHEDULED" as const } : {}),
+      scheduledAt: resolvido.instant,
+      // Quem definiu o horário vigente é a pergunta que a auditoria faz.
+      scheduledById: input.userId,
+    });
+  }
+
+  /** Cancelar o que já tem horário marcado, ou parou de vez (RF-D05). */
+  async cancel(input: Scope): Promise<Saved> {
+    const post = await this.load(input);
+    if (!canCancel(post.status)) throw new PostTransitionInvalidError();
+
+    return this.applyUserWrite(input, post.status, { status: "CANCELED" });
+  }
+
+  /** Descartar um rascunho. Cancelar o que já está agendado é `cancel()`. */
   async discard(input: Scope): Promise<Saved> {
     const post = await this.load(input);
     if (post.status !== "DRAFT") throw new PostTransitionInvalidError();
@@ -153,7 +206,11 @@ export class PostsDomainService {
   private async load(scope: Scope) {
     const post = await this.prisma.db.post.findFirst({
       where: { id: scope.postId, accountId: scope.accountId },
-      include: { media: { include: { media: true } } },
+      include: {
+        media: { include: { media: true } },
+        // O fuso vem junto: é com ele que o relógio escolhido vira instante.
+        account: { select: { timezone: true } },
+      },
     });
 
     if (post === null) throw new PostNotFoundError();
@@ -174,7 +231,7 @@ export class PostsDomainService {
   private async applyUserWrite(
     scope: Scope,
     expectedStatus: PostStatus,
-    data: Prisma.PostUpdateManyMutationInput,
+    data: Prisma.PostUncheckedUpdateManyInput,
     extra?: (tx: Prisma.TransactionClient) => Promise<void>,
   ): Promise<Saved> {
     await this.prisma.db.$transaction(async (tx) => {
@@ -227,7 +284,7 @@ export class PostsDomainService {
    */
   private async applyContentChange(
     scope: Scope,
-    data: Prisma.PostUpdateManyMutationInput,
+    data: Prisma.PostUncheckedUpdateManyInput,
     extra?: (tx: Prisma.TransactionClient) => Promise<void>,
   ): Promise<Saved> {
     const post = await this.load(scope);
@@ -236,14 +293,34 @@ export class PostsDomainService {
     const novoStatus = statusAfterContentEdit(post.status);
     const rebaixou = novoStatus !== post.status;
 
-    return this.applyUserWrite(scope, post.status, { ...data, status: novoStatus }, async (tx) => {
-      if (rebaixou) {
-        await tx.approval.create({
-          data: { postId: post.id, userId: scope.userId, action: "INVALIDATED_BY_EDIT" },
-        });
-      }
-      await extra?.(tx);
-    });
+    return this.applyUserWrite(
+      scope,
+      post.status,
+      {
+        ...data,
+        status: novoStatus,
+        /*
+         * ⚠️ **O horário não sobrevive ao rebaixamento.** Uma postagem que caiu
+         * para rascunho não pode continuar exibindo horário de saída: a I-2
+         * existe para tornar visível que a aprovação morreu, e um horário
+         * sobrevivente diria o contrário no campo que a pessoa foi conferir —
+         * ela fecharia o navegador achando que sai sexta às 10:00.
+         *
+         * O que ela digitou não se perde: a tela mantém os campos preenchidos e
+         * oferece reagendar num clique. Só o banco não guarda o que não vai
+         * cumprir.
+         */
+        ...(keepsSchedule(novoStatus) ? {} : { scheduledAt: null }),
+      },
+      async (tx) => {
+        if (rebaixou) {
+          await tx.approval.create({
+            data: { postId: post.id, userId: scope.userId, action: "INVALIDATED_BY_EDIT" },
+          });
+        }
+        await extra?.(tx);
+      },
+    );
   }
 }
 
@@ -274,4 +351,8 @@ interface Scope {
  */
 function readinessError(problem: PostProblem): Error {
   return new PostNotReadyError(problem);
+}
+
+function scheduleError(problem: ScheduleProblem): Error {
+  return problem === "SCHEDULE_IN_PAST" ? new ScheduleInPastError() : new ScheduleTimeDoesNotExistError();
 }

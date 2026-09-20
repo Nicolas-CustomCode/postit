@@ -83,6 +83,26 @@ export function statusAfterContentEdit(current: PostStatus): PostStatus {
 }
 
 /**
+ * O horário marcado sobrevive à mudança para este estado?
+ *
+ * ⚠️ **Volta a ser editável, o horário some.** Uma postagem que caiu para
+ * rascunho não pode continuar exibindo horário de saída: a invariante I-2 existe
+ * para tornar visível que a aprovação morreu, e um horário sobrevivente diria o
+ * contrário **no campo que a pessoa foi conferir**. Ela fecharia o navegador
+ * achando que a postagem sai sexta às 10:00, e não sairia.
+ *
+ * O que a pessoa digitou não se perde — a tela mantém os campos preenchidos e
+ * oferece reagendar num clique. Mas o banco não guarda horário que não vai
+ * cumprir.
+ *
+ * `PROCESSANDO`, `PUBLICADO` e `FALHOU` guardam: é contra `publicarEm` que a
+ * invariante I-8 mede o atraso. `CANCELADO` guarda porque é história.
+ */
+export function keepsSchedule(next: PostStatus): boolean {
+  return next !== "DRAFT" && next !== "IN_REVIEW" && next !== "APPROVED";
+}
+
+/**
  * Dá para editar o conteúdo de uma postagem neste estado?
  *
  * `PUBLICADO` e `CANCELADO` são terminais (I-3). `PROCESSANDO` está no meio de

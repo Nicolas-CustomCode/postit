@@ -306,3 +306,22 @@ export class SelfApprovalForbiddenError extends AppError {
     super("SELF_APPROVAL_FORBIDDEN", 403);
   }
 }
+
+/**
+ * O horário escolhido não existe naquele dia (ADR 0006).
+ *
+ * Acontece na madrugada em que o relógio pula uma hora. Recusar é a decisão
+ * registrada: ajustar sozinho publicaria em horário que ninguém pediu.
+ */
+export class ScheduleTimeDoesNotExistError extends AppError {
+  constructor() {
+    super("SCHEDULE_TIME_DOES_NOT_EXIST", 422);
+  }
+}
+
+/** Agendar para trás (RF-D03). O minuto corrente ainda conta como futuro. */
+export class ScheduleInPastError extends AppError {
+  constructor() {
+    super("SCHEDULE_IN_PAST", 422);
+  }
+}

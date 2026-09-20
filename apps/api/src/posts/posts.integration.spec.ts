@@ -21,7 +21,12 @@ describe("postagens", () => {
 
   /** Entra de verdade — sem atalho, como manda a regra 11. */
   async function entrar(
-    permissions: readonly ("POST_EDIT" | "POST_APPROVE" | "POST_APPROVE_OWN")[] = ["POST_EDIT", "POST_APPROVE", "POST_APPROVE_OWN"],
+    permissions: readonly ("POST_EDIT" | "POST_APPROVE" | "POST_APPROVE_OWN" | "POST_SCHEDULE")[] = [
+      "POST_EDIT",
+      "POST_APPROVE",
+      "POST_APPROVE_OWN",
+      "POST_SCHEDULE",
+    ],
   ): Promise<{ token: string; userId: string }> {
     const user = await createTestUser(api.db, api.config.encryptionKey, { permissions });
     const desafio = await api.request({
@@ -145,6 +150,12 @@ describe("postagens", () => {
       { method: "POST" as const, caminho: (p: string) => `/${p}/caption`, payload: { version: 1, caption: "x" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/media`, payload: { version: 1, mediaId: "" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/ready`, payload: { version: 1 } },
+      {
+        method: "POST" as const,
+        caminho: (p: string) => `/${p}/schedule`,
+        payload: { version: 1, day: "2030-01-01", time: "10:00" },
+      },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/cancel`, payload: { version: 1 } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/discard`, payload: { version: 1 } },
     ];
 
@@ -482,6 +493,233 @@ describe("postagens", () => {
 
       expect(resposta.statusCode).toBe(403);
       expect(resposta.body).toMatchObject({ code: "FORBIDDEN" });
+    });
+  });
+
+  /*
+   * Agendar (RF-D01, RF-D03, RF-D04, RF-D05; ADR 0006).
+   *
+   * A aritmética de fuso tem spec próprio em `domain/time/zone.spec.ts`. Aqui se
+   * prova que o instante chega ao banco em UTC e que os estados se comportam.
+   */
+  describe("agendar", () => {
+    /** Uma postagem pronta para agendar: com imagem e já aprovada. */
+    async function postagemPronta(token: string, accountId: string): Promise<{ id: string; version: number }> {
+      const postId = await criar(token, accountId, "Pronta para sair");
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1350 }) },
+        token,
+      });
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/ready`,
+        payload: { version: 2 },
+        token,
+      });
+
+      return { id: postId, version: 3 };
+    }
+
+    it("o relógio da conta vira instante em UTC no banco", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const post = await postagemPronta(token, accountId);
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${post.id}/schedule`,
+        payload: { version: post.version, day: "2030-10-15", time: "10:00" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+
+      const gravada = await api.db.post.findUniqueOrThrow({ where: { id: post.id } });
+      expect(gravada.status).toBe("SCHEDULED");
+      // 10:00 em São Paulo é 13:00 UTC — a conta de teste nasce nesse fuso.
+      expect(gravada.scheduledAt?.toISOString()).toBe("2030-10-15T13:00:00.000Z");
+      // E fica registrado quem mandou sair nesse horário.
+      expect(gravada.scheduledById).not.toBeNull();
+    });
+
+    /*
+     * Reagendar troca o campo e **não** mexe no status: não é transição
+     * (RF-D04; AGENTS.md, regra 8).
+     */
+    it("reagendar mantém AGENDADO e troca o instante", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const post = await postagemPronta(token, accountId);
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${post.id}/schedule`,
+        payload: { version: post.version, day: "2030-10-15", time: "10:00" },
+        token,
+      });
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${post.id}/schedule`,
+        payload: { version: post.version + 1, day: "2030-10-16", time: "18:30" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+
+      const gravada = await api.db.post.findUniqueOrThrow({ where: { id: post.id } });
+      expect(gravada.status).toBe("SCHEDULED");
+      expect(gravada.scheduledAt?.toISOString()).toBe("2030-10-16T21:30:00.000Z");
+    });
+
+    it("agendar um rascunho é recusado — só APROVADO chega a AGENDADO (I-1)", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId, "Ainda rascunho");
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/schedule`,
+        payload: { version: 1, day: "2030-10-15", time: "10:00" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(409);
+      expect(resposta.body).toMatchObject({ code: "POST_TRANSITION_INVALID" });
+    });
+
+    it("horário no passado é recusado, com o motivo", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const post = await postagemPronta(token, accountId);
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${post.id}/schedule`,
+        payload: { version: post.version, day: "2020-01-01", time: "10:00" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(422);
+      expect(resposta.body).toMatchObject({ code: "SCHEDULE_IN_PAST" });
+    });
+
+    /*
+     * O elo com a invariante I-2: editar conteúdo derruba para rascunho, e o
+     * horário precisa sair junto — senão a tela mostraria horário de saída numa
+     * postagem que não vai sair. O que a pessoa digitou fica na tela, não no
+     * banco (decidido em 20/09/2026).
+     */
+    it("editar a legenda de uma agendada derruba para rascunho e apaga o horário", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const post = await postagemPronta(token, accountId);
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${post.id}/schedule`,
+        payload: { version: post.version, day: "2030-10-15", time: "10:00" },
+        token,
+      });
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${post.id}/caption`,
+        payload: { version: post.version + 1, caption: "Mudei de ideia" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+
+      const gravada = await api.db.post.findUniqueOrThrow({ where: { id: post.id } });
+      expect(gravada.status).toBe("DRAFT");
+      expect(gravada.scheduledAt).toBeNull();
+    });
+
+    describe("cancelar", () => {
+      it("uma postagem agendada vira CANCELADO", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await postagemPronta(token, accountId);
+
+        await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts/${post.id}/schedule`,
+          payload: { version: post.version, day: "2030-10-15", time: "10:00" },
+          token,
+        });
+        const resposta = await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts/${post.id}/cancel`,
+          payload: { version: post.version + 1 },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(200);
+        expect((await api.db.post.findUniqueOrThrow({ where: { id: post.id } })).status).toBe("CANCELED");
+      });
+
+      /*
+       * FALHOU só existe depois do motor de publicação (1d), então a postagem
+       * é posta nesse estado direto no banco. O domínio já precisa aceitar: é
+       * o "humano cancela" da invariante I-4.
+       */
+      it("uma postagem que falhou também pode ser cancelada", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await postagemPronta(token, accountId);
+
+        await api.db.post.update({ where: { id: post.id }, data: { status: "FAILED" } });
+
+        const resposta = await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts/${post.id}/cancel`,
+          payload: { version: post.version },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(200);
+        expect((await api.db.post.findUniqueOrThrow({ where: { id: post.id } })).status).toBe("CANCELED");
+      });
+
+      /*
+       * Rascunho não se cancela: descarta. São portas diferentes para a mesma
+       * aresta, com permissões diferentes.
+       */
+      it("um rascunho não é cancelado por esta rota", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const postId = await criar(token, accountId);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts/${postId}/cancel`,
+          payload: { version: 1 },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(409);
+        expect(resposta.body).toMatchObject({ code: "POST_TRANSITION_INVALID" });
+      });
+    });
+
+    it("sem POSTAGEM_AGENDAR, as duas rotas são recusadas", async () => {
+      const { token } = await entrar(["POST_EDIT"]);
+      const accountId = await conta();
+      const postId = await criar(token, accountId);
+
+      for (const acao of ["schedule", "cancel"]) {
+        const resposta = await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts/${postId}/${acao}`,
+          payload: { version: 1, day: "2030-10-15", time: "10:00" },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(403);
+        expect(resposta.body).toMatchObject({ code: "FORBIDDEN" });
+      }
     });
   });
 

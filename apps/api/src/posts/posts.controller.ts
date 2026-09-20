@@ -2,11 +2,13 @@ import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import {
   createPostSchema,
   postVersionSchema,
+  schedulePostSchema,
   setCaptionSchema,
   setPostMediaSchema,
   type CreatePostInput,
   type PostDetail,
   type PostSummary,
+  type SchedulePostInput,
   type SetCaptionInput,
   type SetPostMediaInput,
 } from "@repo/shared";
@@ -129,6 +131,46 @@ export class PostsController {
       version: body.version,
       approver: { id: auth.userId, permissions: auth.permissions, superAdmin: auth.superAdmin },
     });
+  }
+
+  /**
+   * Marcar horário — e reagendar, que é a mesma rota (RF-D01, RF-D04).
+   *
+   * O corpo traz **dia e hora civis**, não um instante: converter no navegador
+   * deixaria o fuso do aparelho entrar por engano. Quem converte é a API, com o
+   * fuso da conta (ADR 0006).
+   */
+  @RequirePermission("POST_SCHEDULE")
+  @Post(":postId/schedule")
+  @HttpCode(200)
+  schedule(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(schedulePostSchema)) body: SchedulePostInput,
+  ): Promise<{ version: number }> {
+    return this.composition.schedule({
+      accountId,
+      postId,
+      userId: auth.userId,
+      version: body.version,
+      day: body.day,
+      time: body.time,
+      now: new Date(),
+    });
+  }
+
+  /** Cancelar o que já tem horário, ou parou de vez (RF-D05). */
+  @RequirePermission("POST_SCHEDULE")
+  @Post(":postId/cancel")
+  @HttpCode(200)
+  cancel(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
+  ): Promise<{ version: number }> {
+    return this.composition.cancel({ accountId, postId, userId: auth.userId, version: body.version });
   }
 
   @RequirePermission("POST_EDIT")

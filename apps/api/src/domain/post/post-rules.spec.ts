@@ -1,7 +1,15 @@
 import { IMAGE_MIME, POST_STATUSES, type PostStatus } from "@repo/shared";
 import { selfApprovalRefused } from "./approval-rules";
 import { postReadinessProblem } from "./post-readiness";
-import { canMarkReady, canTransition, isEditable, READY_CHAIN, statusAfterContentEdit } from "./post-state";
+import { canCancel, resolveSchedule, scheduleMoveFor } from "./schedule";
+import {
+  canMarkReady,
+  canTransition,
+  isEditable,
+  keepsSchedule,
+  READY_CHAIN,
+  statusAfterContentEdit,
+} from "./post-state";
 
 /**
  * A máquina de estados da postagem (docs/05).
@@ -158,6 +166,134 @@ describe("máquina de estados da postagem", () => {
       for (const status of ["DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED", "FAILED"] as const) {
         expect(isEditable(status)).toBe(true);
       }
+    });
+  });
+});
+
+/**
+ * Marcar horário (RF-D01, RF-D03, RF-D04; ADR 0006).
+ *
+ * A aritmética de fuso tem spec próprio em `domain/time/zone.spec.ts`; aqui se
+ * prova a **política**.
+ */
+describe("agendar", () => {
+  const SP = "America/Sao_Paulo";
+  const agora = new Date("2026-09-20T12:00:00Z"); // 09:00 em São Paulo
+
+  describe("resolveSchedule", () => {
+    it("um horário futuro vira instante em UTC", () => {
+      const resultado = resolveSchedule({ day: "2026-10-15", time: "10:00", timeZone: SP, now: agora });
+      expect(resultado).toEqual({ instant: new Date("2026-10-15T13:00:00.000Z") });
+    });
+
+    it("horário no passado é recusado", () => {
+      const resultado = resolveSchedule({ day: "2026-09-20", time: "08:00", timeZone: SP, now: agora });
+      expect(resultado).toEqual({ problem: "SCHEDULE_IN_PAST" });
+    });
+
+    /*
+     * A granularidade é o minuto, porque é o que o campo da tela entrega.
+     * Recusar "agora" por causa dos segundos que a pessoa levou para clicar
+     * seria hostil sem proteger nada — a invariante I-8 tolera 15 minutos.
+     */
+    it("o minuto corrente é aceito, mesmo com segundos já corridos", () => {
+      const meioDoMinuto = new Date("2026-09-20T12:00:43Z");
+      const resultado = resolveSchedule({ day: "2026-09-20", time: "09:00", timeZone: SP, now: meioDoMinuto });
+
+      expect(resultado).toEqual({ instant: new Date("2026-09-20T12:00:00.000Z") });
+    });
+
+    it("o minuto anterior é recusado", () => {
+      const resultado = resolveSchedule({ day: "2026-09-20", time: "08:59", timeZone: SP, now: agora });
+      expect(resultado).toEqual({ problem: "SCHEDULE_IN_PAST" });
+    });
+
+    it("horário que não existe na transição é recusado, não ajustado", () => {
+      const resultado = resolveSchedule({
+        day: "2026-10-25",
+        time: "01:30",
+        timeZone: "Europe/Lisbon",
+        now: agora,
+      });
+      // Este existe duas vezes: fica a primeira.
+      expect(resultado).toEqual({ instant: new Date("2026-10-25T00:30:00.000Z") });
+
+      const buraco = resolveSchedule({
+        day: "2027-03-28",
+        time: "01:30",
+        timeZone: "Europe/Lisbon",
+        now: agora,
+      });
+      expect(buraco).toEqual({ problem: "SCHEDULE_TIME_DOES_NOT_EXIST" });
+    });
+  });
+
+  /*
+   * O teste que prova que a aresta não voltou. Na 1b eu inventei uma
+   * `RASCUNHO → APROVADO` que não existia no diagrama; aqui o reagendamento
+   * poderia tentar a mesma coisa com `AGENDADO → AGENDADO`.
+   */
+  describe("scheduleMoveFor — e a aresta que não existe", () => {
+    it("reagendar não é transição: o estado continua o mesmo", () => {
+      expect(scheduleMoveFor("SCHEDULED")).toBe("REPLACE_TIME");
+      expect(canTransition("SCHEDULED", "SCHEDULED")).toBe(false);
+    });
+
+    it("de APROVADO é transição — a aresta que a invariante I-1 exige", () => {
+      expect(scheduleMoveFor("APPROVED")).toBe("TRANSITION");
+    });
+
+    it("de FALHOU também, que é o humano reagendando (I-4)", () => {
+      expect(scheduleMoveFor("FAILED")).toBe("TRANSITION");
+    });
+
+    it("nos demais estados não dá para marcar horário", () => {
+      for (const status of ["DRAFT", "IN_REVIEW", "PROCESSING", "PUBLISHED", "CANCELED"] as const) {
+        expect(scheduleMoveFor(status)).toBeNull();
+      }
+    });
+  });
+
+  describe("canCancel", () => {
+    it("vale em AGENDADO e em FALHOU", () => {
+      expect(POST_STATUSES.filter((status) => canCancel(status))).toEqual(["SCHEDULED", "FAILED"]);
+    });
+
+    /*
+     * Rascunho não se cancela: descarta. São portas diferentes para a mesma
+     * aresta, com permissões diferentes — POSTAGEM_EDITAR e POSTAGEM_AGENDAR.
+     */
+    it("rascunho não se cancela, ainda que a aresta para CANCELADO exista", () => {
+      expect(canCancel("DRAFT")).toBe(false);
+      expect(canTransition("DRAFT", "CANCELED")).toBe(true);
+    });
+  });
+
+  describe("keepsSchedule — o horário de quem volta a ser rascunho", () => {
+    it("os estados editáveis antes de agendar não guardam horário", () => {
+      expect(POST_STATUSES.filter((status) => !keepsSchedule(status))).toEqual([
+        "DRAFT",
+        "IN_REVIEW",
+        "APPROVED",
+      ]);
+    });
+
+    it("o que já saiu, ou está saindo, guarda", () => {
+      for (const status of ["SCHEDULED", "PROCESSING", "PUBLISHED", "FAILED", "CANCELED"] as const) {
+        expect(keepsSchedule(status)).toBe(true);
+      }
+    });
+
+    /*
+     * O elo com a invariante I-2: editar conteúdo de uma AGENDADO a derruba
+     * para RASCUNHO, e é aí que o horário precisa sair junto — senão a tela
+     * mostraria horário de saída numa postagem que não vai sair.
+     */
+    it("editar uma agendada derruba para rascunho e o horário não sobrevive", () => {
+      const depois = statusAfterContentEdit("SCHEDULED");
+
+      expect(depois).toBe("DRAFT");
+      expect(keepsSchedule(depois)).toBe(false);
     });
   });
 });
