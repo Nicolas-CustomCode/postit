@@ -75,6 +75,22 @@ describe("dia civil da conta", () => {
       }
     });
 
+    /*
+     * ⚠️ O caso que o teste acima NÃO pega: Santiago muda o relógio à
+     * meia-noite, e o dia 6 de setembro de 2026 começa às 01:00 local. A
+     * implementação antiga devolvia 23:00 do dia 5 — a janela inteira uma hora
+     * deslocada —, e "dias seguidos se encostam" continuava passando porque os
+     * dois lados erravam juntos. Corrigido em 20/09/2026, com `possibleInstants`.
+     */
+    it("num dia que começa às 01:00, a janela começa às 01:00", () => {
+      const SANTIAGO = "America/Santiago";
+      const janela = dayWindow("2026-09-06", SANTIAGO);
+
+      expect(new Date(janela.since * 1000).toISOString()).toBe("2026-09-06T04:00:00.000Z");
+      // E o dia encurta: 23 horas, não 24.
+      expect(horas(janela)).toBe(23);
+    });
+
     it("recusa rótulo fora do formato, em vez de inventar uma data", () => {
       expect(() => dayWindow("15/09/2026", SP)).toThrow();
       expect(() => dayWindow("2026-9-5", SP)).toThrow();

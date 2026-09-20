@@ -1,9 +1,12 @@
+import { possibleInstants } from "../time/zone";
+
 /**
  * O dia civil de uma conta, e os limites dele em tempo absoluto.
  *
- * Regra pura: sem Nest, sem Prisma, sem rede. É a **primeira coisa do projeto
- * que converte entre UTC e o fuso da conta** (ADR 0006), e é por isso que mora
- * aqui — onde o teste roda sem subir nada e onde o erro custa caro.
+ * Regra pura: sem Nest, sem Prisma, sem rede. A conversão entre relógio e
+ * instante mora em [time/zone.ts](../time/zone.ts), que é onde os casos de
+ * transição de horário de verão estão resolvidos e testados — aqui fica só o
+ * conceito de dia.
  *
  * **Por que tudo é `string` e não `Date`:** o dia de uma métrica é um *rótulo
  * civil* ("15 de setembro"), não um instante. A coluna é `@db.Date`, e o Prisma
@@ -64,58 +67,19 @@ export function dayWindow(day: DayLabel, timeZone: string): DayWindow {
 /**
  * O instante em que aquele dia civil começa naquele fuso.
  *
- * `Intl` converte instante → rótulo, mas não o contrário. O caminho de volta é
- * chutar, medir o erro e corrigir: trata o rótulo como se fosse UTC, mede quanto
- * o fuso está deslocado **naquele instante** e desconta.
+ * ⚠️ **Meia-noite nem sempre existe.** Santiago muda o relógio à meia-noite — e
+ * o Brasil fazia o mesmo até 2019 —, então há dias que começam às 01:00. A
+ * versão anterior desta função chutava e corrigia duas vezes, e nesses dias
+ * devolvia **23:00 do dia anterior**: a janela inteira saía uma hora deslocada,
+ * e o teste de "dias seguidos se encostam" passava porque os dois lados erravam
+ * juntos.
  *
- * **A segunda passada não é zelo.** O deslocamento medido no chute pode ser o do
- * lado errado de uma transição de horário de verão — a primeira correção cai
- * perto, e a segunda mede o deslocamento já no dia certo. Sem ela, os dias de
- * transição saem com uma hora de erro.
+ * `possibleInstants` sabe dizer que o relógio não existe, e `afterGap` é
+ * exatamente o instante em que aquele dia começa a valer.
  */
 function startOfDay(day: DayLabel, timeZone: string): Date {
-  const comoSeFosseUtc = Date.parse(`${day}T00:00:00.000Z`);
-
-  let instante = comoSeFosseUtc - offsetMs(new Date(comoSeFosseUtc), timeZone);
-  instante = comoSeFosseUtc - offsetMs(new Date(instante), timeZone);
-
-  return new Date(instante);
-}
-
-/**
- * Quanto aquele fuso está adiantado em relação ao UTC, naquele instante.
- *
- * Positivo a leste de Greenwich. Sai de formatar o instante no fuso e ler o
- * relógio de volta como se fosse UTC: a diferença é o deslocamento.
- */
-function offsetMs(instant: Date, timeZone: string): number {
-  const partes = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hour12: false,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    })
-      .formatToParts(instant)
-      .map((parte) => [parte.type, parte.value]),
-  ) as Record<string, string>;
-
-  const comoUtc = Date.UTC(
-    Number(partes["year"]),
-    Number(partes["month"]) - 1,
-    Number(partes["day"]),
-    // `hour12: false` devolve 24 para a meia-noite em alguns ambientes, e
-    // Date.UTC trataria isso como o dia seguinte.
-    Number(partes["hour"]) % 24,
-    Number(partes["minute"]),
-    Number(partes["second"]),
-  );
-
-  return comoUtc - instant.getTime();
+  const { instants, afterGap } = possibleInstants(day, "00:00", timeZone);
+  return instants[0] ?? afterGap;
 }
 
 /** O dia civil seguinte. Aritmética em UTC: rótulo não tem fuso. */
