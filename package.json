@@ -1,6 +1,6 @@
 {
   "name": "postit",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "//version": "Versão única do projeto. scripts/version.mjs propaga para os pacotes e para packages/shared/src/version.ts. O pre-commit sobe o patch; minor e major são manuais. Ver docs/15.",
   "private": true,
   "workspaces": [

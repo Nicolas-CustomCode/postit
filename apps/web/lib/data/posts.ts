@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import type { PostDetail, PostSummary } from "@repo/shared";
+import type { AccountSummary, PostDetail, PostSummary } from "@repo/shared";
 import { ApiError, apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 import { listAccounts } from "./accounts";
@@ -16,14 +16,16 @@ import { listAccounts } from "./accounts";
  * Instagram e o identificador não, e guardar o @ no `where` transformaria uma
  * troca de nome numa postagem órfã.
  */
-export const accountIdFor = cache(async (username: string): Promise<string> => {
+export const accountFor = cache(async (username: string): Promise<AccountSummary> => {
   const account = (await listAccounts()).find((item) => item.username === username);
   // O layout de `/c/[conta]` já barra conta desconhecida; isto cobre quem chegar
   // por outro caminho.
   if (account === undefined) notFound();
 
-  return account.id;
+  return account;
 });
+
+export const accountIdFor = cache(async (username: string): Promise<string> => (await accountFor(username)).id);
 
 export const listPosts = cache(async (username: string): Promise<PostSummary[]> => {
   const accountId = await accountIdFor(username);

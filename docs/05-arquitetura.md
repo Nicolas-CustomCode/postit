@@ -231,7 +231,7 @@ Regras que valem sempre e que a implementação precisa garantir, não apenas re
 | # | Invariante | Como se garante |
 |---|---|---|
 | I-1 | Só uma postagem `APROVADO` pode virar `AGENDADO` | Transição validada no domínio, na API — não só na tela |
-| I-2 | Editar conteúdo em `APROVADO` ou `AGENDADO` derruba para `RASCUNHO` | Regra no serviço de escrita, aplicada a qualquer alteração de conteúdo |
+| I-2 | Editar conteúdo em `APROVADO` ou `AGENDADO` derruba para `RASCUNHO` **e apaga `publicarEm`** | Regra no serviço de escrita, aplicada a qualquer alteração de conteúdo. O horário sai junto porque uma postagem que não vai sair não pode exibir horário de saída — ver [09](09-motor-agendamento.md#o-horário-de-uma-postagem-que-volta-a-ser-rascunho) |
 | I-3 | `PUBLICADO` é terminal e irreversível | Nenhuma transição sai de `PUBLICADO`. A API da Meta não apaga posts |
 | I-4 | `FALHOU` só sai por ação humana | O worker nunca reagenda sozinho a partir de `FALHOU` |
 | I-5 | Uma postagem com identificador de mídia gravado nunca republica | Verificação no início da execução, antes de qualquer chamada à Meta |

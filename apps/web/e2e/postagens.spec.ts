@@ -146,6 +146,34 @@ test.describe("postagens", () => {
     await expect(page.getByLabel("Legenda")).toHaveValue("Mexida por outra pessoa");
   });
 
+  /*
+   * Agendar (RF-D01; ADR 0006). O que só a tela prova: que o fuso mostrado é o
+   * da CONTA, e que o aviso aparece quando o horário sai do banco.
+   */
+  test("a seção de horário diz o fuso da conta, e não o do aparelho", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await expect(page.getByRole("heading", { name: "Quando publicar" })).toBeVisible();
+    // O nome sai do Intl, não de texto fixo: numa conta de Lisboa diria outro.
+    await expect(page.getByText(/Brasília, o fuso da conta/i)).toBeVisible();
+    await expect(page.getByText(/Salve o rascunho e marque como pronta/i)).toBeVisible();
+  });
+
+  /*
+   * Os campos aceitam o horário desde o rascunho — é natural escolher a data
+   * enquanto se escreve. Quem espera é o botão: agendar exige a postagem
+   * pronta (invariante I-1), e a API recusaria de qualquer forma.
+   */
+  test("dá para escolher o horário no rascunho, mas agendar espera a postagem ficar pronta", async ({ page }) => {
+    await criarRascunho(page, "Ainda rascunho");
+
+    await expect(page.getByLabel("Data")).toBeEnabled();
+    await page.getByLabel("Data").fill("2030-10-15");
+    await page.getByLabel("Hora").fill("10:00");
+
+    await expect(page.getByRole("button", { name: "Agendar", exact: true })).toBeDisabled();
+  });
+
   test("descartar o rascunho volta para a lista", async ({ page }) => {
     await criarRascunho(page, "Rascunho a descartar");
 

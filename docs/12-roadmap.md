@@ -245,7 +245,17 @@ anexá-lo em seguida.
 **Entregue em 20/09/2026 — parte 1b, "a postagem existe":** máquina de estados com as invariantes I-1
 a I-4 em `apps/api/src/domain/post/`, módulo `posts/` com as oito rotas sob `accounts/:accountId`,
 controle de versão contra edição simultânea (RF-C12), contadores da legenda, e as telas de Postagens e
-Compor. **Falta desta fase:** agendamento com fuso (1c) e o motor de publicação (1d).
+Compor — esta última no desenho do artboard, com a prévia do feed.
+
+**Entregue em 20/09/2026 — parte 1c, "agendar":** conversão de relógio para instante em
+`apps/api/src/domain/time/zone.ts`, com os quatro casos obrigatórios do
+[09](09-motor-agendamento.md#fuso-horário) testados; agendar, reagendar e cancelar (RF-D01, RF-D03 a
+RF-D05); e a seção "Quando publicar" com o fuso da conta. A mesma mudança **corrigiu um defeito
+silencioso nas métricas**: em fusos que mudam o relógio à meia-noite, a janela do dia saía uma hora
+deslocada.
+
+**Falta desta fase:** o motor de publicação — despachante, publicador, as quatro camadas de
+idempotência, notificações (1d). Sem ele, uma postagem agendada fica esperando para sempre.
 
 Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
 **5**, **6** a **11**, **14**, **15** e **16**.

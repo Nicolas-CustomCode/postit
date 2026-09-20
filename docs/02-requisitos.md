@@ -273,6 +273,10 @@ mudanças de status.
 **Aceite:** alterar legenda, mídia, marcações ou formato de uma postagem `APROVADO` ou `AGENDADO`
 devolve o status para `RASCUNHO` e registra o motivo. Impede aprovar uma coisa e publicar outra.
 
+**O horário sai junto** — decidido em 20/09/2026. Uma postagem que voltou a ser rascunho não pode
+exibir horário de saída: seria a invariante se desarmando no campo que a pessoa foi conferir. O que ela
+digitou continua na **tela**, com o aviso de que foi desmarcado, e reagendar é um clique.
+
 ### RF-E06 — Fila de pendências **[MVP]**
 **Aceite:** existe uma visão do que aguarda revisão, ordenada pelo horário de publicação previsto,
 o mais urgente primeiro.

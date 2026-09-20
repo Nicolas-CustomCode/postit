@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/nav/page-header";
 import { ComposeForm } from "@/components/posts/compose-form";
 import { PostStatusBadge } from "@/components/posts/post-status-badge";
 import { requireSession } from "@/lib/auth/session";
+import { accountFor } from "@/lib/data/posts";
 
 export const metadata: Metadata = { title: "Nova postagem" };
 
@@ -30,6 +31,7 @@ export default async function NovaPostagemPage({
 
   const { conta } = await params;
   const username = decodeURIComponent(conta);
+  const account = await accountFor(username);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
@@ -38,7 +40,7 @@ export default async function NovaPostagemPage({
         title="Nova postagem"
         besideTitle={<PostStatusBadge status="DRAFT" />}
       />
-      <ComposeForm username={username} post={null} />
+      <ComposeForm username={username} timeZone={account.timezone} post={null} />
     </main>
   );
 }

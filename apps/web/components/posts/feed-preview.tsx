@@ -1,6 +1,7 @@
 import { Bookmark, Heart, ImageIcon, MessageCircle, Send } from "lucide-react";
 import type { ReactNode } from "react";
 import type { PostMediaItem } from "@repo/shared";
+import { AccountDateTime } from "@/components/account-time";
 
 /**
  * Como a postagem vai aparecer no feed (RF-C10; artboard `ComposicaoDesktop`).
@@ -17,10 +18,15 @@ export function FeedPreview({
   username,
   media,
   caption,
+  scheduledAt,
+  timeZone,
 }: {
   readonly username: string;
   readonly media: readonly PostMediaItem[];
   readonly caption: string;
+  readonly scheduledAt: string | null;
+  /** O horário sai no fuso da conta, não no do aparelho (ADR 0006). */
+  readonly timeZone: string;
 }): ReactNode {
   const imagem = media[0];
   const iniciais = username.slice(0, 2).toUpperCase();
@@ -84,7 +90,13 @@ export function FeedPreview({
           className="px-3 pt-2 pb-3.5 text-[11px] tracking-[0.04em] uppercase"
           style={{ color: "var(--ig-muted)" }}
         >
-          Ainda não agendada
+          {scheduledAt === null ? (
+            "Ainda não agendada"
+          ) : (
+            <>
+              Previsto para <AccountDateTime iso={scheduledAt} timeZone={timeZone} />
+            </>
+          )}
         </p>
       </div>
 

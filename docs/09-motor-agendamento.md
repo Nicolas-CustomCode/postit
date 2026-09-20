@@ -558,6 +558,48 @@ Casos de teste obrigatórios no domínio:
 | Agendamento dentro da hora que acontece duas vezes | O sistema escolhe uma ocorrência de forma determinística |
 | Duas contas em fusos diferentes, mesmo horário local | Instantes UTC diferentes |
 
+### Como a conversão funciona — decidido em 20/09/2026
+
+Mora em `apps/api/src/domain/time/zone.ts`, e é **o único lugar do projeto que faz relógio → instante**.
+Métricas e agendamento precisam dos dois sentidos, e duas implementações divergiriam justamente no dia
+em que isso importa.
+
+**A forma óbvia não serve.** Tratar o relógio como se fosse UTC, medir o deslocamento ali e descontar —
+repetindo para refinar — é uma iteração de ponto fixo. Ela converge, e por isso engana: devolve um
+instante com cara de resposta boa mesmo quando o relógio pedido **não existe**, e na hora repetida fica
+com a ocorrência que a aritmética entregar. Medido: a mesma implementação devolvia a **primeira**
+ocorrência em Nova York e a **segunda** em Lisboa.
+
+O que funciona é **cercar e conferir**:
+
+1. o relógio pedido, lido como se fosse UTC, é o alvo;
+2. medem-se os deslocamentos do fuso **um dia antes e um dia depois** — o instante verdadeiro é
+   `alvo − deslocamento`, e deslocamento IANA vive entre −12 h e +14 h, então ele está dentro de ±24 h;
+   como nenhum fuso tem duas transições no mesmo dia, o deslocamento certo é forçosamente um dos dois;
+3. cada candidato é lido de volta no fuso e **só vale se mostrar o relógio pedido**.
+
+O número de sobreviventes responde tudo: **nenhum** é a hora que o relógio pulou (recusa, ADR 0006);
+**um** é o caso comum; **dois** é a hora que aconteceu duas vezes, e fica o menor — a primeira
+ocorrência vira `sort()` seguido de `[0]`, em vez de um `if` sobre horário de verão.
+
+⚠️ **São Paulo não serve para testar isso.** O Brasil não tem horário de verão desde 2019: um teste com
+`America/Sao_Paulo` numa data futura passa sem exercitar nenhum dos três ramos. Os casos-limite usam
+`Europe/Lisbon`, `America/New_York` e `America/Santiago` — este último porque muda o relógio **à
+meia-noite**, e foi ele que revelou que a versão anterior devolvia 23:00 do dia anterior como início do
+dia, deslocando a janela inteira de uma métrica em silêncio.
+
+### O horário de uma postagem que volta a ser rascunho
+
+Editar o conteúdo de uma postagem `AGENDADO` a derruba para `RASCUNHO` (invariante I-2, RF-E05). O
+`publicarEm` **é apagado junto** — decidido em 20/09/2026.
+
+O motivo: a I-2 existe para tornar visível que a aprovação morreu. Um horário sobrevivente diria o
+contrário **no campo que a pessoa foi conferir** — ela corrige uma vírgula, vê "sexta, 10:00" ainda lá,
+fecha o navegador satisfeita, e a postagem não sai.
+
+O que ela digitou não se perde: a **tela** mantém os campos preenchidos, com o aviso de que o horário
+foi desmarcado, e reagendar é um clique. Só o banco não guarda horário que não vai cumprir.
+
 ---
 
 ## Observabilidade

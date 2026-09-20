@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { CalendarClock, Check, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
@@ -13,6 +13,7 @@ import {
   type ActionConflict,
   type PostDetail,
 } from "@repo/shared";
+import { AccountDateTime, accountZoneName, civilFieldsFor, todayIn } from "@/components/account-time";
 import { UploadField } from "@/components/media/upload-field";
 import { ComposeSection } from "@/components/posts/compose-section";
 import { FeedPreview } from "@/components/posts/feed-preview";
@@ -22,6 +23,7 @@ import {
   createPostAction,
   discardPostAction,
   markPostReadyAction,
+  schedulePostAction,
   setCaptionAction,
   setPostMediaAction,
 } from "@/lib/actions/posts";
@@ -48,9 +50,12 @@ import { cn } from "@/lib/utils";
  */
 export function ComposeForm({
   username,
+  timeZone,
   post,
 }: {
   readonly username: string;
+  /** O fuso da conta: é nele que o horário escolhido é interpretado (ADR 0006). */
+  readonly timeZone: string;
   /** Em branco na tela de nova postagem: ela ainda não existe no banco. */
   readonly post: PostDetail | null;
 }): ReactNode {
@@ -61,11 +66,24 @@ export function ComposeForm({
   const [erro, setErro] = useState<string | null>(null);
   const [conflito, setConflito] = useState<ActionConflict | null>(null);
 
+  /*
+   * O horário fica em estado local, e não sai da prop: quando a edição derruba
+   * a postagem para rascunho, a API **apaga** o `publicarEm` — uma postagem que
+   * não vai sair não pode exibir horário de saída. Mas o que a pessoa escolheu
+   * continua aqui, para reagendar num clique em vez de redigitar.
+   */
+  const gravado = civilFieldsFor(post?.scheduledAt ?? null, timeZone);
+  const [day, setDay] = useState(gravado.day);
+  const [time, setTime] = useState(gravado.time);
+
   const contagem = captionCounts(caption);
   const legendaMudou = caption !== (post?.caption ?? "");
   const media = post?.media ?? [];
   const imagem = media[0];
   const status = post?.status ?? "DRAFT";
+  // Só APROVADO e AGENDADO aceitam horário — a invariante I-1 e o RF-D04. A API
+  // confere de novo: esconder o botão é conveniência, não proteção (regra 17).
+  const podeAgendar = status === "APPROVED" || status === "SCHEDULED";
 
   /**
    * Executa uma escrita e devolve a versão nova, ou `null` se falhou.
@@ -265,6 +283,91 @@ export function ComposeForm({
           </p>
         </ComposeSection>
 
+        {/*
+         * "Quando publicar" (RF-D01; artboard `ComposicaoDesktop`): dois campos
+         * nativos, e o nome do fuso ao lado. `datetime-local` pareceria carregar
+         * fuso e não carrega — é o campo que convida ao erro que o ADR 0006
+         * existe para impedir.
+         */}
+        <ComposeSection
+          title="Quando publicar"
+          aside={<span className="text-[13px] text-muted-foreground">{accountZoneName(timeZone)}, o fuso da conta</span>}
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="dia" className="text-sm font-semibold">
+                Data
+              </label>
+              <input
+                id="dia"
+                type="date"
+                value={day}
+                min={todayIn(timeZone)}
+                disabled={ocupado || post === null}
+                onChange={(evento) => setDay(evento.target.value)}
+                className="h-11 w-45 rounded-[10px] border bg-transparent px-3 text-sm tabular-nums focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="hora" className="text-sm font-semibold">
+                Hora
+              </label>
+              <input
+                id="hora"
+                type="time"
+                value={time}
+                disabled={ocupado || post === null}
+                onChange={(evento) => setTime(evento.target.value)}
+                className="h-11 w-28 rounded-[10px] border bg-transparent px-3 text-sm tabular-nums focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
+              />
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 md:h-10"
+              disabled={ocupado || post === null || day === "" || time === "" || !podeAgendar}
+              onClick={() =>
+                void comBloqueio(async () => {
+                  if (post === null) return;
+                  const nova = await escrever(
+                    (v) => schedulePostAction(username, post.id, { version: v, day, time }),
+                    version,
+                  );
+                  if (nova !== null) router.refresh();
+                })
+              }
+            >
+              <CalendarClock className="size-4" aria-hidden />
+              {post?.status === "SCHEDULED" ? "Reagendar" : "Agendar"}
+            </Button>
+          </div>
+
+          {/*
+           * O aviso que impede a tela de mentir: a postagem caiu para rascunho,
+           * o horário saiu do banco, mas os campos continuam preenchidos.
+           */}
+          {post !== null && post.scheduledAt === null && day !== "" && (
+            <p className="text-[13px] text-warning">
+              A edição derrubou esta postagem para rascunho e desmarcou o horário. Marque como pronta e
+              agende de novo.
+            </p>
+          )}
+
+          {post !== null && post.scheduledAt !== null && (
+            <p className="text-[13px] text-muted-foreground">
+              Vai ao ar em <AccountDateTime iso={post.scheduledAt} timeZone={timeZone} />.
+            </p>
+          )}
+
+          {post === null && (
+            <p className="text-[13px] text-muted-foreground">
+              Salve o rascunho e marque como pronta para poder agendar.
+            </p>
+          )}
+        </ComposeSection>
+
         {erro !== null && (
           <Alert variant="destructive" role="alert">
             <AlertDescription>{erro}</AlertDescription>
@@ -366,7 +469,13 @@ export function ComposeForm({
       {/* A coluna da prévia, 360 px como no artboard. Abaixo do formulário
           enquanto não couber lado a lado. */}
       <div className="w-full shrink-0 lg:sticky lg:top-7 lg:w-90">
-        <FeedPreview username={username} media={media} caption={caption} />
+        <FeedPreview
+          username={username}
+          media={media}
+          caption={caption}
+          scheduledAt={post?.scheduledAt ?? null}
+          timeZone={timeZone}
+        />
       </div>
     </div>
   );

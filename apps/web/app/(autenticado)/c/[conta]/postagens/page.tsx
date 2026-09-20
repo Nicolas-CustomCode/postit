@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { can, POST_FORMAT_LABELS } from "@repo/shared";
+import { AccountDateTime } from "@/components/account-time";
 import { LocalDate } from "@/components/local-date";
 import { PageHeader } from "@/components/nav/page-header";
 import { PostStatusBadge } from "@/components/posts/post-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
-import { listPosts } from "@/lib/data/posts";
+import { accountFor, listPosts } from "@/lib/data/posts";
 
 export const metadata: Metadata = { title: "Postagens" };
 
@@ -28,7 +29,7 @@ export default async function PostagensPage({
   const { user } = await requireSession();
   const { conta } = await params;
   const username = decodeURIComponent(conta);
-  const posts = await listPosts(username);
+  const [posts, account] = await Promise.all([listPosts(username), accountFor(username)]);
   const podeEditar = can(user, "POST_EDIT");
 
   return (
@@ -82,8 +83,21 @@ export default async function PostagensPage({
                   <span className="truncate text-sm font-medium">
                     {post.excerpt ?? <span className="text-muted-foreground">Sem legenda</span>}
                   </span>
+                  {/*
+                   * Agendada mostra **quando vai sair**, no fuso da conta; o
+                   * resto mostra quando foi mexida, no relógio de quem lê. São
+                   * perguntas diferentes, e o horário de saída é o que importa
+                   * numa lista de programação.
+                   */}
                   <span className="text-xs text-muted-foreground">
-                    {POST_FORMAT_LABELS[post.format]} · <LocalDate iso={post.updatedAt} format="comHora" />
+                    {POST_FORMAT_LABELS[post.format]} ·{" "}
+                    {post.scheduledAt === null ? (
+                      <LocalDate iso={post.updatedAt} format="comHora" />
+                    ) : (
+                      <>
+                        vai ao ar em <AccountDateTime iso={post.scheduledAt} timeZone={account.timezone} />
+                      </>
+                    )}
                   </span>
                 </span>
 

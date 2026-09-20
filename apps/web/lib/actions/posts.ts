@@ -63,6 +63,34 @@ export async function markPostReadyAction(
   }));
 }
 
+/**
+ * Marcar horário — e reagendar, que é a mesma ação (RF-D01, RF-D04).
+ *
+ * Manda **dia e hora civis**: quem converte é a API, com o fuso da conta. Fazer
+ * a conta aqui deixaria o fuso do aparelho entrar por engano (ADR 0006).
+ */
+export async function schedulePostAction(
+  username: string,
+  postId: string,
+  input: { version: number; day: string; time: string },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/schedule`,
+    body: input,
+  }));
+}
+
+export async function cancelPostAction(
+  username: string,
+  postId: string,
+  input: { version: number },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/cancel`,
+    body: input,
+  }));
+}
+
 export async function discardPostAction(
   username: string,
   postId: string,
