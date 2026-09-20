@@ -35,20 +35,42 @@ test.describe("postagens", () => {
     await expect(conteudo(page).getByRole("link", { name: /nova postagem/i })).toBeVisible();
   });
 
-  test("criar um rascunho leva para a composição", async ({ page }) => {
+  /*
+   * A tela de nova postagem **é** a composição (artboard `ComposicaoDesktop`):
+   * formato, mídia, legenda e prévia, sem passo intermediário. A postagem só
+   * nasce no banco quando se salva — senão cada visita a este endereço deixaria
+   * um rascunho vazio para trás.
+   */
+  test("a tela de nova postagem já é a composição, com a prévia", async ({ page }) => {
     await conteudo(page).getByRole("link", { name: /nova postagem/i }).click();
 
     await expect(page.getByRole("heading", { name: "Nova postagem" })).toBeVisible();
-    await page.getByLabel("Legenda").fill("Um dia bonito na loja");
-    await page.getByRole("button", { name: /criar rascunho/i }).click();
-
-    // A composição, já com a legenda que veio da tela anterior.
-    await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
-    await expect(page.getByRole("heading", { name: "Compor" })).toBeVisible();
-    await expect(page.getByLabel("Legenda")).toHaveValue("Um dia bonito na loja");
+    await expect(page.getByRole("heading", { name: "Formato" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mídia" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Legenda" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Prévia" })).toBeVisible();
     // `exact` porque getByText é insensível a maiúsculas: sem ele, "Rascunho" da
     // pílula casa também com o botão "Salvar rascunho".
     await expect(page.getByText("Rascunho", { exact: true })).toBeVisible();
+  });
+
+  test("a prévia acompanha a legenda enquanto se digita", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await expect(page.getByText("A legenda aparece aqui")).toBeVisible();
+    await page.getByLabel("Legenda").fill("Um dia bonito na loja");
+
+    await expect(page.getByText("Um dia bonito na loja")).toHaveCount(2); // campo e prévia
+    await expect(page.getByText("Sem imagem ainda")).toBeVisible();
+  });
+
+  test("salvar na tela nova cria a postagem e leva para o endereço dela", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await page.getByLabel("Legenda").fill("Um dia bonito na loja");
+    await page.getByRole("button", { name: /salvar rascunho/i }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
+    await expect(page.getByLabel("Legenda")).toHaveValue("Um dia bonito na loja");
   });
 
   test("a postagem criada aparece na lista, com o trecho e a situação", async ({ page }) => {
@@ -134,11 +156,15 @@ test.describe("postagens", () => {
   });
 });
 
-/** Cria um rascunho pela tela e devolve o identificador dele. */
+/**
+ * Cria um rascunho pela tela e devolve o identificador dele.
+ *
+ * Salvar é o que cria: a tela de nova postagem não grava nada ao abrir.
+ */
 async function criarRascunho(page: import("@playwright/test").Page, caption: string): Promise<string> {
   await page.goto(`/c/loja.aurora/postagens/nova`);
   if (caption !== "") await page.getByLabel("Legenda").fill(caption);
-  await page.getByRole("button", { name: /criar rascunho/i }).click();
+  await page.getByRole("button", { name: /salvar rascunho/i }).click();
 
   await expect(page).toHaveURL(/\/postagens\/[0-9a-f-]+$/);
   return page.url().split("/").pop() as string;

@@ -3,13 +3,19 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { can } from "@repo/shared";
 import { PageHeader } from "@/components/nav/page-header";
-import { NewPostForm } from "@/components/posts/new-post-form";
+import { ComposeForm } from "@/components/posts/compose-form";
+import { PostStatusBadge } from "@/components/posts/post-status-badge";
 import { requireSession } from "@/lib/auth/session";
 
 export const metadata: Metadata = { title: "Nova postagem" };
 
 /**
- * Começar uma postagem na conta ativa (RF-C01).
+ * Nova postagem na conta ativa (RF-C01; artboard `ComposicaoDesktop`).
+ *
+ * **É a mesma tela de compor**, sem passo intermediário: o artboard chama esta
+ * tela de "Nova postagem" e já mostra formato, mídia, legenda e a prévia. A
+ * postagem nasce no banco no primeiro salvamento — não ao abrir —, senão cada
+ * visita a este endereço deixaria um rascunho vazio para trás.
  *
  * Esconder não é proteger: a API recusa de novo (regra 17). Aqui é para não
  * mostrar um caminho que terminaria em 403.
@@ -23,15 +29,16 @@ export default async function NovaPostagemPage({
   if (!can(user, "POST_EDIT")) notFound();
 
   const { conta } = await params;
+  const username = decodeURIComponent(conta);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
       <PageHeader
-        trail={["Nesta conta", "Postagens", "Nova"]}
+        trail={[`@${username}`, "Postagens", "Nova postagem"]}
         title="Nova postagem"
-        description="Ela nasce como rascunho. Nada vai para o Instagram agora."
+        besideTitle={<PostStatusBadge status="DRAFT" />}
       />
-      <NewPostForm username={decodeURIComponent(conta)} />
+      <ComposeForm username={username} post={null} />
     </main>
   );
 }

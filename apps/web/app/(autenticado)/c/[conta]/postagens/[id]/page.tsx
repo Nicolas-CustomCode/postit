@@ -30,7 +30,7 @@ export default async function ComporPage({
   const post = await getPost(username, id);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
       <PageHeader
         trail={[`@${username}`, "Postagens", "Compor"]}
         title="Compor"

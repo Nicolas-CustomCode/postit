@@ -65,9 +65,14 @@ export type UploadMode = "library" | { readonly format: ImageFormat };
 
 export function UploadField({
   mode = "library",
+  label,
+  icon: Icone = ImageUp,
   onUploaded,
 }: {
   readonly mode?: UploadMode;
+  /** O rótulo do botão parado. Na composição vira "Trocar imagem". */
+  readonly label?: string;
+  readonly icon?: typeof ImageUp;
   readonly onUploaded?: (media: MediaSummary) => void;
 }): ReactNode {
   const [estado, setEstado] = useState<Estado>({ fase: "parado" });
@@ -227,9 +232,9 @@ export function UploadField({
           {ocupado ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
           ) : (
-            <ImageUp className="size-4" aria-hidden />
+            <Icone className="size-4" aria-hidden />
           )}
-          {rotulo(estado)}
+          {rotulo(estado, label)}
         </Button>
       )}
 
@@ -330,7 +335,7 @@ function sufixoDeFormatos(formatos: readonly ImageFormat[]): string {
   return ` — serve para ${formatos.map((formato) => IMAGE_SPECS[formato].label).join(", ")}`;
 }
 
-function rotulo(estado: Estado): string {
+function rotulo(estado: Estado, label?: string): string {
   switch (estado.fase) {
     case "enviando":
       return `Enviando… ${estado.porcento}%`;
@@ -341,7 +346,7 @@ function rotulo(estado: Estado): string {
     case "pronto":
       return "Escolher outra imagem";
     default:
-      return "Escolher imagem";
+      return label ?? "Escolher imagem";
   }
 }
 

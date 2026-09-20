@@ -1,6 +1,6 @@
 {
   "name": "@repo/web",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "private": true,
   "//": "Next.js 16 — telas e BFF. É a única parte que o navegador enxerga; nunca acessa banco nem MinIO direto (AGENTS.md, regra 4).",
   "scripts": {

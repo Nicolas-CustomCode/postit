@@ -66,6 +66,19 @@
   --status-falhou: #b91c1c;
   --status-falhou-bg: #fde2e2;
   --status-cancelado: #6b7280;
+
+  /*
+   * A prévia do feed (RF-C10; artboard ComposicaoDesktop).
+   *
+   * **Cores do Instagram, não do PostIt.** A prévia imita o que a pessoa vai ver
+   * no aplicativo deles: usar a nossa paleta faria a prévia mentir sobre o
+   * resultado, que é a única coisa que ela precisa acertar.
+   */
+  --ig-bg: #ffffff;
+  --ig-border: #dbdbdb;
+  --ig-text: #0c1014;
+  --ig-muted: #737373;
+  --ig-dot-off: #c7c7c7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -105,6 +118,12 @@
     --status-falhou: #ff8a8a;
     --status-falhou-bg: #431717;
     --status-cancelado: #8d94a6;
+
+    --ig-bg: #000000;
+    --ig-border: #262626;
+    --ig-text: #f5f5f5;
+    --ig-muted: #a8a8a8;
+    --ig-dot-off: #4a4a4a;
   }
 }
 
