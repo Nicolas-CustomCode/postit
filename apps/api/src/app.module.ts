@@ -8,6 +8,7 @@ import { InternalKeyGuard } from "./common/guards/internal-key.guard";
 import type { ApiEnv } from "./config/env";
 import { HealthController } from "./health/health.controller";
 import { MediaModule } from "./media/media.module";
+import { PostsModule } from "./posts/posts.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { StorageModule } from "./storage/storage.module";
 
@@ -31,6 +32,7 @@ export class AppModule {
         AuthModule.forEnv(env),
         AccountsModule.forEnv(env),
         MediaModule.forEnv(env),
+        PostsModule.forEnv(env),
       ],
       controllers: [HealthController],
       providers: [

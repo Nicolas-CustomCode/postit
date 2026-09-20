@@ -10,6 +10,7 @@ import {
   IMAGE_UPLOAD_SPEC,
   megabytes,
   type ImageFormat,
+  type ImageSpec,
   type MediaSummary,
   type MediaPreProblem,
   type UploadPermission,
@@ -33,6 +34,11 @@ import { blobToFile, cropToJpeg, loadImage, type LoadedImage } from "@/lib/media
  * imagem não cabe no feed, a tela **oferece** o recorte em vez de impô-lo — uma
  * arte 9:16 é perfeita como está, e recortá-la destruiria o formato pretendido.
  *
+ * ⚠️ **Na composição é diferente, e o `mode` é o que diz isso.** Ali o formato
+ * de destino já existe, e "enviar como está" seria um beco: o arquivo entraria
+ * no acervo e a API recusaria anexá-lo em seguida. Com formato, as saídas são
+ * recortar ou escolher outra imagem.
+ *
  * ⚠️ **`XMLHttpRequest`, e não `fetch`.** O `fetch` não relata progresso de
  * envio: ele só avisa quando termina, e a barra saltaria de 0 a 100. O RF-B01
  * pede progresso real, que só o `upload.onprogress` do XHR dá.
@@ -51,12 +57,27 @@ type Estado =
   | { fase: "conferindo" }
   | { fase: "pronto"; midia: MediaSummary };
 
-export function UploadField({ onUploaded }: { readonly onUploaded?: (media: MediaSummary) => void }): ReactNode {
+/**
+ * `"library"` é o Acervo: qualquer proporção serve, porque o formato ainda não
+ * foi escolhido. Com um formato, é a composição, e a imagem precisa servir a ele.
+ */
+export type UploadMode = "library" | { readonly format: ImageFormat };
+
+export function UploadField({
+  mode = "library",
+  onUploaded,
+}: {
+  readonly mode?: UploadMode;
+  readonly onUploaded?: (media: MediaSummary) => void;
+}): ReactNode {
   const [estado, setEstado] = useState<Estado>({ fase: "parado" });
   const [erro, setErro] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   const ocupado = estado.fase === "enviando" || estado.fase === "conferindo";
+  // No acervo, o feed é o formato exigente e serve de referência para a oferta
+  // de recorte. Na composição, quem manda é o formato de destino.
+  const alvo = mode === "library" ? IMAGE_SPECS.FEED_IMAGE : IMAGE_SPECS[mode.format];
 
   async function escolher(file: File): Promise<void> {
     setErro(null);
@@ -87,12 +108,12 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
 
     /*
      * A imagem entra no acervo de qualquer jeito — o piso já foi conferido. O
-     * que muda é se vale a pena oferecer o recorte: só quando ela não cabe no
-     * feed, que é o formato exigente. Quem vai usá-la em Stories segue direto.
+     * que muda é se vale a pena falar de recorte: só quando ela não cabe no
+     * formato de referência. Quem já está na proporção segue direto.
      */
-    const ratioDoFeed = targetRatioFor(imagem.width, imagem.height, IMAGE_SPECS.FEED_IMAGE);
-    if (ratioDoFeed !== null) {
-      setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioDoFeed });
+    const ratioAlvo = targetRatioFor(imagem.width, imagem.height, alvo);
+    if (ratioAlvo !== null) {
+      setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioDoFeed: ratioAlvo });
       return;
     }
 
@@ -163,7 +184,10 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
       {estado.fase === "decidindo" && (
         <FormatChoice
           image={estado.escolhida.imagem}
-          onSendAsIs={() => void enviar(estado.escolhida.file)}
+          spec={alvo}
+          // Na composição não há "enviar como está": o arquivo entraria no
+          // acervo e a API recusaria anexá-lo em seguida.
+          onSendAsIs={mode === "library" ? () => void enviar(estado.escolhida.file) : undefined}
           onCrop={() =>
             setEstado({ fase: "recortando", escolhida: estado.escolhida, ratio: estado.ratioDoFeed })
           }
@@ -178,7 +202,7 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
         <CropPreview
           image={estado.escolhida.imagem}
           ratio={estado.ratio}
-          spec={IMAGE_SPECS.FEED_IMAGE}
+          spec={alvo}
           busy={false}
           onConfirm={(posicao) => void enviarRecorte(posicao)}
           onCancel={() =>
@@ -241,12 +265,15 @@ export function UploadField({ onUploaded }: { readonly onUploaded?: (media: Medi
  */
 function FormatChoice({
   image,
+  spec,
   onSendAsIs,
   onCrop,
   onChooseAnother,
 }: {
   readonly image: LoadedImage;
-  readonly onSendAsIs: () => void;
+  readonly spec: ImageSpec;
+  /** Ausente na composição: lá, enviar sem recortar terminaria em recusa. */
+  readonly onSendAsIs?: (() => void) | undefined;
   readonly onCrop: () => void;
   /** Sem esta saída, quem escolheu o arquivo errado ficaria preso aqui. */
   readonly onChooseAnother: () => void;
@@ -259,18 +286,29 @@ function FormatChoice({
         <p className="text-sm font-medium">
           Esta imagem é {image.width} × {image.height} pixels
         </p>
+        {/*
+          A frase evita preposição antes do nome do formato: "não cabe em Feed"
+          sai torto, e "no Feed" quebraria em "no Stories".
+        */}
         <p className="text-sm text-muted-foreground">
-          Ela não cabe no feed, que aceita de {IMAGE_SPECS.FEED_IMAGE.ratioLabel}
-          {sufixoDeFormatos(servePara)}.
+          Não serve para {spec.label}, que aceita de {spec.ratioLabel}
+          {onSendAsIs === undefined ? "" : sufixoDeFormatos(servePara)}.
         </p>
       </div>
 
       <div className="flex flex-col gap-2 md:flex-row">
-        <Button type="button" className="h-11 md:h-10" onClick={onSendAsIs}>
-          Enviar como está
-        </Button>
-        <Button type="button" variant="outline" className="h-11 md:h-10" onClick={onCrop}>
-          Recortar para o feed
+        {onSendAsIs !== undefined && (
+          <Button type="button" className="h-11 md:h-10" onClick={onSendAsIs}>
+            Enviar como está
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant={onSendAsIs === undefined ? "default" : "outline"}
+          className="h-11 md:h-10"
+          onClick={onCrop}
+        >
+          Recortar para {spec.label}
         </Button>
       </div>
 

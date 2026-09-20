@@ -56,7 +56,9 @@ export function BottomBar({
       <BottomLink href={conta("calendario")} label="Calendário" icon={CalendarDays} pathname={pathname} />
       <BottomLink href={conta("postagens")} label="Postagens" icon={SquarePen} pathname={pathname} />
 
-      <Link href={conta("postagens")} className="flex justify-center" aria-label="Nova postagem">
+      {/* O "+" leva direto a compor. Antes caía na lista, e era um toque a mais
+          para chegar onde a pessoa já queria ir. */}
+      <Link href={conta("postagens/nova")} className="flex justify-center" aria-label="Nova postagem">
         <span className="flex size-14 items-center justify-center rounded-[18px] bg-primary text-primary-foreground shadow-[0_6px_18px_rgba(53,68,230,0.35)]">
           <Plus className="size-6.5" strokeWidth={2.5} aria-hidden />
         </span>

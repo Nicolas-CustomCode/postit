@@ -1,4 +1,4 @@
-import { AUTH_ERROR_MESSAGES, type AuthErrorCode } from "@repo/shared";
+import { AUTH_ERROR_MESSAGES, type ApiErrorBody, type AuthErrorCode } from "@repo/shared";
 import { ApiError } from "../api/client";
 
 /**
@@ -13,6 +13,14 @@ export interface ActionError {
   readonly message: string;
   /** Só em ACCESS_BLOCKED: o horário de liberação, já formatado. */
   readonly blockedUntil?: string;
+  /**
+   * Só em POST_VERSION_CONFLICT: quem salvou antes, e quando (RF-C12).
+   *
+   * Atravessa até aqui para a tela poder dizer "Esta postagem foi alterada por
+   * Fulano às 14h32" **sem perder o que a pessoa digitou** — que é o ponto
+   * inteiro do requisito.
+   */
+  readonly conflict?: ApiErrorBody["conflict"];
 }
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | ({ ok: false } & ActionError);
@@ -24,6 +32,7 @@ export function failure(error: unknown): ActionResult<never> {
       code: error.code,
       message: messageFor(error),
       ...(error.blockedUntil === undefined ? {} : { blockedUntil: error.blockedUntil }),
+      ...(error.conflict === undefined ? {} : { conflict: error.conflict }),
     };
   }
 

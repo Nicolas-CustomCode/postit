@@ -187,6 +187,13 @@ O login em si — senha, desafio e código de 6 digitos — está em
 O coração do sistema. Todo comportamento se ancora aqui. A máquina vive em
 `apps/api/src/domain/post/`, como código puro, sem banco e sem HTTP.
 
+> **Nenhuma aresta foi acrescentada para a autoaprovação da Fase 1** — decidido em 20/09/2026.
+> Marcar uma postagem como pronta percorre `RASCUNHO → EM_REVISAO → APROVADO`, as duas transições
+> abaixo, **na mesma transação**, gravando as duas linhas de `Aprovacao`. Nenhuma postagem *persiste*
+> em `EM_REVISAO`, então não existe fila de revisão ainda; a invariante I-1 vale sem exceção, e na
+> Fase 4 a mudança é **parar de encadear**. A alternativa — abrir `RASCUNHO → APROVADO` — criaria uma
+> aresta que teria de ser fechada depois, e um diagrama que mente sobre o fluxo real.
+
 ```mermaid
 stateDiagram-v2
     [*] --> RASCUNHO

@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { TOKEN_WARNING_DAYS, type AccountSummary, type AccountWarning } from "@repo/shared";
 import { ACCOUNTS_CONFIG, type AccountsConfig } from "./accounts.config";
 import { PrismaService } from "../prisma/prisma.service";
+import { publicUrlFor } from "../storage/public-url";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -37,15 +38,10 @@ export class AccountsQueryService {
     }));
   }
 
-  /**
-   * A foto fica no nosso armazenamento, no prefixo público. O endereço é montado
-   * aqui, e não guardado no banco, porque ele muda junto com o domínio de mídia
-   * — no computador local ele é o endereço do túnel, que troca. O bucket entra
-   * no caminho pela mesma razão: é infraestrutura, não dado da conta.
-   */
+  /** A foto fica no nosso armazenamento, no prefixo público. */
   private photoUrl(objectKey: string | null): string | null {
     if (objectKey === null) return null;
-    return `${this.config.mediaPublicUrl.replace(/\/$/, "")}/${this.config.mediaBucket}/${objectKey}`;
+    return publicUrlFor(objectKey, { publicUrl: this.config.mediaPublicUrl, bucket: this.config.mediaBucket });
   }
 }
 

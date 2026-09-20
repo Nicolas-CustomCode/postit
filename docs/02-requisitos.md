@@ -155,6 +155,16 @@ O editor mostra contagem de caracteres, de hashtags e de menções, com os limit
 **Aceite:** o contador alerta ao passar de 2200 caracteres, 30 hashtags ou 20 menções, e impede o
 agendamento enquanto estiver fora do limite.
 
+⚠️ **O limite não impede digitar nem salvar rascunho** — impede a postagem ficar pronta. Recusar no
+schema de entrada faria a pessoa perder o texto ao salvar, que é pior do que qualquer limite. A
+contagem é uma função só, em `packages/shared/src/caption.ts`, usada pelo contador **e** pela recusa:
+duas contagens que discordassem deixariam alguém escrever até o verde e ouvir "não" ao salvar.
+
+**Como se conta, decidido em 20/09/2026** — a Meta não publica a regra, e isto é escolha nossa:
+caracteres em **unidades UTF-16** (um emoji conta 2, a maior das contagens possíveis, para errar para
+o lado que recusa cedo); hashtag e menção precisam **começar palavra**, senão `contato@empresa.com`
+viraria menção. Registrado como item a validar no [08](08-integracao-instagram.md).
+
 ### RF-C04 — Ordenar carrossel **[MVP]**
 **Aceite:** a ordem é persistida e respeitada na publicação. Mínimo 2, máximo 10 itens, validado
 antes de agendar.
@@ -246,6 +256,11 @@ Sugerir horários com base no histórico de desempenho.
 ### RF-E02 — Aprovar **[MVP]**
 **Aceite:** `EM_REVISAO` para `APROVADO`, registrando quem aprovou e quando. Exige `POSTAGEM_APROVAR`; se
 quem aprova é o autor da postagem, exige também `POSTAGEM_APROVAR_PROPRIA` (RF-I04).
+
+**Estado, desde 20/09/2026:** na Fase 1 as duas transições são **encadeadas numa transação** — "marcar
+como pronta" envia para revisão e aprova no mesmo ato, gravando as duas linhas de `Aprovacao`. Não há
+fila de revisão nem reprovação com motivo (RF-E03) ainda: elas chegam na Fase 4, e a mudança lá é
+parar de encadear. A regra de `POSTAGEM_APROVAR_PROPRIA` **já vale**.
 
 ### RF-E03 — Rejeitar com motivo **[MVP]**
 **Aceite:** volta para `RASCUNHO` com comentário obrigatório explicando o ajuste necessário.

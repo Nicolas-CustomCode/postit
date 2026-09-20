@@ -17,6 +17,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly blockedUntil?: string,
     readonly fields?: readonly string[],
+    /** Só em POST_VERSION_CONFLICT: quem salvou antes, e quando (RF-C12). */
+    readonly conflict?: ApiErrorBody["conflict"],
   ) {
     super(AUTH_ERROR_MESSAGES[code]);
     this.name = "ApiError";
@@ -69,7 +71,13 @@ export async function apiFetch<T>({ method, path, body, token }: ApiRequest): Pr
 
   if (!response.ok) {
     const error = (payload ?? {}) as Partial<ApiErrorBody>;
-    throw new ApiError(error.code ?? "INTERNAL_ERROR", response.status, error.blockedUntil, error.fields);
+    throw new ApiError(
+      error.code ?? "INTERNAL_ERROR",
+      response.status,
+      error.blockedUntil,
+      error.fields,
+      error.conflict,
+    );
   }
 
   return payload as T;

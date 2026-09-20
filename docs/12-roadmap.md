@@ -188,6 +188,7 @@ inclusive barra final. É o erro mais comum e o mais chato de diagnosticar.
 | Nome público da mídia servido pelo proxy, só em `publicas/` | RNF-09 |
 | Composição mínima: conta, mídia, legenda, texto alternativo | RF-C01, RF-C03, RF-B05 |
 | Contadores de caracteres, hashtags e menções | RF-C03 |
+| Validação da mídia contra o formato de destino | RF-B03 |
 | Agendamento com fuso da conta e conversão para UTC | RF-D01, RF-D03, RNF-08 |
 | Máquina de estados com as nove invariantes, em `apps/api/src/domain/` | [05](05-arquitetura.md) |
 | Controle de versão da postagem contra edição simultânea | RF-C12 |
@@ -235,8 +236,16 @@ resolvido junto.
 
 ⚠️ **O teste 5 mudou de sinal** na mesma data. Ele dizia "imagem 2:1 é recusada no envio", o que só
 valeria se o acervo fosse de feed — e ele é compartilhado entre formatos (RF-B03, RF-B04). A metade do
-envio está confirmada (a imagem entra, e a tela oferece o recorte para o feed); a metade da composição
-espera a parte 1b.
+envio está confirmada (a imagem entra, e a tela oferece o recorte para o feed); **a metade da
+composição foi fechada em 20/09/2026**, com a parte 1b: anexar uma imagem 9:16 a uma postagem de feed
+é recusado com a faixa na mensagem, e o envio feito de dentro da composição já conhece o formato de
+destino — lá não existe "enviar como está", porque o arquivo entraria no acervo e a API recusaria
+anexá-lo em seguida.
+
+**Entregue em 20/09/2026 — parte 1b, "a postagem existe":** máquina de estados com as invariantes I-1
+a I-4 em `apps/api/src/domain/post/`, módulo `posts/` com as oito rotas sob `accounts/:accountId`,
+controle de versão contra edição simultânea (RF-C12), contadores da legenda, e as telas de Postagens e
+Compor. **Falta desta fase:** agendamento com fuso (1c) e o motor de publicação (1d).
 
 Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
 **5**, **6** a **11**, **14**, **15** e **16**.

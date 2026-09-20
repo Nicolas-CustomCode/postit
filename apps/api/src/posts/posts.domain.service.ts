@@ -1,0 +1,277 @@
+import { Injectable } from "@nestjs/common";
+import type { Prisma, PostStatus } from "@repo/database";
+import type { PermissionHolder } from "@repo/shared";
+import {
+  MediaUploadInvalidError,
+  PostNotEditableError,
+  PostNotFoundError,
+  PostNotReadyError,
+  PostTransitionInvalidError,
+  PostVersionConflictError,
+  SelfApprovalForbiddenError,
+} from "../common/errors";
+import { selfApprovalRefused } from "../domain/post/approval-rules";
+import { postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
+import { canMarkReady, isEditable, READY_CHAIN, statusAfterContentEdit } from "../domain/post/post-state";
+import { PrismaService } from "../prisma/prisma.service";
+
+/**
+ * Criar e editar postagens (RF-C01, RF-C03, RF-C12; docs/05).
+ *
+ * ⚠️ **Só dois métodos privados tocam a tabela `Postagem`**, e um teste de
+ * arquitetura garante isso:
+ *
+ * - `applyUserWrite()` — a trava otimista da versão (regra 20);
+ * - `applyContentChange()` — a mesma coisa, **mais** a invariante I-2.
+ *
+ * É o que impede o modo de falha que a invariante existe para evitar: alguém
+ * acrescenta um campo de conteúdo daqui a três meses, esquece de derrubar a
+ * postagem para rascunho, e o sistema passa a publicar algo que ninguém
+ * aprovou. Com dois primitivos, a pergunta "isto é conteúdo?" vira a escolha de
+ * qual dos dois chamar — e essa escolha mora num método de quatro linhas.
+ */
+@Injectable()
+export class PostsDomainService {
+  /**
+   * Os métodos que mexem em conteúdo. O teste confere que **todos** eles
+   * derrubam a postagem para rascunho: método novo sem linha na tabela do teste
+   * reprova a CI.
+   */
+  static readonly CONTENT_METHODS = ["setCaption", "setMedia"] as const;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  /** Uma postagem nasce em `RASCUNHO`, vazia. Nenhuma chamada à Meta acontece. */
+  async create(input: {
+    accountId: string;
+    userId: string;
+    format: "FEED_IMAGE";
+    caption: string | null;
+  }): Promise<{ id: string }> {
+    const post = await this.prisma.db.post.create({
+      data: {
+        accountId: input.accountId,
+        format: input.format,
+        caption: input.caption,
+        createdById: input.userId,
+      },
+      select: { id: true },
+    });
+
+    return post;
+  }
+
+  setCaption(input: Scope & { caption: string | null }): Promise<Saved> {
+    return this.applyContentChange(input, { caption: input.caption });
+  }
+
+  /**
+   * Troca a imagem da postagem.
+   *
+   * Nesta fase é **uma** imagem, em `position: 0`. Apagar e recriar evita o
+   * conflito com a unicidade de `(postagemId, ordem)` que reordenar um carrossel
+   * traria — e carrossel é Fase 2.
+   *
+   * A mídia é validada contra o formato aqui, com os fatos lidos do registro
+   * `Midia`: as medidas de lá já têm a rotação do EXIF aplicada.
+   */
+  async setMedia(input: Scope & { mediaId: string; altText: string | null }): Promise<Saved> {
+    // A postagem primeiro: é ela que carrega a conferência de conta (regra 24).
+    // Validar a mídia antes responderia sobre o arquivo a quem nem tem acesso à
+    // postagem.
+    const post = await this.load(input);
+
+    const media = await this.prisma.db.media.findUnique({ where: { id: input.mediaId } });
+    // Mídia inexistente é envio abandonado ou identificador inventado — não é
+    // "postagem não encontrada". A mensagem precisa mandar escolher o arquivo de
+    // novo, que é o que resolve.
+    if (media === null) throw new MediaUploadInvalidError();
+
+    const problema = postReadinessProblem({
+      format: "FEED_IMAGE",
+      caption: null,
+      media: [{ mimeType: media.mimeType, bytes: media.bytes, width: media.width, height: media.height }],
+    });
+    if (problema !== null) throw readinessError(problema);
+
+    return this.applyContentChange(input, {}, async (tx) => {
+      await tx.postMedia.deleteMany({ where: { postId: post.id } });
+      await tx.postMedia.create({
+        data: { postId: post.id, mediaId: input.mediaId, position: 0, altText: input.altText },
+      });
+    });
+  }
+
+  /**
+   * Marcar como pronta: `RASCUNHO → EM_REVISAO → APROVADO`, numa transação.
+   *
+   * ⚠️ **Duas transições legais encadeadas, não uma aresta inventada.** Nenhuma
+   * postagem persiste em `EM_REVISAO` — não há fila de revisão nesta fase —, mas
+   * a máquina de estados continua a do `docs/05` e a invariante I-1 vale sem
+   * asterisco. As duas linhas de `Aprovacao` contam a verdade: "Fulano enviou e
+   * aprovou às 14h32". Na Fase 4 a mudança é parar de encadear.
+   */
+  async markReady(input: Scope & { approver: PermissionHolder & { id: string } }): Promise<Saved> {
+    const post = await this.load(input);
+
+    if (!canMarkReady(post.status)) throw new PostTransitionInvalidError();
+    if (selfApprovalRefused(input.approver, post.createdById)) throw new SelfApprovalForbiddenError();
+
+    const problema = postReadinessProblem({
+      format: "FEED_IMAGE",
+      caption: post.caption,
+      media: post.media.map((item) => ({
+        mimeType: item.media.mimeType,
+        bytes: item.media.bytes,
+        width: item.media.width,
+        height: item.media.height,
+      })),
+    });
+    if (problema !== null) throw readinessError(problema);
+
+    return this.applyUserWrite(input, post.status, { status: "APPROVED" }, async (tx) => {
+      // Uma linha por passo do caminho, no mesmo instante e do mesmo usuário.
+      await tx.approval.createMany({
+        data: READY_CHAIN.map((passo) => ({
+          postId: post.id,
+          userId: input.userId,
+          action: passo === "IN_REVIEW" ? ("SUBMITTED_FOR_REVIEW" as const) : ("APPROVED" as const),
+        })),
+      });
+    });
+  }
+
+  /** Descartar um rascunho. Cancelar o que já está agendado é RF-D05, na 1c. */
+  async discard(input: Scope): Promise<Saved> {
+    const post = await this.load(input);
+    if (post.status !== "DRAFT") throw new PostTransitionInvalidError();
+
+    return this.applyUserWrite(input, post.status, { status: "CANCELED" });
+  }
+
+  /** A postagem com o que as regras precisam. Sempre pelos dois identificadores. */
+  private async load(scope: Scope) {
+    const post = await this.prisma.db.post.findFirst({
+      where: { id: scope.postId, accountId: scope.accountId },
+      include: { media: { include: { media: true } } },
+    });
+
+    if (post === null) throw new PostNotFoundError();
+    return post;
+  }
+
+  /**
+   * **Primitivo 1 — a trava otimista** (RF-C12, regra 20).
+   *
+   * O `updateMany` é atômico: ler a versão antes e gravar depois abriria uma
+   * janela para duas pessoas passarem. `update` não serve, porque lança `P2025`
+   * e o `count` se perde sem ganhar discriminação nenhuma.
+   *
+   * ⚠️ **O status entra no `where` junto da versão.** O worker muda status sem
+   * mexer em `versao` (regra 20), então a versão sozinha não perceberia que a
+   * postagem foi despachada para publicação entre a leitura e a escrita.
+   */
+  private async applyUserWrite(
+    scope: Scope,
+    expectedStatus: PostStatus,
+    data: Prisma.PostUpdateManyMutationInput,
+    extra?: (tx: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<Saved> {
+    await this.prisma.db.$transaction(async (tx) => {
+      const { count } = await tx.post.updateMany({
+        where: { id: scope.postId, accountId: scope.accountId, version: scope.version, status: expectedStatus },
+        data: { ...data, version: { increment: 1 }, updatedById: scope.userId },
+      });
+
+      if (count === 0) {
+        // Só no caminho de erro, que é raro — e esta consulta traz os dados do
+        // conflito no instante certo, dentro da transação.
+        const atual = await tx.post.findFirst({
+          where: { id: scope.postId, accountId: scope.accountId },
+          select: { version: true, updatedAt: true, updatedBy: { select: { name: true } } },
+        });
+
+        if (atual === null) throw new PostNotFoundError();
+        if (atual.version !== scope.version) {
+          throw new PostVersionConflictError({
+            updatedByName: atual.updatedBy?.name ?? null,
+            updatedAt: atual.updatedAt,
+            version: atual.version,
+          });
+        }
+        // A versão bate, então foi o status que mudou por baixo: o worker pegou
+        // a postagem para publicar.
+        throw new PostNotEditableError();
+      }
+
+      await extra?.(tx);
+    });
+
+    /*
+     * A versão nova é exatamente esta: o `where` casou com `scope.version` e o
+     * incremento é de um. Devolvê-la evita a tela adivinhar — e adivinhar seria
+     * frágil no dia em que uma escrita subisse a versão duas vezes.
+     */
+    return { version: scope.version + 1 };
+  }
+
+  /**
+   * **Primitivo 2 — a invariante I-2** (RF-E05).
+   *
+   * Editar legenda ou mídia de uma postagem `APROVADO` ou `AGENDADO` a devolve
+   * para `RASCUNHO`, e registra o motivo. Sem isso, alguém aprovaria uma legenda
+   * e publicaria outra.
+   *
+   * Quem decide o status novo é `statusAfterContentEdit()`, no domínio — este
+   * método só obedece.
+   */
+  private async applyContentChange(
+    scope: Scope,
+    data: Prisma.PostUpdateManyMutationInput,
+    extra?: (tx: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<Saved> {
+    const post = await this.load(scope);
+    if (!isEditable(post.status)) throw new PostNotEditableError();
+
+    const novoStatus = statusAfterContentEdit(post.status);
+    const rebaixou = novoStatus !== post.status;
+
+    return this.applyUserWrite(scope, post.status, { ...data, status: novoStatus }, async (tx) => {
+      if (rebaixou) {
+        await tx.approval.create({
+          data: { postId: post.id, userId: scope.userId, action: "INVALIDATED_BY_EDIT" },
+        });
+      }
+      await extra?.(tx);
+    });
+  }
+}
+
+/**
+ * O que toda escrita devolve: a versão nova.
+ *
+ * Sem ela, a tela teria de adivinhar somando um — e perderia o formulário
+ * inteiro no dia em que uma escrita subisse a versão de outro jeito.
+ */
+export interface Saved {
+  readonly version: number;
+}
+
+/** Tudo que identifica a escrita: a conta, a postagem, a versão e quem age. */
+interface Scope {
+  readonly accountId: string;
+  readonly postId: string;
+  readonly version: number;
+  readonly userId: string;
+}
+
+/**
+ * Todo problema de prontidão vira o mesmo 422, com o código do problema.
+ *
+ * Os códigos de mídia aparecem aqui também, e não é engano: o acervo aceitou a
+ * imagem porque ela serve a **algum** formato, e é este formato que não a aceita
+ * (RF-B03).
+ */
+function readinessError(problem: PostProblem): Error {
+  return new PostNotReadyError(problem);
+}

@@ -14,7 +14,7 @@ import { Client } from "pg";
  * real contra a Meta falsa, e este arquivo some.
  */
 
-const TABELAS = ['"MetricaConta"', '"EventoToken"', '"Conta"'];
+const TABELAS = ['"Aprovacao"', '"PostagemMidia"', '"Postagem"', '"MetricaConta"', '"EventoToken"', '"Conta"'];
 
 async function comBanco<T>(usar: (cliente: Client) => Promise<T>): Promise<T> {
   const client = new Client({ connectionString: process.env["TEST_DATABASE_URL"] });

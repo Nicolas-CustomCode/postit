@@ -111,17 +111,17 @@ test.describe("acervo — enviar imagem", () => {
    * saídas em vez de recortar sozinha. Recortar à força destruiria uma arte 9:16
    * feita para Stories, que é válida como está (RF-B03).
    */
-  test("foto que não cabe no feed oferece as duas saídas", async ({ page }) => {
+  test("foto que não serve ao feed oferece as duas saídas", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
       name: "foto-em-pe.jpg",
       mimeType: "image/jpeg",
       buffer: imagemDe(1512, 2016),
     });
 
-    await expect(page.getByText(/não cabe no feed/i)).toBeVisible();
+    await expect(page.getByText(/não serve para Feed/i)).toBeVisible();
     await expect(page.getByText(/serve para Stories/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /recortar para o feed/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /recortar para feed/i })).toBeVisible();
     // A terceira saída: quem escolheu o arquivo errado não pode ficar preso aqui.
     await expect(page.getByRole("button", { name: /escolher outra imagem/i })).toBeVisible();
 
@@ -136,7 +136,7 @@ test.describe("acervo — enviar imagem", () => {
       buffer: imagemDe(1512, 2016),
     });
 
-    await page.getByRole("button", { name: /recortar para o feed/i }).click();
+    await page.getByRole("button", { name: /recortar para feed/i }).click();
 
     await expect(page.getByText(/Recortar para Feed/i)).toBeVisible();
     await expect(page.getByText(/4:5 a 1\.91:1/)).toBeVisible();
@@ -152,7 +152,7 @@ test.describe("acervo — enviar imagem", () => {
       buffer: imagemDe(1512, 2016),
     });
 
-    await page.getByRole("button", { name: /recortar para o feed/i }).click();
+    await page.getByRole("button", { name: /recortar para feed/i }).click();
     await page.getByRole("button", { name: "Voltar" }).click();
 
     await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
@@ -165,8 +165,8 @@ test.describe("acervo — enviar imagem", () => {
       buffer: imagemDe(1080, 1080),
     });
 
-    await expect(page.getByText(/não cabe no feed/i)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /recortar para o feed/i })).toHaveCount(0);
+    await expect(page.getByText(/não serve para Feed/i)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /recortar para feed/i })).toHaveCount(0);
   });
 
   test("um arquivo vazio é recusado", async ({ page }) => {

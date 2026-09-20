@@ -226,3 +226,83 @@ export class MediaAlreadyConfirmedError extends AppError {
     super("MEDIA_ALREADY_CONFIRMED", 409);
   }
 }
+
+/**
+ * A postagem não existe **nesta conta**.
+ *
+ * ⚠️ **404, e não 403, também quando a postagem existe em outra conta.** Dizer
+ * "existe, mas não é sua" já entrega que aquele identificador é real. O `where`
+ * das consultas sempre carrega `contaId` junto do id, e é esta a resposta dos
+ * dois casos (AGENTS.md, regra 24).
+ */
+export class PostNotFoundError extends AppError {
+  constructor() {
+    super("POST_NOT_FOUND", 404);
+  }
+}
+
+/**
+ * Outra pessoa salvou enquanto esta editava (RF-C12).
+ *
+ * Carrega **quem** e **quando** porque a tela precisa dizer "Esta postagem foi
+ * alterada por Fulano às 14h32" no mesmo instante do aviso. Os dados vêm da
+ * consulta que já aconteceu dentro da transação — buscá-los depois seria uma
+ * corrida, e mostraria o nome errado justamente no caso em que a funcionalidade
+ * existe para não mentir.
+ */
+export class PostVersionConflictError extends AppError {
+  constructor(current: { updatedByName: string | null; updatedAt: Date; version: number }) {
+    super("POST_VERSION_CONFLICT", 409, {
+      conflict: {
+        updatedByName: current.updatedByName,
+        updatedAt: current.updatedAt.toISOString(),
+        version: current.version,
+      },
+    });
+  }
+}
+
+/** A transição pedida não existe na máquina de estados (docs/05). */
+export class PostTransitionInvalidError extends AppError {
+  constructor() {
+    super("POST_TRANSITION_INVALID", 409);
+  }
+}
+
+/** `PUBLICADO`, `CANCELADO` e `PROCESSANDO` não aceitam edição de conteúdo. */
+export class PostNotEditableError extends AppError {
+  constructor() {
+    super("POST_NOT_EDITABLE", 409);
+  }
+}
+
+/**
+ * Falta algo para a postagem sair do rascunho.
+ *
+ * O código diz o quê: imagem ausente, legenda fora dos limites, ou imagem que
+ * não serve a este formato. Os códigos de mídia aparecem aqui de propósito — o
+ * acervo aceitou a imagem porque ela serve a algum formato, e é este que não a
+ * aceita (RF-B03).
+ */
+export class PostNotReadyError extends AppError {
+  constructor(
+    code:
+      | "POST_MEDIA_REQUIRED"
+      | "POST_CAPTION_TOO_LONG"
+      | "POST_TOO_MANY_HASHTAGS"
+      | "POST_TOO_MANY_MENTIONS"
+      | "MEDIA_WRONG_TYPE"
+      | "MEDIA_TOO_LARGE"
+      | "MEDIA_TOO_NARROW"
+      | "MEDIA_RATIO_UNSUPPORTED",
+  ) {
+    super(code, 422);
+  }
+}
+
+/** Aprovar a própria postagem sem `POSTAGEM_APROVAR_PROPRIA` (RF-I04). */
+export class SelfApprovalForbiddenError extends AppError {
+  constructor() {
+    super("SELF_APPROVAL_FORBIDDEN", 403);
+  }
+}
