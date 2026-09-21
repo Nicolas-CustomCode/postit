@@ -29,11 +29,11 @@ const version = z.number().int().min(1);
 /**
  * Os formatos que a composição oferece hoje: os dois de **imagem**.
  *
- * Carrossel, Reels e vídeo de feed exigem o validador de vídeo e a ordenação de
- * múltiplas mídias — Fase 2. A tela os mostra apagados, com o rótulo da fase, em
- * vez de escondê-los: saber que existem e quando chegam é informação útil.
+ * Reels exige o validador de vídeo — Fase 2. A tela o mostra apagado, com o
+ * rótulo da fase, em vez de escondê-lo: saber que existe e quando chega é
+ * informação útil.
  */
-export const COMPOSABLE_FORMATS = ["FEED_IMAGE", "STORIES"] as const;
+export const COMPOSABLE_FORMATS = ["FEED", "STORIES"] as const;
 export type ComposableFormat = (typeof COMPOSABLE_FORMATS)[number];
 
 export const createPostSchema = z.strictObject({

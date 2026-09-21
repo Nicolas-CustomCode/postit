@@ -69,7 +69,7 @@ describe("postagens", () => {
     const resposta = await api.request({
       method: "POST",
       url: `/accounts/${accountId}/posts`,
-      payload: { format: "FEED_IMAGE", ...(caption === undefined ? {} : { caption }) },
+      payload: { format: "FEED", ...(caption === undefined ? {} : { caption }) },
       token,
     });
 
@@ -89,7 +89,7 @@ describe("postagens", () => {
 
       expect(detalhe).toMatchObject({
         status: "DRAFT",
-        format: "FEED_IMAGE",
+        format: "FEED",
         caption: "Primeiro rascunho",
         version: 1,
         media: [],
@@ -560,7 +560,7 @@ describe("postagens", () => {
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/format`,
-        payload: { version: 2, format: "FEED_IMAGE" },
+        payload: { version: 2, format: "FEED" },
         token,
       });
 

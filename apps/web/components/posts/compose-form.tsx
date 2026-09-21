@@ -551,10 +551,10 @@ export function ComposeForm({
 
 /** O formato da postagem, ou o padrão da tela nova. */
 function formatoInicial(post: PostDetail | null): ComposableFormat {
-  if (post === null) return "FEED_IMAGE";
+  if (post === null) return "FEED";
   return (COMPOSABLE_FORMATS as readonly string[]).includes(post.format)
     ? (post.format as ComposableFormat)
-    : "FEED_IMAGE";
+    : "FEED";
 }
 
 /** A imagem já anexada, buscada no acervo para ter as medidas e o endereço. */

@@ -82,7 +82,7 @@ export function UploadField({
   const ocupado = estado.fase === "enviando" || estado.fase === "conferindo";
   // No acervo, o feed é o formato exigente e serve de referência para a oferta
   // de recorte. Na composição, quem manda é o formato de destino.
-  const alvo = mode === "library" ? IMAGE_SPECS.FEED_IMAGE : IMAGE_SPECS[mode.format];
+  const alvo = mode === "library" ? IMAGE_SPECS.FEED : IMAGE_SPECS[mode.format];
 
   async function escolher(file: File): Promise<void> {
     setErro(null);

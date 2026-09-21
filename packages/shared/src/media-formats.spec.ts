@@ -79,7 +79,7 @@ describe("especificações de imagem", () => {
   });
 
   describe("ratioFits — os limites exatos do feed", () => {
-    const FEED = IMAGE_SPECS.FEED_IMAGE;
+    const FEED = IMAGE_SPECS.FEED;
 
     it("1080×1350 é exatamente 4:5 e passa", () => {
       expect(ratioFits(1080, 1350, FEED)).toBe(true);
@@ -126,8 +126,7 @@ describe("especificações de imagem", () => {
       const stories = imagem({ width: 1080, height: 1920 });
 
       expect(validateImageFormat(stories, "STORIES")).toBeNull();
-      expect(validateImageFormat(stories, "FEED_IMAGE")).toBe("MEDIA_RATIO_UNSUPPORTED");
-      expect(validateImageFormat(stories, "CAROUSEL")).toBe("MEDIA_RATIO_UNSUPPORTED");
+      expect(validateImageFormat(stories, "FEED")).toBe("MEDIA_RATIO_UNSUPPORTED");
     });
 
     it("o piso vale antes da proporção: PNG 9:16 reclama do tipo", () => {
@@ -136,14 +135,11 @@ describe("especificações de imagem", () => {
       );
     });
 
-    it("item de carrossel segue a mesma tabela do feed", () => {
-      expect(IMAGE_SPECS.CAROUSEL.ratio).toEqual(IMAGE_SPECS.FEED_IMAGE.ratio);
-    });
   });
 
   describe("formatsFor — para que esta imagem serve", () => {
     it("quadrada serve para tudo", () => {
-      expect(formatsFor(1080, 1080)).toEqual(["FEED_IMAGE", "CAROUSEL", "STORIES"]);
+      expect(formatsFor(1080, 1080)).toEqual(["FEED", "STORIES"]);
     });
 
     it("9:16 serve só para Stories", () => {
@@ -165,9 +161,8 @@ describe("especificações de imagem", () => {
 
   describe("isImageFormat", () => {
     it("separa o que é imagem do que é vídeo", () => {
-      expect(isImageFormat("FEED_IMAGE")).toBe(true);
+      expect(isImageFormat("FEED")).toBe(true);
       expect(isImageFormat("STORIES")).toBe(true);
-      expect(isImageFormat("FEED_VIDEO")).toBe(false);
       expect(isImageFormat("REELS")).toBe(false);
     });
   });

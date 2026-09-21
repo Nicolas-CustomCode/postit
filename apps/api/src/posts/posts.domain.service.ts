@@ -390,11 +390,11 @@ function readinessError(problem: PostProblem): Error {
 /**
  * O formato da postagem como o validador de imagem o conhece.
  *
- * ⚠️ **O enum do banco tem cinco valores; o validador de imagem conhece três.**
- * Carrossel, Reels e vídeo de feed existem na coluna e ainda não são
- * componíveis (Fase 2). Se um deles aparecer aqui, é porque chegou ao banco por
- * um caminho que esta fase não abriu — e tratá-lo como feed seria validar
- * contra a regra errada em silêncio.
+ * ⚠️ **O enum do banco tem três valores; o validador de imagem conhece dois.**
+ * Reels existe na coluna e ainda não é componível: é vídeo, e o validador dele
+ * é Fase 2. Se aparecer aqui, é porque chegou ao banco por um caminho que esta
+ * fase não abriu — e tratá-lo como feed seria validar contra a regra errada em
+ * silêncio.
  */
 function formatOf(format: PostFormat): ImageFormat {
   if (!isImageFormat(format)) {

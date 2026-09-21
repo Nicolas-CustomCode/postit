@@ -77,9 +77,7 @@ export const POST_STATUS_LABELS: Record<PostStatus, string> = {
 
 /** Como cada formato aparece na tela. */
 export const POST_FORMAT_LABELS: Record<PostFormat, string> = {
-  FEED_IMAGE: "Imagem de feed",
-  FEED_VIDEO: "Vídeo de feed",
-  CAROUSEL: "Carrossel",
+  FEED: "Feed",
   REELS: "Reels",
   STORIES: "Stories",
 };

@@ -11,7 +11,20 @@
 export const SOCIAL_NETWORKS = ["INSTAGRAM"] as const;
 export type SocialNetwork = (typeof SOCIAL_NETWORKS)[number];
 
-export const POST_FORMATS = ["FEED_IMAGE", "FEED_VIDEO", "CAROUSEL", "REELS", "STORIES"] as const;
+/**
+ * Os três destinos de uma postagem no Instagram (ADR 0024).
+ *
+ * ⚠️ **Carrossel não está aqui de propósito: ele é quantidade, não formato.** A
+ * Meta monta o carrossel sozinha quando o container pai recebe de 2 a 10
+ * `children`, e o item de carrossel segue a mesma tabela de imagem do feed
+ * (docs/08). Guardar isso num valor de enum duplicava, pior, o que a tabela
+ * `PostagemMidia` já conta contando linhas.
+ *
+ * Os três valores não levam `@map` no schema porque não há tradução — `FEED`,
+ * `REELS` e `STORIES` são as palavras que a própria Meta usa em
+ * `media_product_type` (docs/08).
+ */
+export const POST_FORMATS = ["FEED", "REELS", "STORIES"] as const;
 export type PostFormat = (typeof POST_FORMATS)[number];
 
 export const POST_STATUSES = [

@@ -310,16 +310,16 @@ describe("prontidão da postagem", () => {
 
   it("uma postagem completa está pronta", () => {
     expect(
-      postReadinessProblem({ format: "FEED_IMAGE", caption: "Um dia bonito", media: [imagemDeFeed] }),
+      postReadinessProblem({ format: "FEED", caption: "Um dia bonito", media: [imagemDeFeed] }),
     ).toBeNull();
   });
 
   it("legenda vazia não impede: a Meta aceita postagem sem legenda", () => {
-    expect(postReadinessProblem({ format: "FEED_IMAGE", caption: null, media: [imagemDeFeed] })).toBeNull();
+    expect(postReadinessProblem({ format: "FEED", caption: null, media: [imagemDeFeed] })).toBeNull();
   });
 
   it("sem imagem não há o que publicar", () => {
-    expect(postReadinessProblem({ format: "FEED_IMAGE", caption: "oi", media: [] })).toBe(
+    expect(postReadinessProblem({ format: "FEED", caption: "oi", media: [] })).toBe(
       "POST_MEDIA_REQUIRED",
     );
   });
@@ -330,7 +330,7 @@ describe("prontidão da postagem", () => {
    */
   it("imagem que não serve ao formato é recusada", () => {
     expect(
-      postReadinessProblem({ format: "FEED_IMAGE", caption: null, media: [imagemDeStories] }),
+      postReadinessProblem({ format: "FEED", caption: null, media: [imagemDeStories] }),
     ).toBe("MEDIA_RATIO_UNSUPPORTED");
 
     expect(postReadinessProblem({ format: "STORIES", caption: null, media: [imagemDeStories] })).toBeNull();
@@ -339,7 +339,7 @@ describe("prontidão da postagem", () => {
   it("legenda longa demais impede ficar pronta", () => {
     expect(
       postReadinessProblem({
-        format: "FEED_IMAGE",
+        format: "FEED",
         caption: "a".repeat(2201),
         media: [imagemDeFeed],
       }),
@@ -347,7 +347,7 @@ describe("prontidão da postagem", () => {
   });
 
   it("a falta de imagem é conferida antes da legenda", () => {
-    expect(postReadinessProblem({ format: "FEED_IMAGE", caption: "a".repeat(2201), media: [] })).toBe(
+    expect(postReadinessProblem({ format: "FEED", caption: "a".repeat(2201), media: [] })).toBe(
       "POST_MEDIA_REQUIRED",
     );
   });

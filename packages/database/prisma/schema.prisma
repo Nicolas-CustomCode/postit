@@ -32,10 +32,12 @@ enum SocialNetwork {
   @@map("RedeSocial")
 }
 
+// Três valores, e nenhum com @map: carrossel deixou de ser formato e virou
+// quantidade de PostagemMidia (ADR 0024). Os dois que tinham @map eram
+// justamente os que traduziam — FEED_IMAGEM e CARROSSEL. FEED, REELS e STORIES
+// são as palavras que a Meta usa em media_product_type, iguais nos dois idiomas.
 enum PostFormat {
-  FEED_IMAGE @map("FEED_IMAGEM")
-  FEED_VIDEO
-  CAROUSEL   @map("CARROSSEL")
+  FEED
   REELS
   STORIES
 

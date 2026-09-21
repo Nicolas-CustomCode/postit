@@ -38,7 +38,7 @@ describe("bytes da imagem", () => {
      * sistema a ofereceria para o feed.
      */
     it("girar muda os formatos que a foto de celular atende", () => {
-      expect(formatsFor(4032, 3024)).toContain("FEED_IMAGE");
+      expect(formatsFor(4032, 3024)).toContain("FEED");
 
       const real = orientedSize(4032, 3024, 6);
       expect(formatsFor(real.width, real.height)).toEqual(["STORIES"]);

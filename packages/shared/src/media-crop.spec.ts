@@ -9,7 +9,7 @@ import { IMAGE_SPECS } from "./media-formats";
  */
 describe("recorte por formato", () => {
   const CELULAR_EM_PE = { width: 3024, height: 4032 };
-  const FEED = IMAGE_SPECS.FEED_IMAGE;
+  const FEED = IMAGE_SPECS.FEED;
 
   describe("targetRatioFor — precisa recortar?", () => {
     it("não mexe no que já cabe", () => {

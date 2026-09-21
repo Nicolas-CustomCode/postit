@@ -153,13 +153,17 @@ test.describe("postagens", () => {
     await expect(page.getByText("Como vai aparecer nos Stories")).toBeVisible();
   });
 
-  test("os formatos de vídeo aparecem, mas não dá para escolher", async ({ page }) => {
+  test("Carrossel e Vídeo de feed deixaram de existir; Reels espera a Fase 2", async ({ page }) => {
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
-    for (const formato of ["Carrossel", "Reels", "Vídeo de feed"]) {
-      // Sem `exact`: o nome acessível inclui o selo "Fase 2".
-      await expect(page.getByRole("button", { name: new RegExp(formato, "i") })).toBeDisabled();
+    // Carrossel virou quantidade de mídias, e vídeo de feed virou Reels (ADR
+    // 0024): os dois saíram da tela, não ficaram apagados.
+    for (const sumiu of ["Carrossel", "Vídeo de feed"]) {
+      await expect(page.getByRole("button", { name: new RegExp(sumiu, "i") })).toHaveCount(0);
     }
+
+    // Sem `exact`: o nome acessível inclui o selo "Fase 2".
+    await expect(page.getByRole("button", { name: /reels/i })).toBeDisabled();
   });
 
   test("a postagem criada aparece na lista, com o trecho e a situação", async ({ page }) => {

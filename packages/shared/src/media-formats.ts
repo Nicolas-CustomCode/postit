@@ -38,11 +38,10 @@ export interface ImageSpec {
 }
 
 /**
- * Os formatos que aceitam **imagem**. `FEED_VIDEO` e `REELS` ficam de fora: são
- * vídeo, que entra na Fase 2 com especificações próprias (codec, duração,
- * átomo `moov`).
+ * Os formatos que aceitam **imagem**. `REELS` fica de fora: é vídeo, que entra
+ * na Fase 2 com especificações próprias (codec, duração, átomo `moov`).
  */
-export const IMAGE_FORMATS = ["FEED_IMAGE", "CAROUSEL", "STORIES"] as const;
+export const IMAGE_FORMATS = ["FEED", "STORIES"] as const;
 export type ImageFormat = (typeof IMAGE_FORMATS)[number];
 
 /** Só JPEG, em qualquer formato. PNG, WebP, HEIC e AVIF são recusados (docs/08). */
@@ -71,18 +70,11 @@ export const IMAGE_MAX_BYTES = 8_000_000;
 export const IMAGE_MIN_WIDTH = 320;
 
 export const IMAGE_SPECS: Record<ImageFormat, ImageSpec> = {
-  FEED_IMAGE: {
+  // Uma entrada só, e ela vale também para **item de carrossel**: a Meta usa a
+  // mesma tabela nos dois (docs/08, "Imagens — feed e itens de carrossel"). Eram
+  // duas entradas idênticas enquanto carrossel era formato (ADR 0024).
+  FEED: {
     label: "Feed",
-    mime: IMAGE_MIME,
-    maxBytes: IMAGE_MAX_BYTES,
-    minWidth: IMAGE_MIN_WIDTH,
-    ratio: { min: { width: 4, height: 5 }, max: { width: 191, height: 100 } },
-    ratioLabel: "4:5 a 1.91:1",
-  },
-  // Item de carrossel segue a mesma tabela do feed (docs/08, "Imagens — feed e
-  // itens de carrossel").
-  CAROUSEL: {
-    label: "Carrossel",
     mime: IMAGE_MIME,
     maxBytes: IMAGE_MAX_BYTES,
     minWidth: IMAGE_MIN_WIDTH,
@@ -189,7 +181,7 @@ export function formatsFor(width: number, height: number): readonly ImageFormat[
   return IMAGE_FORMATS.filter((formato) => ratioFits(width, height, IMAGE_SPECS[formato]));
 }
 
-/** Um formato de postagem aceita imagem? Descarta `FEED_VIDEO` e `REELS`. */
+/** Um formato de postagem aceita imagem? Descarta `REELS`, que é vídeo. */
 export function isImageFormat(format: PostFormat): format is ImageFormat {
   return (IMAGE_FORMATS as readonly PostFormat[]).includes(format);
 }
