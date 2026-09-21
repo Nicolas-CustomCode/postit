@@ -121,7 +121,32 @@ test.describe("postagens", () => {
 
     const folha = page.getByRole("dialog");
     await expect(folha.getByText(/não serve para Feed/i)).toBeVisible();
-    await expect(folha.getByRole("button").first()).toBeDisabled();
+    await expect(folha.getByRole("listitem").first().getByRole("button")).toBeDisabled();
+  });
+
+  /*
+   * O guarda-costas de uma decisão que vive só em classes: o acervo é folha
+   * colada embaixo no celular e caixa centrada no computador, sem JavaScript de
+   * breakpoint. Um `md:right-auto` esquecido deixa a "caixa centrada" grudada
+   * nas duas bordas, e nada além desta medida perceberia.
+   */
+  test("o acervo é folha embaixo no celular e caixa centrada no computador", async ({ page, isMobile }) => {
+    await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await page.getByRole("button", { name: /escolher do acervo/i }).click();
+
+    const caixa = await page.getByRole("dialog").boundingBox();
+    const tela = page.viewportSize();
+    expect(caixa).not.toBeNull();
+    expect(tela).not.toBeNull();
+
+    if (isMobile === true) {
+      expect(caixa!.x).toBe(0);
+      expect(Math.round(caixa!.y + caixa!.height)).toBe(tela!.height);
+    } else {
+      expect(caixa!.x).toBeGreaterThan(0);
+      expect(Math.abs(caixa!.x + caixa!.width / 2 - tela!.width / 2)).toBeLessThan(2);
+    }
   });
 
   /*
@@ -361,7 +386,7 @@ async function escolherDoAcervo(page: import("@playwright/test").Page, quantas =
     await folha.getByRole("button").nth(i).click();
   }
 
-  await folha.getByRole("button", { name: /^adicionar/i }).click();
+  await folha.getByRole("button", { name: /^usar/i }).click();
   await expect(folha).toHaveCount(0);
 }
 

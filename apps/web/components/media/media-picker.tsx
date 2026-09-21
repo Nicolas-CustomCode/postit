@@ -6,6 +6,7 @@ import type { ImageFormat, MediaSummary } from "@repo/shared";
 import { MediaGrid } from "@/components/media/media-grid";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 /**
  * Escolher uma imagem do acervo, na composição (RF-B04).
@@ -57,12 +58,30 @@ export function MediaPicker({
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto">
+      {/*
+        ⚠️ **Folha embaixo no celular, caixa centrada no computador — por
+        classes.** O projeto não tem hook de breakpoint, e renderizar dois
+        contêineres faria dois `role="dialog"` na página. Um só, com o par `md:`
+        de cada utilitário da base.
+
+        ⚠️ **`md:right-auto` não é enfeite.** `side="bottom"` traz `inset-x-0`
+        (= `left:0; right:0`); sem anular o `right`, a caixa continua grudada nas
+        duas bordas e o `md:left-1/2` só a empurra.
+      */}
+      <SheetContent
+        side="bottom"
+        className={cn(
+          "max-h-[85dvh] overflow-y-auto rounded-t-2xl",
+          "md:top-1/2 md:right-auto md:bottom-auto md:left-1/2 md:w-full md:max-w-2xl",
+          "md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border",
+        )}
+      >
         <SheetHeader>
           <SheetTitle className="font-heading">Escolher do acervo</SheetTitle>
         </SheetHeader>
 
-        <div className="flex flex-col gap-4 px-4 pb-6">
+        {/* No celular a folha encosta na borda: o rodapé respeita a área segura. */}
+        <div className="flex flex-col gap-4 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-6">
           <MediaGrid
             media={media}
             format={format}
@@ -87,7 +106,9 @@ export function MediaPicker({
               setPendentes([]);
             }}
           >
-            {pendentes.length <= 1 ? "Adicionar imagem" : `Adicionar ${pendentes.length} imagens`}
+            {/* "Usar", e não "adicionar": é o mesmo verbo da confirmação do
+                envio, e as duas portas terminam no mesmo gesto. */}
+            {pendentes.length <= 1 ? "Usar esta imagem" : `Usar ${pendentes.length} imagens`}
           </Button>
         </div>
       </SheetContent>
