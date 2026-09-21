@@ -171,7 +171,10 @@ export function ComposeForm({
       if (midia !== null) {
         const comMidia = await escrever(
           (atual) =>
-            setPostMediaAction(username, criada.data.id, { version: atual, mediaId: midia.id, altText: null }),
+            setPostMediaAction(username, criada.data.id, {
+              version: atual,
+              media: [{ mediaId: midia.id, altText: null }],
+            }),
           v,
         );
         if (comMidia === null) return null;
@@ -200,7 +203,8 @@ export function ComposeForm({
 
     if (midiaMudou && midia !== null) {
       const depois = await escrever(
-        (atual) => setPostMediaAction(username, post.id, { version: atual, mediaId: midia.id, altText: null }),
+        (atual) =>
+          setPostMediaAction(username, post.id, { version: atual, media: [{ mediaId: midia.id, altText: null }] }),
         v,
       );
       if (depois === null) return null;

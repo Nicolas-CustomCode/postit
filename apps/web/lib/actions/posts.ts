@@ -45,7 +45,7 @@ export async function setCaptionAction(
 export async function setPostMediaAction(
   username: string,
   postId: string,
-  input: { version: number; mediaId: string; altText: string | null },
+  input: { version: number; media: readonly { mediaId: string; altText: string | null }[] },
 ): Promise<ActionResult<{ version: number }>> {
   return write(username, (accountId) => ({
     path: `/accounts/${accountId}/posts/${postId}/media`,

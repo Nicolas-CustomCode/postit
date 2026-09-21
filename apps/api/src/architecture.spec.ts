@@ -124,8 +124,8 @@ describe("arquitetura", () => {
         "approval.create",
         // markReady(): as duas linhas do caminho
         "approval.createMany",
-        // setMedia(): apagar e recriar, uma imagem em position 0
-        "postMedia.create",
+        // setMedia(): apagar e recriar a lista inteira, em ordem
+        "postMedia.createMany",
         "postMedia.deleteMany",
       ].sort());
     });

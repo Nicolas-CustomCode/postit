@@ -105,8 +105,7 @@ export class PostsController {
       postId,
       userId: auth.userId,
       version: body.version,
-      mediaId: body.mediaId,
-      altText: body.altText ?? null,
+      media: body.media.map((item) => ({ mediaId: item.mediaId, altText: item.altText ?? null })),
     });
   }
 

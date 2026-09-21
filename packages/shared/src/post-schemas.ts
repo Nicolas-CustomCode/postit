@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ALT_TEXT_MAX_LENGTH } from "./media-types";
+import { POST_MEDIA_MAX } from "./post-formats";
 
 /**
  * O que a API aceita ao compor uma postagem (RF-C01, RF-C03, RF-C12).
@@ -56,10 +57,32 @@ export const setCaptionSchema = z.strictObject({
   caption: z.string().max(CAPTION_SANITY_LIMIT).nullable(),
 });
 
-export const setPostMediaSchema = z.strictObject({
-  version,
+/** Uma mídia da postagem. O `altText` é por imagem — a Meta o recebe em cada filho. */
+const postMediaItemSchema = z.strictObject({
   mediaId: z.string().uuid(),
   altText: z.string().max(ALT_TEXT_MAX_LENGTH).nullish(),
+});
+
+/**
+ * A lista **inteira, na ordem final** — não um acréscimo. Trocar, reordenar e
+ * remover são a mesma chamada, e nenhuma rota nova nasce para isso.
+ *
+ * ⚠️ **A posição vem do índice no array**, nunca de um campo que a tela mandaria.
+ * Um índice explícito abriria a porta para lista com buraco, repetida ou fora de
+ * ordem, e o banco tem unicidade de `(postagemId, ordem)`: o erro sairia como
+ * violação de restrição, não como regra.
+ *
+ * ⚠️ **Lista vazia é aceita**, e significa "tirei todas". Mesmo raciocínio de
+ * `caption: null`: o schema não impede salvar rascunho incompleto — quem impede
+ * a postagem ficar **pronta** é `postReadinessProblem()`.
+ *
+ * ⚠️ **Repetida é aceita.** Nada na documentação da Meta proíbe a mesma imagem
+ * duas vezes num carrossel, e `PostagemMidia` só tem unicidade de posição.
+ * Recusar seria inventar regra sem fonte.
+ */
+export const setPostMediaSchema = z.strictObject({
+  version,
+  media: z.array(postMediaItemSchema).max(POST_MEDIA_MAX),
 });
 
 /** Marcar como pronta e descartar não mudam conteúdo — só a versão viaja. */

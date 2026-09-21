@@ -108,7 +108,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${segundo}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1080 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] },
         token,
       });
 
@@ -148,7 +148,7 @@ describe("postagens", () => {
     const ROTAS = [
       { method: "GET" as const, caminho: (p: string) => `/${p}`, payload: undefined },
       { method: "POST" as const, caminho: (p: string) => `/${p}/caption`, payload: { version: 1, caption: "x" } },
-      { method: "POST" as const, caminho: (p: string) => `/${p}/media`, payload: { version: 1, mediaId: "" } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/media`, payload: { version: 1, media: [] } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/format`, payload: { version: 1, format: "STORIES" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/ready`, payload: { version: 1 } },
       {
@@ -166,9 +166,11 @@ describe("postagens", () => {
       const contaB = await conta("conta.b");
       const postId = await criar(token, contaA);
 
+      // A rota de mídia precisa de uma mídia que exista, senão o 404 viria do
+      // arquivo e não da conta — e o teste passaria pelo motivo errado.
       const payload =
-        rota.payload !== undefined && "mediaId" in rota.payload
-          ? { ...rota.payload, mediaId: await midia({ width: 1080, height: 1080 }) }
+        rota.payload !== undefined && "media" in rota.payload
+          ? { ...rota.payload, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] }
           : rota.payload;
 
       const resposta = await api.request({
@@ -278,7 +280,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1350 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
       const pronta = await api.request({
@@ -330,7 +332,7 @@ describe("postagens", () => {
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 3, mediaId: await midia({ width: 1080, height: 1080 }) },
+        payload: { version: 3, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] },
         token,
       });
 
@@ -350,7 +352,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1350 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
       await api.request({
@@ -401,7 +403,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 2, mediaId: await midia({ width: 1080, height: 1350 }) },
+        payload: { version: 2, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
       const pronta = await api.request({
@@ -429,7 +431,7 @@ describe("postagens", () => {
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1920 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1920 }) }] },
         token,
       });
 
@@ -445,7 +447,7 @@ describe("postagens", () => {
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1350 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
 
@@ -466,7 +468,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1350 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
       const resposta = await api.request({
@@ -511,7 +513,7 @@ describe("postagens", () => {
       const recusada = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${feed}/media`,
-        payload: { version: 1, mediaId: vertical },
+        payload: { version: 1, media: [{ mediaId: vertical }] },
         token,
       });
       expect(recusada.statusCode).toBe(422);
@@ -528,7 +530,7 @@ describe("postagens", () => {
       const aceita = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${stories}/media`,
-        payload: { version: 1, mediaId: vertical },
+        payload: { version: 1, media: [{ mediaId: vertical }] },
         token,
       });
       expect(aceita.statusCode).toBe(200);
@@ -553,7 +555,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1920 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1920 }) }] },
         token,
       });
 
@@ -598,7 +600,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1080 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] },
         token,
       });
       await api.request({
@@ -626,6 +628,257 @@ describe("postagens", () => {
       expect(gravada.status).toBe("DRAFT");
       expect(gravada.scheduledAt).toBeNull();
     });
+
+    it("trocar de Feed com três imagens para Stories é recusado", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId);
+      const tres = await Promise.all([0, 1, 2].map(() => midia({ width: 1080, height: 1080 })));
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, media: tres.map((mediaId) => ({ mediaId })) },
+        token,
+      });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/format`,
+        payload: { version: 2, format: "STORIES" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(422);
+      expect(resposta.body).toMatchObject({ code: "POST_FORMAT_SINGLE_MEDIA" });
+      const gravada = await api.db.post.findUniqueOrThrow({ where: { id: postId } });
+      expect(gravada.format).toBe("FEED");
+    });
+  });
+
+  /*
+   * Carrossel (RF-C04; ADR 0024).
+   *
+   * Carrossel não é formato, é quantidade: a mesma rota de mídia recebe a lista
+   * inteira, e a ordem do array vira a coluna `ordem`. **A ordem é conteúdo** —
+   * a primeira imagem define o recorte de todas na Meta (docs/08).
+   */
+  describe("carrossel", () => {
+    /** As mídias da postagem, na ordem gravada. */
+    async function midiasDe(postId: string): Promise<{ mediaId: string; position: number }[]> {
+      const linhas = await api.db.postMedia.findMany({
+        where: { postId },
+        orderBy: { position: "asc" },
+        select: { mediaId: true, position: true },
+      });
+      return linhas;
+    }
+
+    async function comTres(token: string, accountId: string): Promise<{ postId: string; ids: string[] }> {
+      const postId = await criar(token, accountId);
+      const ids = await Promise.all([0, 1, 2].map(() => midia({ width: 1080, height: 1080 })));
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, media: ids.map((mediaId) => ({ mediaId })) },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+      return { postId, ids };
+    }
+
+    it("três imagens ficam gravadas nas posições 0, 1 e 2", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const { postId, ids } = await comTres(token, accountId);
+
+      expect(await midiasDe(postId)).toEqual([
+        { mediaId: ids[0], position: 0 },
+        { mediaId: ids[1], position: 1 },
+        { mediaId: ids[2], position: 2 },
+      ]);
+    });
+
+    /*
+     * O caso que o `deleteMany` antes do `createMany` existe para resolver: a
+     * unicidade de (postagemId, ordem) é conferida na hora, então trocar a
+     * ordem sem apagar antes estouraria.
+     */
+    it("reordenar troca as posições e não cria linha nova", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const { postId, ids } = await comTres(token, accountId);
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 2, media: [...ids].reverse().map((mediaId) => ({ mediaId })) },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+      expect(await midiasDe(postId)).toEqual([
+        { mediaId: ids[2], position: 0 },
+        { mediaId: ids[1], position: 1 },
+        { mediaId: ids[0], position: 2 },
+      ]);
+    });
+
+    it("remover volta a lista para uma imagem", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const { postId, ids } = await comTres(token, accountId);
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 2, media: [{ mediaId: ids[1] }] },
+        token,
+      });
+
+      expect(await midiasDe(postId)).toEqual([{ mediaId: ids[1], position: 0 }]);
+    });
+
+    /*
+     * Lista vazia é "tirei todas", não erro: o mesmo raciocínio de `caption:
+     * null`. Quem impede a postagem de ficar **pronta** é o portão de prontidão.
+     */
+    it("lista vazia limpa a mídia, e aí a postagem não fica pronta", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const { postId } = await comTres(token, accountId);
+
+      const limpar = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 2, media: [] },
+        token,
+      });
+
+      expect(limpar.statusCode).toBe(200);
+      expect(await midiasDe(postId)).toEqual([]);
+
+      const pronta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/ready`,
+        payload: { version: 3 },
+        token,
+      });
+
+      expect(pronta.statusCode).toBe(422);
+      expect(pronta.body).toMatchObject({ code: "POST_MEDIA_REQUIRED" });
+    });
+
+    /*
+     * Nada na documentação da Meta proíbe repetir a imagem, e a unicidade do
+     * banco é de posição, não de mídia. Recusar seria inventar regra sem fonte.
+     */
+    it("a mesma imagem duas vezes é aceita", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId);
+      const mediaId = await midia({ width: 1080, height: 1080 });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, media: [{ mediaId }, { mediaId }] },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+      expect(await midiasDe(postId)).toEqual([
+        { mediaId, position: 0 },
+        { mediaId, position: 1 },
+      ]);
+    });
+
+    it("onze imagens são recusadas pelo schema de entrada", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId);
+      const mediaId = await midia({ width: 1080, height: 1080 });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, media: Array.from({ length: 11 }, () => ({ mediaId })) },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(400);
+      expect(resposta.body).toMatchObject({ code: "VALIDATION_FAILED" });
+    });
+
+    it("uma imagem 9:16 no meio de um carrossel de feed é recusada", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId);
+      const boa = await midia({ width: 1080, height: 1080 });
+      const vertical = await midia({ width: 1080, height: 1920 });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, media: [{ mediaId: boa }, { mediaId: vertical }, { mediaId: boa }] },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(422);
+      expect(resposta.body).toMatchObject({ code: "MEDIA_RATIO_UNSUPPORTED" });
+      expect(await midiasDe(postId)).toEqual([]);
+    });
+
+    it("mídia inexistente no meio da lista recusa a lista inteira", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const { postId, ids } = await comTres(token, accountId);
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: {
+          version: 2,
+          media: [{ mediaId: ids[0] }, { mediaId: "00000000-0000-4000-8000-000000000000" }],
+        },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(400);
+      expect(resposta.body).toMatchObject({ code: "MEDIA_UPLOAD_INVALID" });
+      // A lista anterior continua inteira: a recusa acontece antes da transação.
+      expect(await midiasDe(postId)).toHaveLength(3);
+    });
+
+    /*
+     * A invariante I-2 aplicada à ordem: alguém aprovou uma sequência, e
+     * publicar outra seria publicar coisa que ninguém aprovou (docs/07).
+     */
+    it("reordenar uma postagem aprovada a derruba para rascunho", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const { postId, ids } = await comTres(token, accountId);
+
+      const pronta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/ready`,
+        payload: { version: 2 },
+        token,
+      });
+      expect(pronta.statusCode).toBe(200);
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 3, media: [...ids].reverse().map((mediaId) => ({ mediaId })) },
+        token,
+      });
+
+      const gravada = await api.db.post.findUniqueOrThrow({ where: { id: postId } });
+      expect(gravada.status).toBe("DRAFT");
+    });
   });
 
   /*
@@ -642,7 +895,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1350 }) },
+        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
       await api.request({

@@ -75,40 +75,70 @@ export class PostsDomainService {
   }
 
   /**
-   * Troca a imagem da postagem.
+   * Troca a lista de mídias da postagem, **inteira e na ordem final**.
    *
-   * Nesta fase é **uma** imagem, em `position: 0`. Apagar e recriar evita o
-   * conflito com a unicidade de `(postagemId, ordem)` que reordenar um carrossel
-   * traria — e carrossel é Fase 2.
+   * De 0 a 10 itens: reordenar, remover e trocar são todos esta chamada. A
+   * ordem é a do array, e ela é conteúdo de verdade — a primeira imagem define
+   * o recorte de todas no carrossel (docs/08).
    *
    * A mídia é validada contra o formato aqui, com os fatos lidos do registro
    * `Midia`: as medidas de lá já têm a rotação do EXIF aplicada.
    */
-  async setMedia(input: Scope & { mediaId: string; altText: string | null }): Promise<Saved> {
+  async setMedia(
+    input: Scope & { media: readonly { mediaId: string; altText: string | null }[] },
+  ): Promise<Saved> {
     // A postagem primeiro: é ela que carrega a conferência de conta (regra 24).
     // Validar a mídia antes responderia sobre o arquivo a quem nem tem acesso à
     // postagem.
     const post = await this.load(input);
 
-    const media = await this.prisma.db.media.findUnique({ where: { id: input.mediaId } });
+    const ids = input.media.map((item) => item.mediaId);
+    // Uma consulta para todas: dez `findUnique` num carrossel seriam dez idas ao
+    // banco para a mesma decisão.
+    const encontradas = await this.prisma.db.media.findMany({ where: { id: { in: ids } } });
+    const porId = new Map(encontradas.map((linha) => [linha.id, linha]));
+
     // Mídia inexistente é envio abandonado ou identificador inventado — não é
     // "postagem não encontrada". A mensagem precisa mandar escolher o arquivo de
     // novo, que é o que resolve.
-    if (media === null) throw new MediaUploadInvalidError();
+    //
+    // ⚠️ Conferir pelo mapa, e não por `encontradas.length === ids.length`: a
+    // lista pode repetir a mesma mídia de propósito, e aí as contagens não batem
+    // sem que nada esteja errado.
+    if (ids.some((id) => !porId.has(id))) throw new MediaUploadInvalidError();
 
     // Contra o formato **da postagem**, não contra um literal: em Stories a
     // mesma imagem 9:16 que o feed recusa é a que serve.
     const problema = postReadinessProblem({
       format: formatOf(post.format),
       caption: null,
-      media: [{ mimeType: media.mimeType, bytes: media.bytes, width: media.width, height: media.height }],
+      // ⚠️ Na ordem **pedida**, não na que o banco devolveu: `findMany` com `in`
+      // não promete ordem nenhuma e deduplica, e aqui a ordem é conteúdo.
+      media: ids.map((id) => {
+        const linha = porId.get(id)!;
+        return { mimeType: linha.mimeType, bytes: linha.bytes, width: linha.width, height: linha.height };
+      }),
     });
-    if (problema !== null) throw readinessError(problema);
+    // Lista vazia não impede salvar: é "tirei todas". A falta de imagem é
+    // problema de **ficar pronta** — a mesma ressalva que `setFormat` faz.
+    if (problema !== null && problema !== "POST_MEDIA_REQUIRED") throw readinessError(problema);
 
     return this.applyContentChange(input, {}, async (tx) => {
+      // ⚠️ Apagar e recriar, e não um diff. A unicidade de `(postagemId, ordem)`
+      // é conferida na hora, então reordenar sem apagar antes estoura.
+      //
+      // No dia em que houver marcação (RF-C05, Fase 2), este `deleteMany` passa
+      // a falhar: `Marcacao` aponta para `PostagemMidia` com ON DELETE RESTRICT,
+      // e será preciso preservar as linhas cuja (midiaId, ordem) não mudou. Hoje
+      // nada grava `Marcacao`, então não há o que preservar.
       await tx.postMedia.deleteMany({ where: { postId: post.id } });
-      await tx.postMedia.create({
-        data: { postId: post.id, mediaId: input.mediaId, position: 0, altText: input.altText },
+      await tx.postMedia.createMany({
+        data: input.media.map((item, indice) => ({
+          postId: post.id,
+          mediaId: item.mediaId,
+          position: indice,
+          altText: item.altText,
+        })),
       });
     });
   }
@@ -241,7 +271,9 @@ export class PostsDomainService {
     const post = await this.prisma.db.post.findFirst({
       where: { id: scope.postId, accountId: scope.accountId },
       include: {
-        media: { include: { media: true } },
+        // ⚠️ Ordenado: a primeira imagem define o recorte de todas no carrossel
+        // (docs/08), e sem `orderBy` o Postgres devolve na ordem que quiser.
+        media: { orderBy: { position: "asc" }, include: { media: true } },
         // O fuso vem junto: é com ele que o relógio escolhido vira instante.
         account: { select: { timezone: true } },
       },
