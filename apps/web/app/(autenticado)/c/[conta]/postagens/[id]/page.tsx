@@ -49,7 +49,7 @@ export default async function ComporPage({
           </>
         }
       />
-      <ComposeForm username={username} timeZone={account.timezone} media={media} post={post} />
+      <ComposeForm username={username} account={account} timeZone={account.timezone} media={media} post={post} />
     </main>
   );
 }

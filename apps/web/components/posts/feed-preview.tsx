@@ -1,7 +1,8 @@
 import { Bookmark, Heart, ImageIcon, MessageCircle, Send } from "lucide-react";
 import type { ReactNode } from "react";
-import type { ComposableFormat, MediaSummary } from "@repo/shared";
+import type { AccountSummary, ComposableFormat, MediaSummary } from "@repo/shared";
 import { AccountDateTime } from "@/components/account-time";
+import { AccountAvatar } from "@/components/nav/account-avatar";
 
 /**
  * Como a postagem vai aparecer (RF-C10; artboard `ComposicaoDesktop`).
@@ -10,20 +11,24 @@ import { AccountDateTime } from "@/components/account-time";
  * a borda cinza, a fonte do sistema. Usar a paleta do PostIt faria a prévia
  * mentir sobre o resultado, que é a única coisa que ela precisa acertar.
  *
+ * ⚠️ **Nada que o Instagram não mostre entra no cartão.** O horário previsto é
+ * informação nossa, e dentro da moldura ele quebra a imitação: vira uma linha
+ * que não existe no aplicativo, no lugar onde a pessoa está comparando com o que
+ * conhece. Fica **abaixo** do cartão, junto da ressalva.
+ *
  * ⚠️ **Stories não é o feed, e a prévia muda junto.** Lá a imagem ocupa a tela
- * em 9:16, não há barra de curtidas nem legenda por baixo, e o conteúdo some em
- * 24 horas. Mostrar o cartão do feed para um Story seria a prévia mentindo
- * justamente no que ela existe para acertar.
+ * em 9:16, não há barra de curtidas nem legenda por baixo.
  */
 export function FeedPreview({
-  username,
+  account,
   format,
   media,
   caption,
   scheduledAt,
   timeZone,
 }: {
-  readonly username: string;
+  /** A conta: a prévia mostra a **foto real** dela, como o feed mostraria. */
+  readonly account: Pick<AccountSummary, "name" | "username" | "photoUrl">;
   readonly format: ComposableFormat;
   readonly media: MediaSummary | null;
   readonly caption: string;
@@ -32,7 +37,6 @@ export function FeedPreview({
   readonly timeZone: string;
 }): ReactNode {
   const stories = format === "STORIES";
-  const iniciais = username.slice(0, 2).toUpperCase();
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -50,8 +54,8 @@ export function FeedPreview({
         {/* Nos Stories o perfil fica **sobre** a imagem, não acima dela. */}
         {!stories && (
           <div className="flex items-center gap-2.5 px-3 py-2.5">
-            <Avatar iniciais={iniciais} />
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{username}</span>
+            <AccountAvatar account={account} />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{account.username}</span>
           </div>
         )}
 
@@ -87,20 +91,16 @@ export function FeedPreview({
                 aria-hidden
               />
               <span className="absolute top-5 left-3 flex items-center gap-2">
-                <Avatar iniciais={iniciais} small />
+                <AccountAvatar account={account} className="size-7 ring-2 ring-white/70" />
                 <span className="text-[13px] font-semibold" style={{ color: "#ffffff" }}>
-                  {username}
+                  {account.username}
                 </span>
               </span>
             </>
           )}
         </div>
 
-        {stories ? (
-          <p className="px-3 py-3 text-[11px] tracking-[0.04em] uppercase" style={{ color: "var(--ig-muted)" }}>
-            Some em 24 horas · {quando(scheduledAt, timeZone)}
-          </p>
-        ) : (
+        {!stories && (
           <>
             {/* A barra de ações do feed. Enfeite fiel: é o que faz a prévia
                 parecer o feed, e não um cartão qualquer com uma foto. */}
@@ -111,8 +111,8 @@ export function FeedPreview({
               <Bookmark className="ml-auto size-6" strokeWidth={2} />
             </div>
 
-            <p className="px-3 pt-1 text-sm/snug">
-              <strong className="font-semibold">{username}</strong>{" "}
+            <p className="px-3 pt-1 pb-3.5 text-sm/snug">
+              <strong className="font-semibold">{account.username}</strong>{" "}
               {caption === "" ? (
                 <span style={{ color: "var(--ig-muted)" }}>A legenda aparece aqui</span>
               ) : (
@@ -122,41 +122,26 @@ export function FeedPreview({
                 </>
               )}
             </p>
-
-            <p
-              className="px-3 pt-2 pb-3.5 text-[11px] tracking-[0.04em] uppercase"
-              style={{ color: "var(--ig-muted)" }}
-            >
-              {quando(scheduledAt, timeZone)}
-            </p>
           </>
         )}
       </div>
+
+      {/* Fora do cartão: é informação do PostIt, não do Instagram. */}
+      <p className="flex flex-wrap gap-x-2 px-0.5 text-[13px] text-muted-foreground">
+        {scheduledAt === null ? (
+          <span>Ainda não agendada.</span>
+        ) : (
+          <span>
+            Vai ao ar em <AccountDateTime iso={scheduledAt} timeZone={timeZone} />.
+          </span>
+        )}
+        {stories && <span>Some 24 horas depois de publicada.</span>}
+      </p>
 
       <p className="px-0.5 text-xs/relaxed text-muted-foreground">
         Prévia aproximada. Não mostra localização, que a API oficial não permite, nem curtidas, que só
         existem depois de publicar.
       </p>
     </div>
-  );
-}
-
-function quando(scheduledAt: string | null, timeZone: string): ReactNode {
-  if (scheduledAt === null) return "Ainda não agendada";
-  return (
-    <>
-      Previsto para <AccountDateTime iso={scheduledAt} timeZone={timeZone} />
-    </>
-  );
-}
-
-function Avatar({ iniciais, small = false }: { readonly iniciais: string; readonly small?: boolean }): ReactNode {
-  return (
-    <span
-      className={`flex shrink-0 items-center justify-center rounded-full font-extrabold ${small ? "size-7 text-[10px]" : "size-8 text-[11px]"}`}
-      style={{ background: "#262f9b", color: "#c6f432" }}
-    >
-      {iniciais}
-    </span>
   );
 }

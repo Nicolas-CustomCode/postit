@@ -41,7 +41,7 @@ export default async function NovaPostagemPage({
         title="Nova postagem"
         besideTitle={<PostStatusBadge status="DRAFT" />}
       />
-      <ComposeForm username={username} timeZone={account.timezone} media={media} post={null} />
+      <ComposeForm username={username} account={account} timeZone={account.timezone} media={media} post={null} />
     </main>
   );
 }

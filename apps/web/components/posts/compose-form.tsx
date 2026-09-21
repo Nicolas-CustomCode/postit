@@ -12,6 +12,7 @@ import {
   IMAGE_SPECS,
   POST_FORMAT_LABELS,
   POST_FORMATS,
+  type AccountSummary,
   type ActionConflict,
   type ComposableFormat,
   type MediaSummary,
@@ -51,11 +52,14 @@ import { cn } from "@/lib/utils";
  */
 export function ComposeForm({
   username,
+  account,
   timeZone,
   media,
   post,
 }: {
   readonly username: string;
+  /** A conta, para a prévia mostrar a foto real dela. */
+  readonly account: Pick<AccountSummary, "name" | "username" | "photoUrl">;
   /** O fuso da conta: é nele que o horário escolhido é interpretado (ADR 0006). */
   readonly timeZone: string;
   /** O acervo, para escolher sem sair da tela (RF-B04). */
@@ -533,7 +537,7 @@ export function ComposeForm({
 
       <div className="w-full shrink-0 lg:sticky lg:top-7 lg:w-90">
         <FeedPreview
-          username={username}
+          account={account}
           format={format}
           media={midia}
           caption={caption}
