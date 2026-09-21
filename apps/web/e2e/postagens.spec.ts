@@ -129,7 +129,7 @@ test.describe("postagens", () => {
    * é que o cria, e a ordem decide qual delas recorta todas as outras.
    */
   test("dá para escolher três imagens de uma vez, e elas ficam na ordem", async ({ page }) => {
-    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
     await escolherDoAcervo(page, 3);
@@ -141,7 +141,7 @@ test.describe("postagens", () => {
   });
 
   test("mover a primeira imagem para depois troca quem manda no recorte", async ({ page }) => {
-    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
     await escolherDoAcervo(page, 3);
 
@@ -153,7 +153,7 @@ test.describe("postagens", () => {
   });
 
   test("remover uma imagem tira ela da faixa", async ({ page }) => {
-    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
     await escolherDoAcervo(page, 3);
 
@@ -179,7 +179,7 @@ test.describe("postagens", () => {
   });
 
   test("mudar para Stories com três imagens é recusado antes de chamar a API", async ({ page }) => {
-    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
     await escolherDoAcervo(page, 3);
 

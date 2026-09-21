@@ -80,12 +80,13 @@ test.describe("acervo — enviar imagem", () => {
       buffer: imagemDe(1512, 2016),
     });
 
+    await expect(page.getByRole("img", { name: /prévia da imagem escolhida/i })).toBeVisible();
     await expect(page.getByText(/não serve para Feed/i)).toBeVisible();
     await expect(page.getByText(/serve para Stories/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /recortar para feed/i })).toBeVisible();
     // A terceira saída: quem escolheu o arquivo errado não pode ficar preso aqui.
-    await expect(page.getByRole("button", { name: /escolher outra imagem/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /escolher outra/i })).toBeVisible();
 
     // E nenhuma recusa: o caminho deixou de terminar em erro.
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
@@ -120,13 +121,23 @@ test.describe("acervo — enviar imagem", () => {
     await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
   });
 
-  test("foto que já cabe no feed não pergunta nada", async ({ page }) => {
+  /*
+   * Até 21/09/2026 este caminho ia direto para o armazenamento: clicava-se e 8 MB
+   * partiam sem nenhuma tela. Agora toda imagem passa pela confirmação — o que
+   * muda entre os casos são os botões, não a tela.
+   */
+  test("foto que já cabe no feed pede confirmação, sem falar em recorte", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
       name: "quadrada.jpg",
       mimeType: "image/jpeg",
       buffer: imagemDe(1080, 1080),
     });
 
+    await expect(page.getByRole("img", { name: /prévia da imagem escolhida/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /usar esta imagem/i })).toBeVisible();
+    await expect(page.getByText("1080 × 1080 pixels")).toBeVisible();
+
+    // Nada de recorte: não há o que recortar numa imagem que já serve.
     await expect(page.getByText(/não serve para Feed/i)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /recortar para feed/i })).toHaveCount(0);
   });

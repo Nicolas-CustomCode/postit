@@ -1,7 +1,7 @@
 "use client";
 
 import { ImageUp, Loader2 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   formatsFor,
   imageUploadPreProblem,
@@ -51,7 +51,8 @@ type Escolhida = { file: File; imagem: LoadedImage };
 
 type Estado =
   | { fase: "parado" }
-  | { fase: "decidindo"; escolhida: Escolhida; ratioDoFeed: number }
+  /** `ratioAlvo: null` significa "já cabe": a tela só pede confirmação. */
+  | { fase: "decidindo"; escolhida: Escolhida; ratioAlvo: number | null }
   | { fase: "recortando"; escolhida: Escolhida; ratio: number }
   | { fase: "enviando"; porcento: number }
   | { fase: "conferindo" }
@@ -112,17 +113,13 @@ export function UploadField({
     }
 
     /*
-     * A imagem entra no acervo de qualquer jeito — o piso já foi conferido. O
-     * que muda é se vale a pena falar de recorte: só quando ela não cabe no
-     * formato de referência. Quem já está na proporção segue direto.
+     * **Nada sobe sem a pessoa ver.** Até 21/09/2026, a imagem que já cabia ia
+     * direto para o armazenamento: clicava-se e 8 MB partiam sem nenhuma tela.
+     * Agora a confirmação é sempre a mesma, e o que muda é a oferta — `ratioAlvo`
+     * diz se vale falar de recorte ou se basta confirmar.
      */
     const ratioAlvo = targetRatioFor(imagem.width, imagem.height, alvo);
-    if (ratioAlvo !== null) {
-      setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioDoFeed: ratioAlvo });
-      return;
-    }
-
-    await enviar(file);
+    setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioAlvo });
   }
 
   /** Recorta o que a pessoa escolheu e envia o resultado, não o original. */
@@ -187,15 +184,26 @@ export function UploadField({
       />
 
       {estado.fase === "decidindo" && (
-        <FormatChoice
+        <ImageConfirm
           image={estado.escolhida.imagem}
+          file={estado.escolhida.file}
           spec={alvo}
-          // Na composição não há "enviar como está": o arquivo entraria no
-          // acervo e a API recusaria anexá-lo em seguida.
-          onSendAsIs={mode === "library" ? () => void enviar(estado.escolhida.file) : undefined}
-          onCrop={() =>
-            setEstado({ fase: "recortando", escolhida: estado.escolhida, ratio: estado.ratioDoFeed })
+          ratioAlvo={estado.ratioAlvo}
+          /*
+           * Mandar o arquivo como ele é. É a mesma ação nos dois ramos — só o
+           * rótulo muda, porque "usar" e "enviar como está" respondem a
+           * perguntas diferentes.
+           *
+           * Ausente num caso só: não cabe **e** há formato de destino. Ali
+           * enviar seria um beco — o arquivo entraria no acervo e a API
+           * recusaria anexá-lo em seguida.
+           */
+          onSend={
+            estado.ratioAlvo === null || mode === "library"
+              ? () => void enviar(estado.escolhida.file)
+              : undefined
           }
+          onCrop={(ratio) => setEstado({ fase: "recortando", escolhida: estado.escolhida, ratio })}
           onChooseAnother={() => {
             setEstado({ fase: "parado" });
             input.current?.click();
@@ -214,7 +222,7 @@ export function UploadField({
             setEstado({
               fase: "decidindo",
               escolhida: estado.escolhida,
-              ratioDoFeed: estado.ratio,
+              ratioAlvo: estado.ratio,
             })
           }
         />
@@ -262,31 +270,69 @@ export function UploadField({
 }
 
 /**
- * A oferta que substituiu a imposição de recortar (RF-B03).
+ * A imagem escolhida, antes de qualquer byte subir (RF-B01, RF-B03).
  *
- * Aparece quando a imagem não cabe no feed. Ela **não está errada** — só não
- * serve a esse formato —, então as duas saídas são legítimas e nenhuma é
- * destaque sobre a outra.
+ * ⚠️ **Uma tela só, para as duas perguntas.** "É esta a imagem?" e "o que faço
+ * com uma imagem que não cabe?" são a mesma pergunta feita na mesma hora, e
+ * separá-las daria dois passos seguidos a quem já está no caminho mais chato.
+ * O que muda entre os casos são os botões, não a tela.
+ *
+ * ⚠️ **A imagem aparece, e é o ponto.** Antes daqui, o ramo "não cabe" dizia
+ * "esta imagem é 1512 × 2016 pixels" sem mostrar nada — obrigava a confiar na
+ * memória justamente quando o assunto é a aparência.
+ *
+ * ⚠️ **Recortar continua sendo oferta, nunca imposição** (AGENTS.md, regra 10).
+ * Uma arte 9:16 está certa como está; recortá-la destruiria o formato
+ * pretendido. Ver a imagem antes de decidir é o oposto de impor.
  */
-function FormatChoice({
+function ImageConfirm({
   image,
+  file,
   spec,
-  onSendAsIs,
+  ratioAlvo,
+  onSend,
   onCrop,
   onChooseAnother,
 }: {
   readonly image: LoadedImage;
+  /** A prévia sai do arquivo original, não do bitmap já decodificado. */
+  readonly file: File;
   readonly spec: ImageSpec;
-  /** Ausente na composição: lá, enviar sem recortar terminaria em recusa. */
-  readonly onSendAsIs?: (() => void) | undefined;
-  readonly onCrop: () => void;
+  /** `null` quando a imagem já cabe: aí não há recorte a oferecer. */
+  readonly ratioAlvo: number | null;
+  /** Ausente só quando não cabe e há formato de destino — ali seria um beco. */
+  readonly onSend?: (() => void) | undefined;
+  readonly onCrop: (ratio: number) => void;
   /** Sem esta saída, quem escolheu o arquivo errado ficaria preso aqui. */
   readonly onChooseAnother: () => void;
 }): ReactNode {
+  const cabe = ratioAlvo === null;
   const servePara = formatsFor(image.width, image.height);
+
+  /*
+   * ⚠️ O endereço precisa ser devolvido. Sem o `revoke`, o arquivo fica preso à
+   * vida da página inteira: quem experimenta cinco fotos segura cinco arquivos
+   * de 8 MB na memória. A ida e volta para o recorte desmonta este componente e
+   * cria um endereço novo, o que está certo — o anterior já foi devolvido.
+   */
+  const src = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(src), [src]);
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
+      {/*
+        `object-contain`, nunca `object-cover`: no ramo "não serve" o assunto
+        **é** a proporção, e recortar a prévia esconderia o que a tela explica.
+      */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="Prévia da imagem escolhida"
+        width={image.width}
+        height={image.height}
+        className="max-h-64 w-full rounded-lg bg-muted object-contain md:max-h-80"
+      />
+
       <div>
         <p className="text-sm font-medium">
           Esta imagem é {image.width} × {image.height} pixels
@@ -296,25 +342,36 @@ function FormatChoice({
           sai torto, e "no Feed" quebraria em "no Stories".
         */}
         <p className="text-sm text-muted-foreground">
-          Não serve para {spec.label}, que aceita de {spec.ratioLabel}
-          {onSendAsIs === undefined ? "" : sufixoDeFormatos(servePara)}.
+          {cabe ? (
+            <>Serve para {spec.label}</>
+          ) : (
+            <>
+              Não serve para {spec.label}, que aceita de {spec.ratioLabel}
+              {/* O que ela serve só interessa onde dá para usá-la assim: na
+                  composição o formato já está escolhido. */}
+              {onSend === undefined ? "" : sufixoDeFormatos(servePara)}
+            </>
+          )}
+          .
         </p>
       </div>
 
       <div className="flex flex-col gap-2 md:flex-row">
-        {onSendAsIs !== undefined && (
-          <Button type="button" className="h-11 md:h-10" onClick={onSendAsIs}>
-            Enviar como está
+        {onSend !== undefined && (
+          <Button type="button" className="h-11 md:h-10" onClick={onSend}>
+            {cabe ? "Usar esta imagem" : "Enviar como está"}
           </Button>
         )}
-        <Button
-          type="button"
-          variant={onSendAsIs === undefined ? "default" : "outline"}
-          className="h-11 md:h-10"
-          onClick={onCrop}
-        >
-          Recortar para {spec.label}
-        </Button>
+        {ratioAlvo !== null && (
+          <Button
+            type="button"
+            variant={onSend === undefined ? "default" : "outline"}
+            className="h-11 md:h-10"
+            onClick={() => onCrop(ratioAlvo)}
+          >
+            Recortar para {spec.label}
+          </Button>
+        )}
       </div>
 
       <Button
@@ -323,7 +380,7 @@ function FormatChoice({
         className="h-11 self-start px-0 text-muted-foreground md:h-10"
         onClick={onChooseAnother}
       >
-        Escolher outra imagem
+        Escolher outra
       </Button>
     </div>
   );
