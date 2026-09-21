@@ -20,13 +20,17 @@ import { cn } from "@/lib/utils";
 export function MediaGrid({
   media,
   format,
-  selectedId,
+  selectedIds,
+  disabledIds,
   onSelect,
 }: {
   readonly media: readonly MediaSummary[];
   /** O formato de destino. Sem ele, a grade só mostra — não filtra nada. */
   readonly format?: ImageFormat;
-  readonly selectedId?: string | null;
+  /** Uma lista, porque a composição escolhe várias de uma vez (carrossel). */
+  readonly selectedIds?: readonly string[];
+  /** Serve ao formato, mas não cabe agora: a postagem já chegou ao limite. */
+  readonly disabledIds?: readonly string[];
   readonly onSelect?: (media: MediaSummary) => void;
 }): ReactNode {
   if (media.length === 0) {
@@ -45,8 +49,9 @@ export function MediaGrid({
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {media.map((item) => {
         const serve = format === undefined || formatsFor(item.width, item.height).includes(format);
-        const selecionada = selectedId === item.id;
-        const clicavel = onSelect !== undefined && serve;
+        const selecionada = selectedIds?.includes(item.id) ?? false;
+        const naoCabe = disabledIds?.includes(item.id) ?? false;
+        const clicavel = onSelect !== undefined && serve && !naoCabe;
 
         return (
           <li key={item.id}>
@@ -58,7 +63,7 @@ export function MediaGrid({
                 "flex w-full flex-col gap-1.5 rounded-xl border p-1.5 text-left transition-colors",
                 clicavel && "hover:bg-muted",
                 selecionada && "border-primary ring-2 ring-accent",
-                !serve && "opacity-45",
+                (!serve || naoCabe) && "opacity-45",
                 onSelect === undefined && "cursor-default",
               )}
             >

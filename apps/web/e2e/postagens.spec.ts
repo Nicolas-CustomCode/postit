@@ -87,8 +87,7 @@ test.describe("postagens", () => {
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
     await expect(page.getByText("Sem imagem ainda")).toBeVisible();
-    await page.getByRole("button", { name: /escolher do acervo/i }).click();
-    await page.getByRole("dialog").getByRole("button").first().click();
+    await escolherDoAcervo(page);
 
     // A prévia passa a mostrar a imagem…
     await expect(page.getByText("Sem imagem ainda")).toHaveCount(0);
@@ -102,8 +101,7 @@ test.describe("postagens", () => {
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
     await page.getByLabel("Legenda").fill("Com foto");
-    await page.getByRole("button", { name: /escolher do acervo/i }).click();
-    await page.getByRole("dialog").getByRole("button").first().click();
+    await escolherDoAcervo(page);
     await page.getByRole("button", { name: /salvar rascunho/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
@@ -124,6 +122,72 @@ test.describe("postagens", () => {
     const folha = page.getByRole("dialog");
     await expect(folha.getByText(/não serve para Feed/i)).toBeVisible();
     await expect(folha.getByRole("button").first()).toBeDisabled();
+  });
+
+  /*
+   * Carrossel (RF-C04; ADR 0024). Não é formato, é quantidade: a segunda imagem
+   * é que o cria, e a ordem decide qual delas recorta todas as outras.
+   */
+  test("dá para escolher três imagens de uma vez, e elas ficam na ordem", async ({ page }) => {
+    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await escolherDoAcervo(page, 3);
+
+    await expect(page.getByText("3 de 10")).toBeVisible();
+    // A prévia virou carrossel: contador, pontinhos e o aviso do recorte.
+    await expect(page.getByText("1/3")).toBeVisible();
+    await expect(page.getByText(/a primeira imagem define o recorte de todas/i)).toBeVisible();
+  });
+
+  test("mover a primeira imagem para depois troca quem manda no recorte", async ({ page }) => {
+    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 3);
+
+    await conteudo(page).getByRole("button", { name: "Mover a imagem 1 para depois" }).click();
+
+    // O selo "1" agora é de outra imagem — e a de antes virou a 2.
+    await expect(conteudo(page).getByRole("button", { name: "Mover a imagem 1 para antes" })).toBeDisabled();
+    await expect(conteudo(page).getByRole("button", { name: "Remover a imagem 3" })).toBeVisible();
+  });
+
+  test("remover uma imagem tira ela da faixa", async ({ page }) => {
+    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 3);
+
+    await conteudo(page).getByRole("button", { name: "Remover a imagem 2" }).click();
+
+    await expect(page.getByText("2 de 10")).toBeVisible();
+    await expect(conteudo(page).getByRole("button", { name: "Remover a imagem 3" })).toHaveCount(0);
+  });
+
+  /*
+   * Stories não tem `children` na API da Meta: cada mídia é uma publicação. A
+   * tela nem oferece a segunda.
+   */
+  test("em Stories não dá para adicionar a segunda imagem", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1920 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await page.getByRole("button", { name: "Stories", exact: true }).click();
+    await escolherDoAcervo(page);
+
+    await expect(page.getByText(/stories aceita uma mídia só/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /escolher do acervo/i })).toHaveCount(0);
+  });
+
+  test("mudar para Stories com três imagens é recusado antes de chamar a API", async ({ page }) => {
+    for (const _ of [0, 1, 2]) await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 3);
+
+    await page.getByRole("button", { name: "Stories", exact: true }).click();
+
+    await expect(page.getByText(/remova 2 antes de mudar o formato/i)).toBeVisible();
+    // O formato não mudou: a prévia continua a do feed.
+    await expect(page.getByText("Como vai aparecer no feed")).toBeVisible();
   });
 
   /*
@@ -282,6 +346,25 @@ test.describe("postagens", () => {
  *
  * Salvar é o que cria: a tela de nova postagem não grava nada ao abrir.
  */
+/**
+ * Escolhe as `quantas` primeiras imagens do acervo, pela folha.
+ *
+ * Clicar agora **alterna** a seleção em vez de fechar: montar um carrossel de
+ * cinco reabrindo a folha cinco vezes seria castigo. Quem fecha é o botão do
+ * rodapé.
+ */
+async function escolherDoAcervo(page: import("@playwright/test").Page, quantas = 1): Promise<void> {
+  await page.getByRole("button", { name: /escolher do acervo/i }).click();
+
+  const folha = page.getByRole("dialog");
+  for (let i = 0; i < quantas; i += 1) {
+    await folha.getByRole("button").nth(i).click();
+  }
+
+  await folha.getByRole("button", { name: /^adicionar/i }).click();
+  await expect(folha).toHaveCount(0);
+}
+
 async function criarRascunho(page: import("@playwright/test").Page, caption: string): Promise<string> {
   await page.goto(`/c/loja.aurora/postagens/nova`);
   if (caption !== "") await page.getByLabel("Legenda").fill(caption);

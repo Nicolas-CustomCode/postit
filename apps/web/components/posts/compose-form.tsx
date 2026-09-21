@@ -9,9 +9,11 @@ import {
   CAPTION_MAX_LENGTH,
   CAPTION_MAX_MENTIONS,
   COMPOSABLE_FORMATS,
+  formatsFor,
   IMAGE_SPECS,
   POST_FORMAT_LABELS,
   POST_FORMATS,
+  POST_MEDIA_COUNT,
   type AccountSummary,
   type ActionConflict,
   type ComposableFormat,
@@ -23,6 +25,7 @@ import { MediaPicker } from "@/components/media/media-picker";
 import { UploadField } from "@/components/media/upload-field";
 import { ComposeSection } from "@/components/posts/compose-section";
 import { FeedPreview } from "@/components/posts/feed-preview";
+import { MediaStrip } from "@/components/posts/media-strip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,13 +79,18 @@ export function ComposeForm({
   const [conflito, setConflito] = useState<ActionConflict | null>(null);
 
   /**
-   * A imagem escolhida — do acervo ou recém-enviada.
+   * As imagens escolhidas — do acervo ou recém-enviadas —, **na ordem**.
    *
-   * Fica em estado local até o salvamento: escolher não cria postagem. Era o
+   * Ficam em estado local até o salvamento: escolher não cria postagem. Era o
    * defeito que fazia a tela virar "Compor" só por anexar uma foto.
+   *
+   * ⚠️ **Uma lista, e não uma imagem.** Carrossel não é formato, é quantidade
+   * (ADR 0024): duas ou mais no Feed e a Meta monta o carrossel sozinha. A ordem
+   * é conteúdo de verdade — a primeira define o recorte de todas.
    */
-  const anexada = post?.media[0];
-  const [midia, setMidia] = useState<MediaSummary | null>(mediaInicial(post, media));
+  const [midias, setMidias] = useState<readonly MediaSummary[]>(midiasIniciais(post, media));
+  /** O que a última reordenação fez, para quem navega por leitor de tela. */
+  const [anuncio, setAnuncio] = useState("");
 
   /*
    * O horário também vive aqui: quando a edição derruba a postagem para
@@ -104,8 +112,36 @@ export function ComposeForm({
   const contagem = captionCounts(caption);
   const legendaMudou = caption !== (post?.caption ?? "");
   const formatoMudou = post !== null && format !== post.format;
-  const midiaMudou = midia?.id !== anexada?.mediaId;
+  /*
+   * Posicional, e não por conjunto: a mesma imagem pode aparecer duas vezes de
+   * propósito, e trocar a ordem é mudança de conteúdo como qualquer outra.
+   */
+  const midiaMudou =
+    midias.length !== (post?.media.length ?? 0) || midias.some((item, i) => item.id !== post?.media[i]?.mediaId);
   const temMudanca = post === null || legendaMudou || formatoMudou || midiaMudou;
+
+  const maximo = POST_MEDIA_COUNT[format].max;
+  const cheia = midias.length >= maximo;
+  /*
+   * A metade "a tela avisa" da regra 6: `formatsFor` roda aqui, então dá para
+   * apontar **qual** imagem não serve — coisa que o erro da API não carrega.
+   */
+  const incompativeis = midias.filter((item) => !formatsFor(item.width, item.height).includes(format));
+
+  function moverMidia(de: number, para: number): void {
+    setMidias((atual) => {
+      const copia = [...atual];
+      const [item] = copia.splice(de, 1);
+      if (item !== undefined) copia.splice(para, 0, item);
+      return copia;
+    });
+    setAnuncio(`Imagem ${de + 1} movida para a posição ${para + 1}.`);
+  }
+
+  function removerMidia(indice: number): void {
+    setMidias((atual) => atual.filter((_, i) => i !== indice));
+    setAnuncio(`Imagem ${indice + 1} removida.`);
+  }
 
   const status = post?.status ?? "DRAFT";
   // Só APROVADO e AGENDADO aceitam horário — a invariante I-1 e o RF-D04. A API
@@ -168,13 +204,9 @@ export function ComposeForm({
       let v = 1;
       setVersion(v);
 
-      if (midia !== null) {
+      if (midias.length > 0) {
         const comMidia = await escrever(
-          (atual) =>
-            setPostMediaAction(username, criada.data.id, {
-              version: atual,
-              media: [{ mediaId: midia.id, altText: null }],
-            }),
+          (atual) => setPostMediaAction(username, criada.data.id, { version: atual, media: paraEnvio(midias) }),
           v,
         );
         if (comMidia === null) return null;
@@ -201,10 +233,14 @@ export function ComposeForm({
       v = depois;
     }
 
-    if (midiaMudou && midia !== null) {
+    /*
+     * Sem `&& midias.length > 0`: tirar todas as imagens é uma mudança como
+     * outra qualquer, e a lista vazia é o que a comunica. Com a guarda, quem
+     * removesse tudo veria "salvo" sem nada ter sido salvo.
+     */
+    if (midiaMudou) {
       const depois = await escrever(
-        (atual) =>
-          setPostMediaAction(username, post.id, { version: atual, media: [{ mediaId: midia.id, altText: null }] }),
+        (atual) => setPostMediaAction(username, post.id, { version: atual, media: paraEnvio(midias) }),
         v,
       );
       if (depois === null) return null;
@@ -265,7 +301,20 @@ export function ComposeForm({
                   key={opcao}
                   type="button"
                   disabled={!componivel || ocupado}
-                  onClick={() => setFormat(opcao as ComposableFormat)}
+                  onClick={() => {
+                    // A API recusa de qualquer jeito (regra 17): isto evita a
+                    // ida e volta, e diz quantas imagens sobram.
+                    const cabe = POST_MEDIA_COUNT[opcao].max;
+                    if (midias.length > cabe) {
+                      setErro(
+                        `${POST_FORMAT_LABELS[opcao]} aceita ${cabe === 1 ? "uma mídia só" : `até ${cabe} mídias`}. ` +
+                          `Remova ${midias.length - cabe} antes de mudar o formato.`,
+                      );
+                      return;
+                    }
+                    setErro(null);
+                    setFormat(opcao as ComposableFormat);
+                  }}
                   className={cn(
                     "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
                     ativo ? "border-primary bg-accent text-accent-foreground" : "bg-muted",
@@ -295,45 +344,68 @@ export function ComposeForm({
           title="Mídia"
           aside={
             <span className="text-[13px] text-muted-foreground">
+              {midias.length} de {maximo} ·{" "}
               {IMAGE_SPECS[format].ratioLabel === null
                 ? "JPEG até 8 MB, qualquer proporção"
                 : `JPEG até 8 MB, proporção de ${IMAGE_SPECS[format].ratioLabel}`}
             </span>
           }
         >
-          <div className="flex flex-wrap items-start gap-3">
-            {midia !== null && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={midia.url}
-                alt=""
-                className="size-28 shrink-0 rounded-xl object-cover"
-                width={midia.width}
-                height={midia.height}
+          <div className="flex flex-col gap-3">
+            {midias.length > 0 && (
+              <MediaStrip
+                midias={midias}
+                format={format}
+                disabled={ocupado}
+                onMover={moverMidia}
+                onRemover={removerMidia}
               />
             )}
 
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              {/* As duas portas: o acervo, e o envio. */}
-              <MediaPicker
-                media={media}
-                format={format}
-                selectedId={midia?.id ?? null}
-                disabled={ocupado}
-                onSelect={setMidia}
-              />
-              <UploadField
-                mode={{ format }}
-                label="Enviar nova"
-                icon={ImagePlus}
-                onUploaded={(enviada) => {
-                  // Só guarda: a postagem nasce no salvamento, e a imagem já
-                  // está no acervo de qualquer forma.
-                  setMidia(enviada);
-                  router.refresh();
-                }}
-              />
-            </div>
+            {/* O aviso da reordenação, só para quem usa leitor de tela: a faixa
+                já mostra a ordem nova para quem enxerga. */}
+            <p aria-live="polite" className="sr-only">
+              {anuncio}
+            </p>
+
+            {cheia ? (
+              <p className="text-[13px] text-muted-foreground">
+                {maximo === 1
+                  ? `${POST_FORMAT_LABELS[format]} aceita uma mídia só.`
+                  : "Você já tem 10 — o máximo que o Instagram aceita numa postagem."}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2 sm:max-w-xs">
+                {/* As duas portas: o acervo, e o envio. */}
+                <MediaPicker
+                  media={media}
+                  format={format}
+                  remaining={maximo - midias.length}
+                  disabled={ocupado}
+                  onConfirm={(escolhidas) => setMidias((atual) => [...atual, ...escolhidas])}
+                />
+                <UploadField
+                  mode={{ format }}
+                  label="Enviar nova"
+                  icon={ImagePlus}
+                  onUploaded={(enviada) => {
+                    // Acrescenta: a postagem nasce no salvamento, e a imagem já
+                    // está no acervo de qualquer forma.
+                    setMidias((atual) => [...atual, enviada]);
+                    router.refresh();
+                  }}
+                />
+              </div>
+            )}
+
+            {incompativeis.length > 0 && (
+              <p className="text-[13px] text-destructive">
+                {incompativeis.length === 1
+                  ? "Uma das imagens não serve para "
+                  : `${incompativeis.length} imagens não servem para `}
+                {POST_FORMAT_LABELS[format]}. Remova ou troque de formato.
+              </p>
+            )}
           </div>
         </ComposeSection>
 
@@ -470,7 +542,9 @@ export function ComposeForm({
             type="button"
             variant="outline"
             className="h-11 md:h-10"
-            disabled={ocupado || midia === null || status === "APPROVED"}
+            disabled={
+              ocupado || midias.length === 0 || midias.length > maximo || incompativeis.length > 0 || status === "APPROVED"
+            }
             onClick={() =>
               void comBloqueio(async () => {
                 // Salvar antes: marcar como pronta algo que só existe na tela
@@ -543,7 +617,7 @@ export function ComposeForm({
         <FeedPreview
           account={account}
           format={format}
-          media={midia}
+          media={midias}
           caption={caption}
           scheduledAt={post?.scheduledAt ?? null}
           timeZone={timeZone}
@@ -561,21 +635,29 @@ function formatoInicial(post: PostDetail | null): ComposableFormat {
     : "FEED";
 }
 
-/** A imagem já anexada, buscada no acervo para ter as medidas e o endereço. */
-function mediaInicial(post: PostDetail | null, acervo: readonly MediaSummary[]): MediaSummary | null {
-  const anexada = post?.media[0];
-  if (anexada === undefined) return null;
-
-  return (
-    acervo.find((item) => item.id === anexada.mediaId) ?? {
-      id: anexada.mediaId,
-      url: anexada.url,
-      width: anexada.width,
-      height: anexada.height,
-      bytes: 0,
-      createdAt: "",
-    }
+/**
+ * As imagens já anexadas, buscadas no acervo para ter as medidas e o endereço.
+ *
+ * A API entrega ordenado por `ordem`, e a ordem é preservada aqui: ela é o que
+ * decide qual imagem manda no recorte do carrossel.
+ */
+function midiasIniciais(post: PostDetail | null, acervo: readonly MediaSummary[]): readonly MediaSummary[] {
+  return (post?.media ?? []).map(
+    (anexada) =>
+      acervo.find((item) => item.id === anexada.mediaId) ?? {
+        id: anexada.mediaId,
+        url: anexada.url,
+        width: anexada.width,
+        height: anexada.height,
+        bytes: 0,
+        createdAt: "",
+      },
   );
+}
+
+/** A lista como a rota de mídia a espera. O texto alternativo é da Fase 2. */
+function paraEnvio(midias: readonly MediaSummary[]): { mediaId: string; altText: string | null }[] {
+  return midias.map((item) => ({ mediaId: item.id, altText: null }));
 }
 
 /**
