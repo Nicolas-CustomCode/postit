@@ -1,7 +1,7 @@
 "use client";
 
 import { ImageUp, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import {
   formatsFor,
   imageUploadPreProblem,
@@ -64,23 +64,53 @@ type Estado =
  */
 export type UploadMode = "library" | { readonly format: ImageFormat };
 
+/** O que a composição chama quando alguém escolhe "Enviar nova" no menu. */
+export interface UploadHandle {
+  /** Abre o seletor de arquivos do sistema. Não faz nada durante um envio. */
+  abrir(): void;
+}
+
 export function UploadField({
   mode = "library",
   label,
   icon: Icone = ImageUp,
   onUploaded,
+  withTrigger = true,
+  ref,
 }: {
   readonly mode?: UploadMode;
   /** O rótulo do botão parado. Na composição vira "Trocar imagem". */
   readonly label?: string;
   readonly icon?: typeof ImageUp;
   readonly onUploaded?: (media: MediaSummary) => void;
+  /**
+   * `false` na composição: quem abre o seletor é o menu do quadrado de
+   * adicionar, e um segundo botão ali seria o que esta mudança veio tirar.
+   */
+  readonly withTrigger?: boolean;
+  readonly ref?: Ref<UploadHandle>;
 }): ReactNode {
   const [estado, setEstado] = useState<Estado>({ fase: "parado" });
   const [erro, setErro] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
   const ocupado = estado.fase === "enviando" || estado.fase === "conferindo";
+
+  /*
+   * O React 19 entrega `ref` como prop comum; não há `forwardRef`. A guarda do
+   * `ocupado` mora aqui e não no chamador porque só este componente sabe que há
+   * um envio em voo — sem ela, dois cliques no menu começariam dois envios e o
+   * segundo acrescentaria uma imagem que ninguém escolheu.
+   */
+  useImperativeHandle(
+    ref,
+    () => ({
+      abrir: () => {
+        if (!ocupado) input.current?.click();
+      },
+    }),
+    [ocupado],
+  );
   // No acervo, o feed é o formato exigente e serve de referência para a oferta
   // de recorte. Na composição, quem manda é o formato de destino.
   const alvo = mode === "library" ? IMAGE_SPECS.FEED : IMAGE_SPECS[mode.format];
@@ -167,8 +197,15 @@ export function UploadField({
     onUploaded?.(confirmado.data);
   }
 
+  /*
+   * ⚠️ **Um fragmento, e não um `<div>`.** Na composição este componente fica
+   * montado o tempo todo, e parado ele não desenha nada: um embrulho seria uma
+   * caixa de altura zero numa coluna com `gap`, e o `gap` conta caixas, não
+   * pixels — 12 px de vazio no rodapé da seção. Os dois chamadores já o põem
+   * numa coluna flex, que é de onde vem o espaçamento entre estas partes.
+   */
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <input
         ref={input}
         type="file"
@@ -229,7 +266,7 @@ export function UploadField({
       )}
 
       {/* Enquanto se decide ou se recorta, os botões que valem são os de lá. */}
-      {estado.fase !== "decidindo" && estado.fase !== "recortando" && (
+      {withTrigger && estado.fase !== "decidindo" && estado.fase !== "recortando" && (
         <Button
           type="button"
           variant="outline"
@@ -265,7 +302,7 @@ export function UploadField({
           <AlertDescription>{erro}</AlertDescription>
         </Alert>
       )}
-    </div>
+    </>
   );
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { CalendarClock, Check, ImagePlus, Info, Loader2, Trash2 } from "lucide-react";
+import { CalendarClock, Check, Info, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   captionCounts,
   CAPTION_MAX_HASHTAGS,
@@ -22,8 +22,9 @@ import {
 } from "@repo/shared";
 import { AccountDateTime, accountZoneName, civilFieldsFor, todayIn } from "@/components/account-time";
 import { MediaPicker } from "@/components/media/media-picker";
-import { UploadField } from "@/components/media/upload-field";
+import { UploadField, type UploadHandle } from "@/components/media/upload-field";
 import { ComposeSection } from "@/components/posts/compose-section";
+import { AddMediaTile } from "@/components/posts/add-media-tile";
 import { FeedPreview } from "@/components/posts/feed-preview";
 import { MediaStrip } from "@/components/posts/media-strip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -91,6 +92,9 @@ export function ComposeForm({
   const [midias, setMidias] = useState<readonly MediaSummary[]>(midiasIniciais(post, media));
   /** O que a última reordenação fez, para quem navega por leitor de tela. */
   const [anuncio, setAnuncio] = useState("");
+  const [acervoAberto, setAcervoAberto] = useState(false);
+  /** O seletor de arquivos, aberto pelo item "Enviar nova" do menu. */
+  const envio = useRef<UploadHandle>(null);
 
   /*
    * O horário também vive aqui: quando a edição derruba a postagem para
@@ -352,15 +356,24 @@ export function ComposeForm({
           }
         >
           <div className="flex flex-col gap-3">
-            {midias.length > 0 && (
-              <MediaStrip
-                midias={midias}
-                format={format}
-                disabled={ocupado}
-                onMover={moverMidia}
-                onRemover={removerMidia}
-              />
-            )}
+            {/* A faixa é também onde se acrescenta: o quadrado a fecha, no lugar
+                que a próxima imagem vai ocupar. */}
+            <MediaStrip
+              midias={midias}
+              format={format}
+              disabled={ocupado}
+              onMover={moverMidia}
+              onRemover={removerMidia}
+              acrescentar={
+                cheia ? undefined : (
+                  <AddMediaTile
+                    disabled={ocupado}
+                    onPickLibrary={() => setAcervoAberto(true)}
+                    onPickNew={() => envio.current?.abrir()}
+                  />
+                )
+              }
+            />
 
             {/* O aviso da reordenação, só para quem usa leitor de tela: a faixa
                 já mostra a ordem nova para quem enxerga. */}
@@ -368,35 +381,41 @@ export function ComposeForm({
               {anuncio}
             </p>
 
-            {cheia ? (
+            {cheia && (
               <p className="text-[13px] text-muted-foreground">
                 {maximo === 1
                   ? `${POST_FORMAT_LABELS[format]} aceita uma mídia só.`
                   : "Você já tem 10 — o máximo que o Instagram aceita numa postagem."}
               </p>
-            ) : (
-              <div className="flex flex-col gap-2 sm:max-w-xs">
-                {/* As duas portas: o acervo, e o envio. */}
-                <MediaPicker
-                  media={media}
-                  format={format}
-                  remaining={maximo - midias.length}
-                  disabled={ocupado}
-                  onConfirm={(escolhidas) => setMidias((atual) => [...atual, ...escolhidas])}
-                />
-                <UploadField
-                  mode={{ format }}
-                  label="Enviar nova"
-                  icon={ImagePlus}
-                  onUploaded={(enviada) => {
-                    // Acrescenta: a postagem nasce no salvamento, e a imagem já
-                    // está no acervo de qualquer forma.
-                    setMidias((atual) => [...atual, enviada]);
-                    router.refresh();
-                  }}
-                />
-              </div>
             )}
+
+            {/* As duas portas, abertas pelo menu do quadrado. */}
+            <MediaPicker
+              media={media}
+              format={format}
+              remaining={maximo - midias.length}
+              open={acervoAberto}
+              onOpenChange={setAcervoAberto}
+              onConfirm={(escolhidas) => setMidias((atual) => [...atual, ...escolhidas])}
+            />
+
+            {/*
+              ⚠️ **Fora do ramo do `cheia`, de propósito.** Em Stories o máximo é
+              uma: o sucesso do envio tornaria `cheia` verdadeiro no mesmo passo
+              e arrancaria este componente — junto com a confirmação, a barra de
+              progresso e qualquer alerta pendente.
+            */}
+            <UploadField
+              mode={{ format }}
+              withTrigger={false}
+              ref={envio}
+              onUploaded={(enviada) => {
+                // Acrescenta: a postagem nasce no salvamento, e a imagem já
+                // está no acervo de qualquer forma.
+                setMidias((atual) => [...atual, enviada]);
+                router.refresh();
+              }}
+            />
 
             {incompativeis.length > 0 && (
               <p className="text-[13px] text-destructive">

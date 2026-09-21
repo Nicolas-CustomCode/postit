@@ -3,6 +3,7 @@ import { createAccount, resetAccounts } from "./support/accounts-db";
 import { salvarComoOutraPessoa } from "./support/posts-db";
 import { ESTADO_SUPER_ADMIN } from "./support/estado";
 import { criarMidia } from "./support/media-db";
+import { imagemDe } from "./support/imagem";
 
 /**
  * Compor uma postagem pela tela (RF-C01, RF-C03, RF-C12).
@@ -117,7 +118,8 @@ test.describe("postagens", () => {
     await criarMidia({ width: 1080, height: 1920 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
-    await page.getByRole("button", { name: /escolher do acervo/i }).click();
+    await abrirMenuDeMidia(page);
+    await page.getByRole("menuitem", { name: "Do acervo" }).click();
 
     const folha = page.getByRole("dialog");
     await expect(folha.getByText(/não serve para Feed/i)).toBeVisible();
@@ -133,7 +135,8 @@ test.describe("postagens", () => {
   test("o acervo é folha embaixo no celular e caixa centrada no computador", async ({ page, isMobile }) => {
     await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
-    await page.getByRole("button", { name: /escolher do acervo/i }).click();
+    await abrirMenuDeMidia(page);
+    await page.getByRole("menuitem", { name: "Do acervo" }).click();
 
     const caixa = await page.getByRole("dialog").boundingBox();
     const tela = page.viewportSize();
@@ -147,6 +150,101 @@ test.describe("postagens", () => {
       expect(caixa!.x).toBeGreaterThan(0);
       expect(Math.abs(caixa!.x + caixa!.width / 2 - tela!.width / 2)).toBeLessThan(2);
     }
+  });
+
+  /*
+   * A seção de mídia trocou dois botões soltos por um quadrado pontilhado que
+   * fecha a faixa — o "próximo lugar", em vez de um controle sem relação visual
+   * com as miniaturas.
+   */
+  test("o quadrado de adicionar é a única porta, mesmo sem imagem nenhuma", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await expect(conteudo(page).getByRole("button", { name: "Adicionar imagem" })).toBeVisible();
+    // Os dois botões que ele substituiu não existem mais.
+    await expect(page.getByRole("button", { name: /escolher do acervo/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /enviar nova/i })).toHaveCount(0);
+  });
+
+  test("o quadrado oferece as duas portas", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await abrirMenuDeMidia(page);
+
+    await expect(page.getByRole("menuitem", { name: "Do acervo" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Enviar nova" })).toBeVisible();
+  });
+
+  /*
+   * O teste que pega o defeito conhecido do Radix: sem `modal={false}` e sem o
+   * `onCloseAutoFocus`, o menu ao fechar arranca o foco do diálogo que acabou de
+   * abrir, e o Escape não chega nele.
+   */
+  test("o acervo abre num diálogo e o Escape fecha", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await abrirMenuDeMidia(page);
+    await page.getByRole("menuitem", { name: "Do acervo" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    // Desistir não anexa nada.
+    await expect(page.getByText("Sem imagem ainda")).toBeVisible();
+  });
+
+  /*
+   * A corrente inteira do "Enviar nova": o item do menu chama o handle
+   * imperativo do UploadField, e o clique no input precisa acontecer **dentro**
+   * da ativação do usuário — adiá-lo falharia no Safari.
+   *
+   * O envio de verdade não roda aqui (MinIO e CORS, roteiro manual do V-15). O
+   * que se prova é que nada sobe antes de a pessoa confirmar.
+   */
+  test("'Enviar nova' abre o seletor, e a imagem é confirmada antes de subir", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await abrirMenuDeMidia(page);
+
+    const [seletor] = await Promise.all([
+      page.waitForEvent("filechooser"),
+      page.getByRole("menuitem", { name: "Enviar nova" }).click(),
+    ]);
+    await seletor.setFiles({
+      name: "quadrada.jpg",
+      mimeType: "image/jpeg",
+      buffer: imagemDe(1080, 1080),
+    });
+
+    await expect(conteudo(page).getByRole("img", { name: /prévia da imagem escolhida/i })).toBeVisible();
+    await expect(conteudo(page).getByRole("button", { name: /usar esta imagem/i })).toBeVisible();
+    // E nada subiu: a faixa continua vazia e a prévia, sem imagem.
+    await expect(page.getByText("Sem imagem ainda")).toBeVisible();
+  });
+
+  /*
+   * A regra 10 pelo lado da composição: aqui "enviar como está" seria um beco —
+   * o arquivo entraria no acervo e a API recusaria anexá-lo. Recortar continua
+   * sendo oferta, com a saída de escolher outra sempre ao lado.
+   */
+  test("na composição, a imagem que não cabe oferece recortar, nunca enviar assim", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await abrirMenuDeMidia(page);
+
+    const [seletor] = await Promise.all([
+      page.waitForEvent("filechooser"),
+      page.getByRole("menuitem", { name: "Enviar nova" }).click(),
+    ]);
+    await seletor.setFiles({
+      name: "em-pe.jpg",
+      mimeType: "image/jpeg",
+      buffer: imagemDe(1512, 2016),
+    });
+
+    await expect(conteudo(page).getByRole("img", { name: /prévia da imagem escolhida/i })).toBeVisible();
+    await expect(conteudo(page).getByRole("button", { name: /recortar para feed/i })).toBeVisible();
+    await expect(conteudo(page).getByRole("button", { name: /escolher outra/i })).toBeVisible();
+    await expect(conteudo(page).getByRole("button", { name: /enviar como está/i })).toHaveCount(0);
   });
 
   /*
@@ -200,7 +298,7 @@ test.describe("postagens", () => {
     await escolherDoAcervo(page);
 
     await expect(page.getByText(/stories aceita uma mídia só/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /escolher do acervo/i })).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("button", { name: "Adicionar imagem" })).toHaveCount(0);
   });
 
   test("mudar para Stories com três imagens é recusado antes de chamar a API", async ({ page }) => {
@@ -379,15 +477,24 @@ test.describe("postagens", () => {
  * rodapé.
  */
 async function escolherDoAcervo(page: import("@playwright/test").Page, quantas = 1): Promise<void> {
-  await page.getByRole("button", { name: /escolher do acervo/i }).click();
+  await abrirMenuDeMidia(page);
+  await page.getByRole("menuitem", { name: "Do acervo" }).click();
 
   const folha = page.getByRole("dialog");
+  // Pela lista da grade, e nao por ordinal cego sobre todos os botoes do
+  // dialogo: o X de fechar entra naquela contagem, e so nao quebra hoje porque
+  // ele e o ultimo no DOM.
   for (let i = 0; i < quantas; i += 1) {
-    await folha.getByRole("button").nth(i).click();
+    await folha.getByRole("listitem").nth(i).getByRole("button").click();
   }
 
   await folha.getByRole("button", { name: /^usar/i }).click();
   await expect(folha).toHaveCount(0);
+}
+
+/** Abre o menu do quadrado pontilhado que fecha a faixa de miniaturas. */
+async function abrirMenuDeMidia(page: import("@playwright/test").Page): Promise<void> {
+  await page.getByRole("main").getByRole("button", { name: "Adicionar imagem" }).click();
 }
 
 async function criarRascunho(page: import("@playwright/test").Page, caption: string): Promise<string> {

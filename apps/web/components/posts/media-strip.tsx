@@ -21,12 +21,19 @@ export function MediaStrip({
   disabled,
   onMover,
   onRemover,
+  acrescentar,
 }: {
   readonly midias: readonly MediaSummary[];
   readonly format: ImageFormat;
   readonly disabled: boolean;
   readonly onMover: (de: number, para: number) => void;
   readonly onRemover: (indice: number) => void;
+  /**
+   * O quadrado de adicionar, que fecha a faixa. Ausente quando a postagem já
+   * chegou ao máximo do formato — a faixa é também **onde se acrescenta**, e
+   * não só onde se vê o que já existe.
+   */
+  readonly acrescentar?: ReactNode;
 }): ReactNode {
   return (
     <ul className="flex snap-x gap-2 overflow-x-auto pb-1">
@@ -93,6 +100,12 @@ export function MediaStrip({
           </li>
         );
       })}
+
+      {/* `items-start` prende o quadrado no topo: com duas ou mais imagens o
+          `<li>` estica para a altura das setas, e ele tem só a da foto. */}
+      {acrescentar !== undefined && (
+        <li className="flex shrink-0 snap-start items-start">{acrescentar}</li>
+      )}
     </ul>
   );
 }

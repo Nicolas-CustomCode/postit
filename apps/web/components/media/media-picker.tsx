@@ -1,11 +1,10 @@
 "use client";
 
-import { Images } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { ImageFormat, MediaSummary } from "@repo/shared";
 import { MediaGrid } from "@/components/media/media-grid";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,7 +24,8 @@ export function MediaPicker({
   media,
   format,
   remaining,
-  disabled,
+  open,
+  onOpenChange,
   onConfirm,
 }: {
   readonly media: readonly MediaSummary[];
@@ -33,31 +33,29 @@ export function MediaPicker({
   readonly format: ImageFormat;
   /** Quantas ainda cabem na postagem. Escolher além disso fica apagado. */
   readonly remaining: number;
-  readonly disabled?: boolean;
+  /**
+   * Controlado de fora: quem abre é o menu do quadrado de adicionar. É o que
+   * permite o diálogo ser **irmão** do menu, e não filho dele — aninhado, o
+   * fechamento do menu levaria o foco do diálogo junto.
+   */
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
   readonly onConfirm: (media: readonly MediaSummary[]) => void;
 }): ReactNode {
-  const [aberto, setAberto] = useState(false);
   const [pendentes, setPendentes] = useState<readonly MediaSummary[]>([]);
 
   const cheia = pendentes.length >= remaining;
 
   return (
     <Sheet
-      open={aberto}
+      open={open}
       onOpenChange={(proximo) => {
-        setAberto(proximo);
+        onOpenChange(proximo);
         // Cada abertura começa do zero: seleção que sobrou de uma desistência
         // anterior viraria imagem acrescentada sem ninguém pedir.
         if (!proximo) setPendentes([]);
       }}
     >
-      <SheetTrigger asChild>
-        <Button type="button" variant="outline" className="h-11 justify-start gap-2 md:h-10" disabled={disabled}>
-          <Images className="size-4" aria-hidden />
-          Escolher do acervo
-        </Button>
-      </SheetTrigger>
-
       {/*
         ⚠️ **Folha embaixo no celular, caixa centrada no computador — por
         classes.** O projeto não tem hook de breakpoint, e renderizar dois
@@ -102,7 +100,7 @@ export function MediaPicker({
             disabled={pendentes.length === 0}
             onClick={() => {
               onConfirm(pendentes);
-              setAberto(false);
+              onOpenChange(false);
               setPendentes([]);
             }}
           >
