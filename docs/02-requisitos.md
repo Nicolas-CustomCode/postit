@@ -153,15 +153,22 @@ O usuário cria uma postagem na conta ativa (RF-A09), escolhendo formato, mídia
 **Aceite:** a postagem nasce em `RASCUNHO`. Nenhuma chamada à Meta acontece nesse momento.
 
 ### RF-C02 — Formatos suportados **[MVP]**
-Feed imagem, feed vídeo, carrossel, reels e stories.
+**Feed, Reels e Stories** ([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)).
+
+⚠️ **Carrossel não é formato, é quantidade.** A Meta o monta sozinha quando o container pai recebe de
+2 a 10 `children`: um Feed com uma imagem é imagem simples, e com duas já é carrossel.
 
 **Aceite:** cada formato oferece exatamente os campos que a API aceita para ele, conforme a matriz
 de parâmetros em [08](08-integracao-instagram.md).
 
-**Parcial desde 21/09/2026:** **imagem de feed e Stories** são escolhíveis, e os campos acompanham —
-Stories aceita qualquer proporção e ganha o aviso do RF-C11; o feed cobra 4:5 a 1.91:1. Carrossel,
-Reels e vídeo aparecem no seletor **apagados, com o rótulo da fase**: dependem do validador de vídeo e
-da ordenação de múltiplas mídias (Fase 2).
+**Parcial desde 21/09/2026:** **Feed e Stories** são escolhíveis, e os campos acompanham — Stories
+aceita qualquer proporção, ganha o aviso do RF-C11 e é sempre **uma** mídia; o feed cobra 4:5 a
+1.91:1 e aceita de 1 a 10. Reels aparece no seletor **apagado, com o rótulo da fase**: depende do
+validador de vídeo (Fase 2).
+
+⚠️ **Feed aceita só imagem nesta fase.** Quando o vídeo chegar, um vídeo solto no Feed será recusado
+com "vídeo único no feed vira Reels": a Meta o converte sozinha (V-7, a confirmar), e Reels tem
+campos que só ele tem — capa, `share_to_feed`, `audio_name`.
 
 ⚠️ **Trocar o formato revalida a imagem já anexada.** Uma arte 9:16 serve a Stories e não ao feed;
 anexar em Stories e mudar para Feed é recusado, com a faixa na mensagem. Formato é conteúdo (RF-E05),
@@ -184,8 +191,15 @@ o lado que recusa cedo); hashtag e menção precisam **começar palavra**, senã
 viraria menção. Registrado como item a validar no [08](08-integracao-instagram.md).
 
 ### RF-C04 — Ordenar carrossel **[MVP]**
-**Aceite:** a ordem é persistida e respeitada na publicação. Mínimo 2, máximo 10 itens, validado
-antes de agendar.
+**Aceite:** a ordem é persistida e respeitada na publicação. **Mínimo 1**, máximo 10 itens, validado
+antes de agendar — uma imagem é publicação simples, e é a segunda que cria o carrossel.
+
+**Atendido desde 21/09/2026** na composição: a faixa de miniaturas aceita de 1 a 10, reordena por
+botões (`◀ ▶`, e não por arrasto — o sistema vive no celular) e remove por `✕`. A ordem vira a coluna
+`ordem` de `PostagemMidia`, e **trocá-la é mudança de conteúdo**: derruba a postagem para rascunho,
+porque aprovar uma sequência e publicar outra seria publicar o que ninguém aprovou.
+
+A montagem dos containers pai e filho na publicação continua na Fase 2.
 
 ### RF-C05 — Marcar pessoas na imagem **[MVP]**
 O usuário marca perfis posicionando a marcação sobre a imagem.
@@ -208,6 +222,11 @@ dois ao mesmo tempo na interface.
 
 ### RF-C10 — Pré-visualizar a postagem **[MVP]**
 **Aceite:** a prévia mostra o recorte correto por formato e as marcações nas posições definidas.
+
+**Desde 21/09/2026** ela também navega o carrossel — contador, setas e pontinhos — e avisa que **a
+primeira imagem define o recorte de todas**, que é o que a Meta faz ([08](08-integracao-instagram.md))
+e o que a prévia precisa demonstrar: sem isso, aprova-se uma sequência e publica-se outra, com a
+segunda foto decapitada.
 
 ### RF-C11 — Avisar sobre recursos indisponíveis **[MVP]**
 **Aceite:** ao compor um Story, a tela informa que figurinhas, enquetes, links e música não são

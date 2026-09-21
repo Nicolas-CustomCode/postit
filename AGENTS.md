@@ -149,6 +149,11 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
     feed** — Stories não tem faixa nenhuma. O acervo é compartilhado entre contas e formatos, então
     ele aceita pelo que vale em qualquer formato (`validateImageUpload`) e a composição confere o
     formato escolhido (`validateImageFormat`), ambos em `packages/shared/src/media-formats.ts`.
+    **A composição confere também a quantidade** (`postMediaCountProblem`, em
+    `packages/shared/src/post-formats.ts`): Feed de 1 a 10, Stories e Reels exatamente 1. **Carrossel
+    não é formato, é quantidade** — a Meta o monta a partir de `children` ([ADR 0024](docs/adr/0024-carrossel-e-quantidade-nao-formato.md)).
+    A quantidade é conferida **antes** da proporção: em Stories, duas imagens 9:16 são as duas
+    válidas, e reclamar da segunda mandaria trocar a foto, que não resolve.
     Recortar é oferta, nunca imposição: recortar uma arte 9:16 para 4:5 destrói o formato pretendido.
 11. **Verificação em duas etapas é obrigatória para todos.** Senha certa cria só um desafio; sessão só
     nasce depois do código. Não crie atalho, modo de teste nem exceção por usuário. Detalhes em

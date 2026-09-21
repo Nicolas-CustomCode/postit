@@ -523,11 +523,24 @@ Campos que só valem para alguns formatos, e que a validação precisa cobrar de
 | `legenda` | Tudo menos Stories |
 | `apareceNoFeed` | Reels |
 | `capaOffsetMs` e `capaMidiaId` | Reels, e são mutuamente exclusivos |
-| `geradoPorIA` | Tudo menos item de carrossel |
+| `geradoPorIA` | Tudo menos item de carrossel — a marcação vai no container **pai** |
+
+⚠️ **"Item de carrossel" é uma posição, não um formato** ([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)).
+A mesma linha de `Postagem` com `formato = FEED` é publicação simples com uma `PostagemMidia` e
+carrossel com duas ou mais. Quantas cada formato aceita:
+
+| Formato | Mídias |
+|---|---|
+| `FEED` | 1 a 10 — a segunda é que cria o carrossel |
+| `REELS` | exatamente 1 — Reels não entra em carrossel |
+| `STORIES` | exatamente 1 — não há `children` em Stories |
 
 ### `PostagemMidia`
-Liga postagem a mídia **com ordem**. A ordem é a essência do carrossel: trocar a ordem muda o post.
-Para formatos de mídia única, há uma linha só, com `ordem` igual a zero.
+Liga postagem a mídia **com ordem**. A ordem é a essência do carrossel: trocar a ordem muda o post —
+tanto que trocá-la derruba a postagem para rascunho, como qualquer mudança de conteúdo. **É a
+contagem destas linhas que decide se a postagem é carrossel**, e não uma coluna em `Postagem`
+([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)). Com uma mídia só há uma linha, com
+`ordem` igual a zero.
 
 **`textoAlternativo` fica aqui, e não na postagem:** num carrossel, cada imagem tem o seu — a API da Meta recebe
 `alt_text` em cada item filho ([08](08-integracao-instagram.md)). A tela de revisão mostra o texto de cada foto e avisa
@@ -646,7 +659,7 @@ pergunta que sempre aparece depois de um incidente: quando foi a última renova�
 
 ```
 RedeSocial        INSTAGRAM
-FormatoPostagem   FEED_IMAGEM | FEED_VIDEO | CARROSSEL | REELS | STORIES
+FormatoPostagem   FEED | REELS | STORIES   (sem @map: iguais nos dois idiomas)
 StatusPostagem    RASCUNHO | EM_REVISAO | APROVADO | AGENDADO | PROCESSANDO
                   PUBLICADO | FALHOU | CANCELADO
 PapelContainer    UNICO | PAI | FILHO

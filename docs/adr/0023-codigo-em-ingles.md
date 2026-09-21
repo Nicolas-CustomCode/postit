@@ -82,10 +82,15 @@ documentação continua usando o vocabulário do domínio em português, e a tab
 | Domínio | Código |
 |---|---|
 | RASCUNHO, EM_REVISAO, APROVADO, AGENDADO, PROCESSANDO, PUBLICADO, FALHOU, CANCELADO | `DRAFT`, `IN_REVIEW`, `APPROVED`, `SCHEDULED`, `PROCESSING`, `PUBLISHED`, `FAILED`, `CANCELED` |
-| FEED_IMAGEM, FEED_VIDEO, CARROSSEL, REELS, STORIES | `FEED_IMAGE`, `FEED_VIDEO`, `CAROUSEL`, `REELS`, `STORIES` |
+| FEED, REELS, STORIES | `FEED`, `REELS`, `STORIES` — iguais dos dois lados, **sem `@map`** ([ADR 0024](0024-carrossel-e-quantidade-nao-formato.md)) |
 | POSTAGEM_EDITAR, POSTAGEM_APROVAR, POSTAGEM_APROVAR_PROPRIA, POSTAGEM_AGENDAR, CONTA_GERENCIAR | `POST_EDIT`, `POST_APPROVE`, `POST_APPROVE_OWN`, `POST_SCHEDULE`, `ACCOUNT_MANAGE` |
 
 Os demais enums seguem a mesma regra, sempre registrados no `schema.prisma` com o `@map` para o valor do banco.
+
+**Onde não há tradução, não há `@map`.** `FEED`, `REELS` e `STORIES` são as palavras que a própria
+Meta usa em `media_product_type`, e caem na exceção acima. Isso não é regra nova: `REELS` e `STORIES`
+nunca tiveram `@map`, e os dois valores que tinham — `FEED_IMAGEM` e `CARROSSEL` — eram justamente os
+que traduziam, e saíram do enum ([ADR 0024](0024-carrossel-e-quantidade-nao-formato.md)).
 
 **Conceitos e peças de código**
 

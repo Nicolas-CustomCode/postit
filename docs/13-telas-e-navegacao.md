@@ -333,6 +333,15 @@ contador do carrossel e indicador de marcações, ações, legenda cortada em "m
 nem fonte do Instagram. Segue fundo branco ou preto conforme o tema. **Não mostra** localização, que a API não
 permite, nem curtidas, que só existem depois de publicar; uma nota abaixo da prévia avisa as duas ausências.
 
+**No carrossel** (a partir de 21/09/2026) ela navega entre as imagens — contador `2/5` sobre a mídia, setas e
+pontinhos —, usa a proporção da **primeira** imagem em todas, que é o que a Meta faz, e avisa disso **abaixo** do
+cartão. Como qualquer informação nossa, o aviso fica fora da moldura: dentro dela, quebraria a imitação no lugar
+exato onde a pessoa está comparando com o aplicativo que conhece.
+
+**Na composição**, a faixa de miniaturas mostra de 1 a 10 imagens com o número da posição em cada uma, e reordena
+por botões `◀ ▶`, não por arrasto — o arrasto exigiria biblioteca e sairia ruim no celular, que é onde o sistema
+vive. Quem move por teclado recebe o resultado por `aria-live`.
+
 ---
 
 ## Acessibilidade

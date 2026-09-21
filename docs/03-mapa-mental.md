@@ -40,11 +40,13 @@ mindmap
         Texto alternativo
     Composição
       Formato
-        Feed imagem
-        Feed vídeo
-        Carrossel
+        Feed
         Reels
         Stories
+      Quantidade de mídias
+        1 no feed: imagem simples
+        2 a 10 no feed: carrossel
+        Stories e Reels: sempre 1
       Conteúdo
         Legenda
         Hashtags

@@ -121,7 +121,7 @@ sequenceDiagram
     participant S as MinIO
     participant DB as Banco
 
-    U->>W: Nova postagem, formato Feed imagem
+    U->>W: Nova postagem, formato Feed
     U->>U: Escolhe o JPEG. A tela ja confere tipo e tamanho<br/>com as especificacoes de packages/shared
     W->>A: Pede permissao de envio
     A-->>W: Politica assinada para recebidos, com limite de tamanho e tipo

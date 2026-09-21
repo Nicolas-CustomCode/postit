@@ -382,6 +382,12 @@ auditoria.
 Quais campos valem em cada formato, na criação do container. Fonte:
 [IG User /media](https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media/).
 
+⚠️ **As colunas abaixo são da API da Meta, não do nosso enum.** `FormatoPostagem` tem três valores —
+`FEED`, `REELS`, `STORIES` ([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)) — e as colunas
+"Carrossel pai" e "Item do carrossel" são montadas pelo worker a partir da **quantidade** de
+`PostagemMidia`: uma mídia no Feed usa a coluna "Imagem feed", duas ou mais usam as duas do carrossel.
+É a própria matriz que justifica isso, com `children` aparecendo só no pai.
+
 | Parâmetro | Imagem feed | Vídeo feed | Carrossel pai | Item do carrossel | Reels | Stories |
 |---|---|---|---|---|---|---|
 | `image_url` | obrigatório | — | — | sim | — | sim, se imagem |

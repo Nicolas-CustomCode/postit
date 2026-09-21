@@ -262,8 +262,18 @@ dali — o RF-B04, que estava previsto para a Fase 2.
 **Antecipado da Fase 2 na mesma passagem:** o formato virou escolha entre **imagem de feed e
 Stories** (RF-C02 parcial) e o aviso de recursos indisponíveis do RF-C11. O motivo de antecipar: o
 validador por formato já existia desde a parte 1a-bis e não tinha quem o exercitasse na tela — e sem
-escolher formato, "o acervo serve a qualquer formato" era promessa sem uso. Carrossel, Reels e vídeo
-continuam na Fase 2, porque dependem do validador de vídeo.
+escolher formato, "o acervo serve a qualquer formato" era promessa sem uso.
+
+**21/09/2026 — os formatos viraram três, e o carrossel virou quantidade**
+([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)). `FormatoPostagem` perdeu `FEED_IMAGEM`,
+`FEED_VIDEO` e `CARROSSEL`: a Meta monta o carrossel a partir de `children` (2 a 10), e as
+especificações de item de carrossel sempre foram as mesmas do feed. A composição passou a aceitar de
+1 a 10 imagens no Feed, com reordenação por botões e remoção, e a prévia ganhou o carrossel com o
+aviso do recorte pela primeira imagem. Isso **antecipa o RF-C04 inteiro** da Fase 2; o que fica lá é
+a montagem dos containers pai e filho na publicação.
+
+Reels continua na Fase 2, apagado no seletor: depende do validador de vídeo. **Feed aceita só imagem
+nesta fase** pelo mesmo motivo.
 
 **Falta desta fase:** o motor de publicação — despachante, publicador, as quatro camadas de
 idempotência, notificações (1d). Sem ele, uma postagem agendada fica esperando para sempre.
@@ -292,7 +302,7 @@ sobrevive ao proxy. Falta só repetir no proxy de verdade, na estreia.
 |---|---|
 | Validador de vídeo: container, codec, duração, taxa de quadros, átomo `moov` | RF-B02, RF-B03 |
 | Upload resumível para vídeos grandes | RF-F10 |
-| Carrossel com ordenação e containers pai e filho | RF-C04, RF-C02 |
+| Containers pai e filho do carrossel na publicação — a ordenação já existe (ADR 0024) | RF-C04, RF-C02 |
 | Reaproveitamento de containers filhos na retomada | RNF-02 |
 | Reels com capa, aparição no feed e nome do áudio | RF-C07, RF-C08 |
 | Stories com o aviso de recursos indisponíveis | RF-C11 |

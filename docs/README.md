@@ -79,6 +79,7 @@ qualquer uso externo.
   monitoramento externo
 - [ADR 0022](adr/0022-tunel-rapido-no-desenvolvimento.md) — Túnel rápido da Cloudflare no desenvolvimento, sempre ligado
 - [ADR 0023](adr/0023-codigo-em-ingles.md) — Código em inglês; banco, textos e documentação em português
+- [ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md) — Carrossel é quantidade, não formato
 
 ---
 

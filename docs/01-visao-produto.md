@@ -42,7 +42,7 @@ celular** — inclusive compor, enviar vídeo, marcar pessoas e mexer no calend�
 
 ### 1. Agendar e publicar
 Conectar uma conta profissional do Instagram, subir foto ou vídeo, escrever legenda, escolher o
-formato (feed, carrossel, reels ou stories), marcar pessoas, definir data e hora — e o sistema
+formato (feed, reels ou stories), marcar pessoas, definir data e hora — e o sistema
 publica sozinho.
 
 ### 2. Calendário visual
@@ -148,7 +148,7 @@ português, seguindo a convenção dos demais projetos.
 | **Conta** | Uma conta de rede social conectada ao sistema (`Conta`). No MVP, sempre uma conta profissional do Instagram |
 | **Rede** | A rede social de uma conta (`rede`). No MVP, só `INSTAGRAM` |
 | **Postagem** | A unidade de trabalho: conteúdo + formato + horário + destino. Existe no nosso banco antes de existir no Instagram |
-| **Formato** | Feed imagem, feed vídeo, carrossel, reels ou stories |
+| **Formato** | Feed, reels ou stories — carrossel é o feed com 2 a 10 mídias (ADR 0024) |
 | **Mídia** | Um arquivo (foto ou vídeo) armazenado no MinIO. Uma postagem tem uma ou várias |
 | **Container** | Objeto temporário criado na API da Meta que representa a mídia preparada para publicar. Vive 24h. É o passo intermediário obrigatório |
 | **Publicação** | O ato de transformar um container em post real. Irreversível |

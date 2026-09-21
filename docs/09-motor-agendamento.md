@@ -267,7 +267,12 @@ A cada execução, o publicador soma um em `Postagem.tentativas` e grava um `Eve
 
 ### Para carrossel, o passo de container é composto
 
-1. Cria um container **filho** por mídia, com `is_carousel_item=true`
+**O gatilho é a quantidade, não o formato:** a postagem tem mais de uma `PostagemMidia`
+([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)). Com uma mídia só, o passo é o container
+único de sempre.
+
+1. Cria um container **filho** por mídia, **na ordem de `PostagemMidia.ordem`** — a primeira define o
+   recorte de todas
 2. Aguarda cada filho ficar pronto
 3. Cria o container **pai**, com `media_type=CAROUSEL` e a lista de filhos em `children`, mais a
    legenda
