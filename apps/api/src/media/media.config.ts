@@ -23,11 +23,17 @@ export interface MediaConfig {
    * controlador dele de novo — o Fastify recusa a rota duplicada. Já aconteceu.
    */
   readonly uploadSecret: Buffer;
+  /** O domínio de mídia que a tela enxerga (docs/10). */
+  readonly mediaPublicUrl: string;
+  /** O bucket entra no caminho da URL pública, porque é assim que o MinIO serve. */
+  readonly mediaBucket: string;
 }
 
 export function mediaConfigFrom(env: ApiEnv): MediaConfig {
   return {
     uploadTtlSeconds: 5 * 60,
     uploadSecret: Buffer.from(env.STATE_SECRET, "hex"),
+    mediaPublicUrl: env.MINIO_PUBLIC_URL,
+    mediaBucket: env.MINIO_BUCKET,
   };
 }

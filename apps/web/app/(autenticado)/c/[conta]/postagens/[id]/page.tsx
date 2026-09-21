@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/nav/page-header";
 import { ComposeForm } from "@/components/posts/compose-form";
 import { PostStatusBadge } from "@/components/posts/post-status-badge";
 import { requireSession } from "@/lib/auth/session";
+import { listMedia } from "@/lib/data/media";
 import { accountFor, getPost } from "@/lib/data/posts";
 
 export const metadata: Metadata = { title: "Compor" };
@@ -27,7 +28,7 @@ export default async function ComporPage({
 
   const { conta, id } = await params;
   const username = decodeURIComponent(conta);
-  const [post, account] = await Promise.all([getPost(username, id), accountFor(username)]);
+  const [post, account, media] = await Promise.all([getPost(username, id), accountFor(username), listMedia()]);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
@@ -48,7 +49,7 @@ export default async function ComporPage({
           </>
         }
       />
-      <ComposeForm username={username} timeZone={account.timezone} post={post} />
+      <ComposeForm username={username} timeZone={account.timezone} media={media} post={post} />
     </main>
   );
 }

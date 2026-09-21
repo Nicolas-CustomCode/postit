@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Check, ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { CalendarClock, Check, ImagePlus, Info, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
@@ -8,91 +8,107 @@ import {
   CAPTION_MAX_HASHTAGS,
   CAPTION_MAX_LENGTH,
   CAPTION_MAX_MENTIONS,
+  COMPOSABLE_FORMATS,
   IMAGE_SPECS,
   POST_FORMAT_LABELS,
+  POST_FORMATS,
   type ActionConflict,
+  type ComposableFormat,
+  type MediaSummary,
   type PostDetail,
 } from "@repo/shared";
 import { AccountDateTime, accountZoneName, civilFieldsFor, todayIn } from "@/components/account-time";
+import { MediaPicker } from "@/components/media/media-picker";
 import { UploadField } from "@/components/media/upload-field";
 import { ComposeSection } from "@/components/posts/compose-section";
 import { FeedPreview } from "@/components/posts/feed-preview";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
+  cancelPostAction,
   createPostAction,
   discardPostAction,
   markPostReadyAction,
   schedulePostAction,
   setCaptionAction,
+  setPostFormatAction,
   setPostMediaAction,
 } from "@/lib/actions/posts";
 import { cn } from "@/lib/utils";
 
 /**
- * Compor uma postagem de imagem de feed (RF-C01, RF-C03, RF-C10, RF-C12;
- * artboard `ComposicaoDesktop`).
+ * Compor uma postagem (RF-C01 a RF-C03, RF-C10 a RF-C12; artboard
+ * `ComposicaoDesktop`).
  *
  * **A mesma tela serve para criar e para editar.** Com `post` em branco é a
- * "Nova postagem" do artefato: a postagem nasce no banco no primeiro salvamento
- * — não ao abrir a tela, senão cada visita deixaria um rascunho vazio para trás.
- * Foi assim que o artboard desenhou, e é por isso que ele mostra "Salvo às
- * 14:32" numa tela chamada Nova postagem.
+ * "Nova postagem" do artefato — e ela **continua sendo** Nova postagem até
+ * alguém salvar. Escolher uma imagem não cria nada: a `Midia` já existe no
+ * acervo, e a `Postagem` só nasce no salvamento.
  *
  * ⚠️ **O conflito de edição não pode custar o texto de ninguém.** Quando a API
  * recusa com `POST_VERSION_CONFLICT`, o que está no campo **continua lá** — a
  * tela mostra quem salvou antes e oferece as duas saídas do RF-C12.
- *
- * **Só a legenda e a versão vivem em estado local.** Imagem e situação vêm da
- * prop, que o `router.refresh()` renova depois de cada escrita: guardar cópia
- * delas aqui criaria duas verdades para a mesma coisa. A versão é a exceção
- * necessária — a escrita seguinte precisa dela **antes** de o refresh chegar.
  */
 export function ComposeForm({
   username,
   timeZone,
+  media,
   post,
 }: {
   readonly username: string;
   /** O fuso da conta: é nele que o horário escolhido é interpretado (ADR 0006). */
   readonly timeZone: string;
+  /** O acervo, para escolher sem sair da tela (RF-B04). */
+  readonly media: readonly MediaSummary[];
   /** Em branco na tela de nova postagem: ela ainda não existe no banco. */
   readonly post: PostDetail | null;
 }): ReactNode {
   const router = useRouter();
   const [caption, setCaption] = useState(post?.caption ?? "");
+  const [format, setFormat] = useState<ComposableFormat>(formatoInicial(post));
   const [version, setVersion] = useState(post?.version ?? 0);
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [conflito, setConflito] = useState<ActionConflict | null>(null);
 
+  /**
+   * A imagem escolhida — do acervo ou recém-enviada.
+   *
+   * Fica em estado local até o salvamento: escolher não cria postagem. Era o
+   * defeito que fazia a tela virar "Compor" só por anexar uma foto.
+   */
+  const anexada = post?.media[0];
+  const [midia, setMidia] = useState<MediaSummary | null>(mediaInicial(post, media));
+
   /*
-   * O horário fica em estado local, e não sai da prop: quando a edição derruba
-   * a postagem para rascunho, a API **apaga** o `publicarEm` — uma postagem que
-   * não vai sair não pode exibir horário de saída. Mas o que a pessoa escolheu
-   * continua aqui, para reagendar num clique em vez de redigitar.
+   * O horário também vive aqui: quando a edição derruba a postagem para
+   * rascunho, a API apaga o `publicarEm`, mas o que a pessoa escolheu continua
+   * na tela para reagendar num clique.
    */
   const gravado = civilFieldsFor(post?.scheduledAt ?? null, timeZone);
   const [day, setDay] = useState(gravado.day);
   const [time, setTime] = useState(gravado.time);
 
+  /**
+   * ⚠️ **Fato observado, não deduzido do banco.** A versão anterior mostrava o
+   * aviso sempre que havia data digitada e nada agendado — o que acontece
+   * também numa postagem que nunca foi agendada. Agora só é verdade depois de
+   * uma escrita ter mesmo derrubado uma postagem que estava agendada.
+   */
+  const [horarioCaiu, setHorarioCaiu] = useState(false);
+
   const contagem = captionCounts(caption);
   const legendaMudou = caption !== (post?.caption ?? "");
-  const media = post?.media ?? [];
-  const imagem = media[0];
+  const formatoMudou = post !== null && format !== post.format;
+  const midiaMudou = midia?.id !== anexada?.mediaId;
+  const temMudanca = post === null || legendaMudou || formatoMudou || midiaMudou;
+
   const status = post?.status ?? "DRAFT";
   // Só APROVADO e AGENDADO aceitam horário — a invariante I-1 e o RF-D04. A API
   // confere de novo: esconder o botão é conveniência, não proteção (regra 17).
   const podeAgendar = status === "APPROVED" || status === "SCHEDULED";
 
-  /**
-   * Executa uma escrita e devolve a versão nova, ou `null` se falhou.
-   *
-   * ⚠️ **Devolve, em vez de só guardar no estado.** Marcar como pronta encadeia
-   * duas escritas, e `setVersion` não atualiza a variável na mesma passagem —
-   * ler o estado entre as duas mandaria a versão velha e cairia num conflito
-   * consigo mesma.
-   */
+  /** Executa uma escrita e devolve a versão nova, ou `null` se falhou. */
   async function escrever(
     acao: (versaoAtual: number) => Promise<Awaited<ReturnType<typeof setCaptionAction>>>,
     versaoAtual: number,
@@ -104,6 +120,9 @@ export function ComposeForm({
 
     if (resultado.ok) {
       setVersion(resultado.data.version);
+      // Se a postagem estava agendada, esta escrita de conteúdo a derrubou — e
+      // o horário saiu junto (invariante I-2).
+      if (post?.status === "SCHEDULED") setHorarioCaiu(true);
       return resultado.data.version;
     }
 
@@ -115,27 +134,6 @@ export function ComposeForm({
     return null;
   }
 
-  /**
-   * A postagem no banco: cria na primeira vez, devolve a existente depois.
-   *
-   * A legenda vai junto na criação — em vez de criar vazia e salvar em seguida,
-   * que seriam duas escritas e duas versões para o mesmo ato.
-   */
-  async function garantirPostagem(): Promise<{ id: string; version: number } | null> {
-    if (post !== null) return { id: post.id, version };
-
-    setErro(null);
-    const criada = await createPostAction(username, { caption: caption === "" ? null : caption });
-
-    if (!criada.ok) {
-      setErro(criada.message);
-      return null;
-    }
-
-    setVersion(1);
-    return { id: criada.data.id, version: 1 };
-  }
-
   async function comBloqueio(trabalho: () => Promise<void>): Promise<void> {
     setOcupado(true);
     try {
@@ -145,10 +143,66 @@ export function ComposeForm({
     }
   }
 
-  /** Depois de criar, a tela passa a ser a da postagem — sem empilhar histórico. */
-  function irParaAPostagem(id: string): void {
-    if (post === null) router.replace(`/c/${username}/postagens/${id}`);
-    else router.refresh();
+  /**
+   * Salva tudo que mudou, em ordem, e só então a postagem existe.
+   *
+   * Na tela nova, o `create` já leva formato e legenda — uma escrita, não três.
+   * A imagem vem depois, porque a rota de mídia valida contra o formato que
+   * acabou de ser gravado.
+   */
+  async function salvar(): Promise<string | null> {
+    if (post === null) {
+      const criada = await createPostAction(username, {
+        format,
+        caption: caption === "" ? null : caption,
+      });
+      if (!criada.ok) {
+        setErro(criada.message);
+        return null;
+      }
+
+      let v = 1;
+      setVersion(v);
+
+      if (midia !== null) {
+        const comMidia = await escrever(
+          (atual) =>
+            setPostMediaAction(username, criada.data.id, { version: atual, mediaId: midia.id, altText: null }),
+          v,
+        );
+        if (comMidia === null) return null;
+        v = comMidia;
+      }
+
+      return criada.data.id;
+    }
+
+    let v = version;
+
+    if (formatoMudou) {
+      const depois = await escrever((atual) => setPostFormatAction(username, post.id, { version: atual, format }), v);
+      if (depois === null) return null;
+      v = depois;
+    }
+
+    if (legendaMudou) {
+      const depois = await escrever(
+        (atual) => setCaptionAction(username, post.id, { version: atual, caption: caption === "" ? null : caption }),
+        v,
+      );
+      if (depois === null) return null;
+      v = depois;
+    }
+
+    if (midiaMudou && midia !== null) {
+      const depois = await escrever(
+        (atual) => setPostMediaAction(username, post.id, { version: atual, mediaId: midia.id, altText: null }),
+        v,
+      );
+      if (depois === null) return null;
+    }
+
+    return post.id;
   }
 
   return (
@@ -167,8 +221,6 @@ export function ComposeForm({
                   variant="outline"
                   className="h-11 md:h-10"
                   onClick={() => {
-                    // A versão do banco: a próxima tentativa parte dela, com o
-                    // texto que a pessoa digitou.
                     setVersion(conflito.version);
                     setConflito(null);
                     router.refresh();
@@ -181,10 +233,9 @@ export function ComposeForm({
                   variant="ghost"
                   className="h-11 md:h-10"
                   /*
-                   * Recarga de verdade, e não `router.refresh()`: o texto certo
-                   * é o que está no **servidor agora**, e `setCaption(post.caption)`
-                   * traria a legenda de quando esta tela carregou — exatamente a
-                   * versão que acabou de ficar velha.
+                   * Recarga de verdade: o texto certo é o que está no servidor
+                   * agora, e o campo já está em estado local — não voltaria
+                   * sozinho com um `router.refresh()`.
                    */
                   onClick={() => window.location.reload()}
                 >
@@ -195,67 +246,84 @@ export function ComposeForm({
           </Alert>
         )}
 
-        {/*
-         * O formato é fixo nesta fase; o artboard mostra pílulas de escolha, que
-         * chegam na Fase 2 junto com carrossel, vídeo, Reels e Stories.
-         */}
         <ComposeSection title="Formato">
-          <p className="inline-flex h-10 w-fit items-center rounded-full border bg-muted px-4 text-sm font-semibold">
-            {POST_FORMAT_LABELS.FEED_IMAGE}
-          </p>
+          <div className="flex flex-wrap gap-2">
+            {POST_FORMATS.map((opcao) => {
+              const componivel = (COMPOSABLE_FORMATS as readonly string[]).includes(opcao);
+              const ativo = componivel && opcao === format;
+
+              return (
+                <button
+                  key={opcao}
+                  type="button"
+                  disabled={!componivel || ocupado}
+                  onClick={() => setFormat(opcao as ComposableFormat)}
+                  className={cn(
+                    "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
+                    ativo ? "border-primary bg-accent text-accent-foreground" : "bg-muted",
+                    !componivel && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  {POST_FORMAT_LABELS[opcao]}
+                  {/* Os que ainda não dá para compor dizem quando chegam, em vez
+                      de sumirem: saber que existem é informação útil. */}
+                  {!componivel && <span className="text-[11px] font-medium">Fase 2</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* RF-C11: o aviso precisa estar na composição, não escondido na ajuda. */}
+          {format === "STORIES" && (
+            <p className="flex items-start gap-2 rounded-[10px] bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+              Figurinhas, enquetes, links e música não são publicáveis pela API oficial do Instagram — só a
+              imagem e a menção sem figurinha.
+            </p>
+          )}
         </ComposeSection>
 
         <ComposeSection
           title="Mídia"
           aside={
             <span className="text-[13px] text-muted-foreground">
-              JPEG até 8 MB, proporção de {IMAGE_SPECS.FEED_IMAGE.ratioLabel}
+              {IMAGE_SPECS[format].ratioLabel === null
+                ? "JPEG até 8 MB, qualquer proporção"
+                : `JPEG até 8 MB, proporção de ${IMAGE_SPECS[format].ratioLabel}`}
             </span>
           }
         >
           <div className="flex flex-wrap items-start gap-3">
-            {imagem !== undefined && (
-              /*
-               * O endereço vem do nosso armazenamento e muda junto com o túnel;
-               * o otimizador do Next exigiria domínio fixo na configuração.
-               */
+            {midia !== null && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={imagem.url}
-                alt={imagem.altText ?? ""}
+                src={midia.url}
+                alt=""
                 className="size-28 shrink-0 rounded-xl object-cover"
-                width={imagem.width}
-                height={imagem.height}
+                width={midia.width}
+                height={midia.height}
               />
             )}
 
-            {/*
-             * Com formato de destino: aqui a imagem precisa servir ao feed, e
-             * "enviar como está" seria um beco — o arquivo entraria no acervo e
-             * a API recusaria anexá-lo em seguida.
-             */}
-            <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              {/* As duas portas: o acervo, e o envio. */}
+              <MediaPicker
+                media={media}
+                format={format}
+                selectedId={midia?.id ?? null}
+                disabled={ocupado}
+                onSelect={setMidia}
+              />
               <UploadField
-                mode={{ format: "FEED_IMAGE" }}
-                label={imagem === undefined ? "Escolher imagem" : "Trocar imagem"}
+                mode={{ format }}
+                label="Enviar nova"
                 icon={ImagePlus}
-                onUploaded={(enviada) =>
-                  void comBloqueio(async () => {
-                    const alvo = await garantirPostagem();
-                    if (alvo === null) return;
-
-                    const nova = await escrever(
-                      (v) =>
-                        setPostMediaAction(username, alvo.id, {
-                          version: v,
-                          mediaId: enviada.id,
-                          altText: null,
-                        }),
-                      alvo.version,
-                    );
-                    if (nova !== null) irParaAPostagem(alvo.id);
-                  })
-                }
+                onUploaded={(enviada) => {
+                  // Só guarda: a postagem nasce no salvamento, e a imagem já
+                  // está no acervo de qualquer forma.
+                  setMidia(enviada);
+                  router.refresh();
+                }}
               />
             </div>
           </div>
@@ -275,7 +343,6 @@ export function ComposeForm({
             placeholder="O que vai junto com a imagem"
           />
 
-          {/* Os três contadores do RF-C03, com os limites da Meta. */}
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground tabular-nums">
             <Contador atual={contagem.length} limite={CAPTION_MAX_LENGTH} nome="caracteres" />
             <Contador atual={contagem.hashtags} limite={CAPTION_MAX_HASHTAGS} nome="hashtags" />
@@ -283,12 +350,6 @@ export function ComposeForm({
           </p>
         </ComposeSection>
 
-        {/*
-         * "Quando publicar" (RF-D01; artboard `ComposicaoDesktop`): dois campos
-         * nativos, e o nome do fuso ao lado. `datetime-local` pareceria carregar
-         * fuso e não carrega — é o campo que convida ao erro que o ADR 0006
-         * existe para impedir.
-         */}
         <ComposeSection
           title="Quando publicar"
           aside={<span className="text-[13px] text-muted-foreground">{accountZoneName(timeZone)}, o fuso da conta</span>}
@@ -335,20 +396,19 @@ export function ComposeForm({
                     (v) => schedulePostAction(username, post.id, { version: v, day, time }),
                     version,
                   );
-                  if (nova !== null) router.refresh();
+                  if (nova !== null) {
+                    setHorarioCaiu(false);
+                    router.refresh();
+                  }
                 })
               }
             >
               <CalendarClock className="size-4" aria-hidden />
-              {post?.status === "SCHEDULED" ? "Reagendar" : "Agendar"}
+              {status === "SCHEDULED" ? "Reagendar" : "Agendar"}
             </Button>
           </div>
 
-          {/*
-           * O aviso que impede a tela de mentir: a postagem caiu para rascunho,
-           * o horário saiu do banco, mas os campos continuam preenchidos.
-           */}
-          {post !== null && post.scheduledAt === null && day !== "" && (
+          {horarioCaiu && (
             <p className="text-[13px] text-warning">
               A edição derrubou esta postagem para rascunho e desmarcou o horário. Marque como pronta e
               agende de novo.
@@ -383,24 +443,14 @@ export function ComposeForm({
           <Button
             type="button"
             className="h-11 md:h-10"
-            disabled={ocupado || (post !== null && !legendaMudou)}
+            disabled={ocupado || !temMudanca}
             onClick={() =>
               void comBloqueio(async () => {
-                const alvo = await garantirPostagem();
-                if (alvo === null) return;
-
-                // Recém-criada já nasceu com a legenda: não há o que salvar de novo.
-                if (post === null) {
-                  irParaAPostagem(alvo.id);
-                  return;
-                }
-
-                const nova = await escrever(
-                  (v) =>
-                    setCaptionAction(username, alvo.id, { version: v, caption: caption === "" ? null : caption }),
-                  alvo.version,
-                );
-                if (nova !== null) irParaAPostagem(alvo.id);
+                const id = await salvar();
+                if (id === null) return;
+                // Só agora a tela deixa de ser "Nova postagem".
+                if (post === null) router.replace(`/c/${username}/postagens/${id}`);
+                else router.refresh();
               })
             }
           >
@@ -412,28 +462,22 @@ export function ComposeForm({
             type="button"
             variant="outline"
             className="h-11 md:h-10"
-            disabled={ocupado || imagem === undefined || status === "APPROVED"}
+            disabled={ocupado || midia === null || status === "APPROVED"}
             onClick={() =>
               void comBloqueio(async () => {
-                if (post === null) return;
+                // Salvar antes: marcar como pronta algo que só existe na tela
+                // aprovaria uma coisa e publicaria outra.
+                const id = await salvar();
+                if (id === null) return;
 
-                // Salvar antes: marcar como pronta uma legenda que só existe na
-                // tela aprovaria uma coisa e publicaria outra.
-                const depoisDaLegenda = legendaMudou
-                  ? await escrever(
-                      (v) =>
-                        setCaptionAction(username, post.id, {
-                          version: v,
-                          caption: caption === "" ? null : caption,
-                        }),
-                      version,
-                    )
-                  : version;
-                if (depoisDaLegenda === null) return;
+                if (post === null) {
+                  router.replace(`/c/${username}/postagens/${id}`);
+                  return;
+                }
 
                 const pronta = await escrever(
                   (v) => markPostReadyAction(username, post.id, { version: v }),
-                  depoisDaLegenda,
+                  version,
                 );
                 if (pronta !== null) router.refresh();
               })
@@ -442,6 +486,27 @@ export function ComposeForm({
             <Check className="size-4" aria-hidden />
             {status === "APPROVED" ? "Pronta" : "Marcar como pronta"}
           </Button>
+
+          {post !== null && status === "SCHEDULED" && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 text-muted-foreground md:ml-auto md:h-10"
+              disabled={ocupado}
+              onClick={() =>
+                void comBloqueio(async () => {
+                  const cancelou = await escrever(
+                    (v) => cancelPostAction(username, post.id, { version: v }),
+                    version,
+                  );
+                  if (cancelou !== null) router.push(`/c/${username}/postagens`);
+                })
+              }
+            >
+              <Trash2 className="size-4" aria-hidden />
+              Cancelar agendamento
+            </Button>
+          )}
 
           {post !== null && status === "DRAFT" && (
             <Button
@@ -466,12 +531,11 @@ export function ComposeForm({
         </div>
       </div>
 
-      {/* A coluna da prévia, 360 px como no artboard. Abaixo do formulário
-          enquanto não couber lado a lado. */}
       <div className="w-full shrink-0 lg:sticky lg:top-7 lg:w-90">
         <FeedPreview
           username={username}
-          media={media}
+          format={format}
+          media={midia}
           caption={caption}
           scheduledAt={post?.scheduledAt ?? null}
           timeZone={timeZone}
@@ -481,12 +545,34 @@ export function ComposeForm({
   );
 }
 
+/** O formato da postagem, ou o padrão da tela nova. */
+function formatoInicial(post: PostDetail | null): ComposableFormat {
+  if (post === null) return "FEED_IMAGE";
+  return (COMPOSABLE_FORMATS as readonly string[]).includes(post.format)
+    ? (post.format as ComposableFormat)
+    : "FEED_IMAGE";
+}
+
+/** A imagem já anexada, buscada no acervo para ter as medidas e o endereço. */
+function mediaInicial(post: PostDetail | null, acervo: readonly MediaSummary[]): MediaSummary | null {
+  const anexada = post?.media[0];
+  if (anexada === undefined) return null;
+
+  return (
+    acervo.find((item) => item.id === anexada.mediaId) ?? {
+      id: anexada.mediaId,
+      url: anexada.url,
+      width: anexada.width,
+      height: anexada.height,
+      bytes: 0,
+      createdAt: "",
+    }
+  );
+}
+
 /**
  * Um contador da legenda, no formato do artboard: o número em destaque, o limite
  * com separador de milhar, e o nome por extenso.
- *
- * Passar do limite fica em vermelho — e o número continua visível, porque saber
- * **de quanto** foi é o que diz quanto cortar.
  */
 function Contador({ atual, limite, nome }: { readonly atual: number; readonly limite: number; readonly nome: string }) {
   const excedeu = atual > limite;

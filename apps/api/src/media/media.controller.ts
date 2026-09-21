@@ -1,16 +1,18 @@
-import { Body, Controller, HttpCode, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post } from "@nestjs/common";
 import { confirmUploadSchema, type MediaSummary, type UploadPermission } from "@repo/shared";
-import { RequirePermission } from "../authorization/policy.decorators";
+import { AnyAuthenticated, RequirePermission } from "../authorization/policy.decorators";
 import { Auth } from "../auth/auth.decorators";
 import type { AuthContext } from "../auth/session.service";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
 import { MediaDomainService } from "./media.domain.service";
+import { MediaQueryService } from "./media.query.service";
 
 /**
- * Envio de mídia (RF-B01, RF-B02; ADR 0012).
+ * O acervo: enviar e listar (RF-B01, RF-B02, RF-B04; ADR 0012).
  *
- * As duas rotas são **ação**, e exigem `POST_EDIT` — a permissão que o docs/02
- * mapeia para RF-B01 a RF-B05 (AGENTS.md, regra 5).
+ * As rotas de envio são **ação**, e exigem `POST_EDIT` — a permissão que o
+ * docs/02 mapeia para RF-B01 a RF-B05. Listar é leitura, e leitura é
+ * `@AnyAuthenticated` (AGENTS.md, regra 5).
  *
  * Nenhuma delas recebe o arquivo: o navegador o envia direto ao MinIO, com a
  * permissão que a primeira devolve. É isso que deixa o limite de 1 MB por
@@ -18,7 +20,17 @@ import { MediaDomainService } from "./media.domain.service";
  */
 @Controller("media")
 export class MediaController {
-  constructor(private readonly media: MediaDomainService) {}
+  constructor(
+    private readonly media: MediaDomainService,
+    private readonly acervo: MediaQueryService,
+  ) {}
+
+  /** O que já foi enviado, para reaproveitar numa postagem (RF-B04). */
+  @AnyAuthenticated()
+  @Get()
+  list(): Promise<MediaSummary[]> {
+    return this.acervo.list();
+  }
 
   /** Autoriza um envio: para onde mandar, com quais campos, e por quanto tempo. */
   @RequirePermission("POST_EDIT")

@@ -59,10 +59,18 @@ export interface UploadPermission {
   readonly expiresAt: string;
 }
 
-/** A mídia já validada e pública. O endereço é montado na leitura, não aqui. */
+/**
+ * Uma mídia já validada e pública — do acervo (RF-B01, RF-B04).
+ *
+ * O `url` é montado **na leitura**, nunca guardado no banco: ele muda junto com
+ * o domínio de mídia, que no computador local é o endereço do túnel e troca a
+ * cada `npm run tunnel`.
+ */
 export interface MediaSummary {
   readonly id: string;
+  readonly url: string;
   readonly width: number;
   readonly height: number;
   readonly bytes: number;
+  readonly createdAt: string;
 }

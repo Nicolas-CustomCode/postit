@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import type { ComposableFormat } from "@repo/shared";
 import { apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 import { requireSession } from "../auth/session";
@@ -22,11 +23,11 @@ import { failure, success, type ActionResult } from "./result";
 
 export async function createPostAction(
   username: string,
-  input: { caption: string | null },
+  input: { format: ComposableFormat; caption: string | null },
 ): Promise<ActionResult<{ id: string }>> {
   return write(username, (accountId) => ({
     path: `/accounts/${accountId}/posts`,
-    body: { format: "FEED_IMAGE", caption: input.caption },
+    body: { format: input.format, caption: input.caption },
   }));
 }
 
@@ -48,6 +49,23 @@ export async function setPostMediaAction(
 ): Promise<ActionResult<{ version: number }>> {
   return write(username, (accountId) => ({
     path: `/accounts/${accountId}/posts/${postId}/media`,
+    body: input,
+  }));
+}
+
+/**
+ * Trocar o formato (RF-C02).
+ *
+ * A API revalida a imagem já anexada: uma arte 9:16 serve a Stories e não ao
+ * feed, e é aqui que essa troca é recusada em vez de virar publicação errada.
+ */
+export async function setPostFormatAction(
+  username: string,
+  postId: string,
+  input: { version: number; format: ComposableFormat },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/format`,
     body: input,
   }));
 }

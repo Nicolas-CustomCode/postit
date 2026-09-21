@@ -123,6 +123,15 @@ Uma mídia já enviada pode ser usada em mais de uma postagem.
 
 **Aceite:** apagar uma postagem não apaga a mídia se outra postagem ainda a referencia.
 
+**Atendido em 21/09/2026.** A tela do Acervo lista o que foi enviado, e a composição escolhe dali —
+com as incompatíveis **apagadas, não escondidas**: quem enviou uma arte 9:16 precisa ver que ela está
+lá e por que não serve ao feed. Antes disso o Acervo recebia imagens que nunca eram usadas, porque a
+composição mandava uma nova a cada postagem.
+
+⚠️ **A listagem não filtra por conta**, e não deve: `Midia` não tem dono no schema, e o acervo é
+compartilhado (docs/13). Filtrar significaria enviar a mesma foto duas vezes para usá-la em duas
+contas.
+
 ### RF-B05 — Texto alternativo **[MVP]**
 O usuário informa texto alternativo para imagens, por acessibilidade.
 
@@ -148,6 +157,15 @@ Feed imagem, feed vídeo, carrossel, reels e stories.
 
 **Aceite:** cada formato oferece exatamente os campos que a API aceita para ele, conforme a matriz
 de parâmetros em [08](08-integracao-instagram.md).
+
+**Parcial desde 21/09/2026:** **imagem de feed e Stories** são escolhíveis, e os campos acompanham —
+Stories aceita qualquer proporção e ganha o aviso do RF-C11; o feed cobra 4:5 a 1.91:1. Carrossel,
+Reels e vídeo aparecem no seletor **apagados, com o rótulo da fase**: dependem do validador de vídeo e
+da ordenação de múltiplas mídias (Fase 2).
+
+⚠️ **Trocar o formato revalida a imagem já anexada.** Uma arte 9:16 serve a Stories e não ao feed;
+anexar em Stories e mudar para Feed é recusado, com a faixa na mensagem. Formato é conteúdo (RF-E05),
+então a troca derruba para rascunho como legenda e mídia.
 
 ### RF-C03 — Legenda com limites visíveis **[MVP]**
 O editor mostra contagem de caracteres, de hashtags e de menções, com os limites da plataforma.
@@ -194,6 +212,9 @@ dois ao mesmo tempo na interface.
 ### RF-C11 — Avisar sobre recursos indisponíveis **[MVP]**
 **Aceite:** ao compor um Story, a tela informa que figurinhas, enquetes, links e música não são
 publicáveis pela API. O aviso fica visível na composição, não escondido em ajuda.
+
+**Atendido em 21/09/2026**, junto do formato escolhível: o aviso aparece na própria seção Formato ao
+escolher Stories, e some ao voltar para o feed.
 
 ### RF-C12 — Conflito de edição **[MVP]**
 Duas pessoas podem abrir a mesma postagem ao mesmo tempo. Quem salvar por último não pode apagar, sem saber,

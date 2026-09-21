@@ -254,6 +254,17 @@ RF-D05); e a seção "Quando publicar" com o fuso da conta. A mesma mudança **c
 silencioso nas métricas**: em fusos que mudam o relógio à meia-noite, a janela do dia saía uma hora
 deslocada.
 
+**Entregue em 21/09/2026 — o Acervo passa a servir para alguma coisa.** Até então ele recebia imagens
+que nunca eram usadas: não havia rota de leitura de mídia, a tela não listava, e a composição mandava
+uma imagem nova a cada postagem. Agora `GET /media` existe, o Acervo lista, e a composição escolhe
+dali — o RF-B04, que estava previsto para a Fase 2.
+
+**Antecipado da Fase 2 na mesma passagem:** o formato virou escolha entre **imagem de feed e
+Stories** (RF-C02 parcial) e o aviso de recursos indisponíveis do RF-C11. O motivo de antecipar: o
+validador por formato já existia desde a parte 1a-bis e não tinha quem o exercitasse na tela — e sem
+escolher formato, "o acervo serve a qualquer formato" era promessa sem uso. Carrossel, Reels e vídeo
+continuam na Fase 2, porque dependem do validador de vídeo.
+
 **Falta desta fase:** o motor de publicação — despachante, publicador, as quatro camadas de
 idempotência, notificações (1d). Sem ele, uma postagem agendada fica esperando para sempre.
 

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import type { Prisma, PostStatus } from "@repo/database";
-import type { PermissionHolder } from "@repo/shared";
+import type { Prisma, PostFormat, PostStatus } from "@repo/database";
+import { isImageFormat, type ComposableFormat, type ImageFormat, type PermissionHolder } from "@repo/shared";
 import {
   MediaUploadInvalidError,
   PostNotEditableError,
@@ -46,7 +46,7 @@ export class PostsDomainService {
    * derrubam a postagem para rascunho: método novo sem linha na tabela do teste
    * reprova a CI.
    */
-  static readonly CONTENT_METHODS = ["setCaption", "setMedia"] as const;
+  static readonly CONTENT_METHODS = ["setCaption", "setMedia", "setFormat"] as const;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -54,7 +54,7 @@ export class PostsDomainService {
   async create(input: {
     accountId: string;
     userId: string;
-    format: "FEED_IMAGE";
+    format: ComposableFormat;
     caption: string | null;
   }): Promise<{ id: string }> {
     const post = await this.prisma.db.post.create({
@@ -96,8 +96,10 @@ export class PostsDomainService {
     // novo, que é o que resolve.
     if (media === null) throw new MediaUploadInvalidError();
 
+    // Contra o formato **da postagem**, não contra um literal: em Stories a
+    // mesma imagem 9:16 que o feed recusa é a que serve.
     const problema = postReadinessProblem({
-      format: "FEED_IMAGE",
+      format: formatOf(post.format),
       caption: null,
       media: [{ mimeType: media.mimeType, bytes: media.bytes, width: media.width, height: media.height }],
     });
@@ -109,6 +111,38 @@ export class PostsDomainService {
         data: { postId: post.id, mediaId: input.mediaId, position: 0, altText: input.altText },
       });
     });
+  }
+
+  /**
+   * Troca o formato de destino (RF-C02).
+   *
+   * ⚠️ **Revalida a imagem já anexada.** Uma arte 9:16 serve a Stories e não ao
+   * feed: anexar em Stories e depois mudar para Feed é a rota de estrago que
+   * esta conferência fecha. É a mesma `postReadinessProblem` que decide se a
+   * postagem pode ficar pronta — uma regra, dois momentos.
+   *
+   * Formato **é conteúdo** (o RF-E05 o cita com todas as letras), então passa
+   * por `applyContentChange`: derruba para rascunho e apaga o horário, como
+   * legenda e mídia.
+   */
+  async setFormat(input: Scope & { format: ComposableFormat }): Promise<Saved> {
+    const post = await this.load(input);
+
+    const problema = postReadinessProblem({
+      format: input.format,
+      caption: null,
+      media: post.media.map((item) => ({
+        mimeType: item.media.mimeType,
+        bytes: item.media.bytes,
+        width: item.media.width,
+        height: item.media.height,
+      })),
+    });
+    // Sem imagem ainda não é impedimento para escolher o formato — a falta dela
+    // é problema de "ficar pronta", não de "qual formato".
+    if (problema !== null && problema !== "POST_MEDIA_REQUIRED") throw readinessError(problema);
+
+    return this.applyContentChange(input, { format: input.format });
   }
 
   /**
@@ -127,7 +161,7 @@ export class PostsDomainService {
     if (selfApprovalRefused(input.approver, post.createdById)) throw new SelfApprovalForbiddenError();
 
     const problema = postReadinessProblem({
-      format: "FEED_IMAGE",
+      format: formatOf(post.format),
       caption: post.caption,
       media: post.media.map((item) => ({
         mimeType: item.media.mimeType,
@@ -351,6 +385,22 @@ interface Scope {
  */
 function readinessError(problem: PostProblem): Error {
   return new PostNotReadyError(problem);
+}
+
+/**
+ * O formato da postagem como o validador de imagem o conhece.
+ *
+ * ⚠️ **O enum do banco tem cinco valores; o validador de imagem conhece três.**
+ * Carrossel, Reels e vídeo de feed existem na coluna e ainda não são
+ * componíveis (Fase 2). Se um deles aparecer aqui, é porque chegou ao banco por
+ * um caminho que esta fase não abriu — e tratá-lo como feed seria validar
+ * contra a regra errada em silêncio.
+ */
+function formatOf(format: PostFormat): ImageFormat {
+  if (!isImageFormat(format)) {
+    throw new Error(`Formato ainda não componível nesta fase: ${format}`);
+  }
+  return format;
 }
 
 function scheduleError(problem: ScheduleProblem): Error {

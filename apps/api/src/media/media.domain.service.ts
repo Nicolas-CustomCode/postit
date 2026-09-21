@@ -13,6 +13,7 @@ import {
 } from "../common/errors";
 import { detectImageType, orientedSize } from "../domain/media/image-rules";
 import { PrismaService } from "../prisma/prisma.service";
+import { publicUrlFor } from "../storage/public-url";
 import { PUBLIC_PREFIX, RECEIVED_PREFIX, StorageService } from "../storage/storage.service";
 import { MEDIA_CONFIG, type MediaConfig } from "./media.config";
 import { readUploadTicket, signUploadTicket } from "./upload-ticket";
@@ -138,9 +139,16 @@ export class MediaDomainService {
 
       return {
         id: midia.id,
+        // O endereço vai junto: quem acabou de enviar quer ver a imagem, e sem
+        // isto a tela precisaria de uma leitura a mais só para mostrá-la.
+        url: publicUrlFor(publicKey, {
+          publicUrl: this.config.mediaPublicUrl,
+          bucket: this.config.mediaBucket,
+        }),
         width: midia.width,
         height: midia.height,
         bytes: midia.bytes,
+        createdAt: midia.createdAt.toISOString(),
       };
     } finally {
       if (apagarRecebido) {

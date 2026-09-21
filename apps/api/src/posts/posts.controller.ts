@@ -3,12 +3,14 @@ import {
   createPostSchema,
   postVersionSchema,
   schedulePostSchema,
+  setPostFormatSchema,
   setCaptionSchema,
   setPostMediaSchema,
   type CreatePostInput,
   type PostDetail,
   type PostSummary,
   type SchedulePostInput,
+  type SetPostFormatInput,
   type SetCaptionInput,
   type SetPostMediaInput,
 } from "@repo/shared";
@@ -105,6 +107,30 @@ export class PostsController {
       version: body.version,
       mediaId: body.mediaId,
       altText: body.altText ?? null,
+    });
+  }
+
+  /**
+   * Trocar o formato de destino (RF-C02).
+   *
+   * É `POST_EDIT` e não uma permissão nova: formato é conteúdo, como legenda e
+   * mídia — o RF-E05 o cita com todas as letras.
+   */
+  @RequirePermission("POST_EDIT")
+  @Post(":postId/format")
+  @HttpCode(200)
+  setFormat(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(setPostFormatSchema)) body: SetPostFormatInput,
+  ): Promise<{ version: number }> {
+    return this.composition.setFormat({
+      accountId,
+      postId,
+      userId: auth.userId,
+      version: body.version,
+      format: body.format,
     });
   }
 

@@ -1,46 +1,8 @@
-import zlib from "node:zlib";
 import { expect, test } from "@playwright/test";
 import { ESTADO_SUPER_ADMIN } from "./support/estado";
-
-/**
- * Uma imagem **decodificável de verdade**, com as medidas pedidas.
- *
- * ⚠️ Aqui não serve o JPEG de cabeçalho que os testes da API usam: o navegador
- * **decodifica a imagem**, e um arquivo sem pixel nenhum falha em
- * `createImageBitmap`. Sai um PNG cinza montado na hora — dados uniformes
- * comprimem a quase nada, então uma "foto" de 1512×2016 dá poucos kilobytes.
- *
- * O tipo declarado no envio continua sendo JPEG: quem escolhe o arquivo no
- * navegador informa o tipo, e é isso que a conferência local olha. O que sai do
- * recorte é um JPEG de verdade, gerado pelo canvas — por isso a API, que confere
- * os bytes, aceita.
- */
-function imagemDe(width: number, height: number): Buffer {
-  const chunk = (tipo: string, dados: Buffer): Buffer => {
-    const tamanho = Buffer.alloc(4);
-    tamanho.writeUInt32BE(dados.length, 0);
-    const corpo = Buffer.concat([Buffer.from(tipo, "latin1"), dados]);
-    const crc = Buffer.alloc(4);
-    crc.writeUInt32BE(zlib.crc32(corpo), 0);
-    return Buffer.concat([tamanho, corpo, crc]);
-  };
-
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr.writeUInt8(8, 8); // bits por amostra
-  ihdr.writeUInt8(0, 9); // tons de cinza
-  // Cada linha começa com o byte de filtro; o resto é o pixel, todo igual.
-  const linhas = Buffer.alloc((width + 1) * height, 0x80);
-  for (let y = 0; y < height; y += 1) linhas[y * (width + 1)] = 0;
-
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk("IHDR", ihdr),
-    chunk("IDAT", zlib.deflateSync(linhas)),
-    chunk("IEND", Buffer.alloc(0)),
-  ]);
-}
+import { imagemDe } from "./support/imagem";
+import { resetAccounts } from "./support/accounts-db";
+import { criarMidia } from "./support/media-db";
 
 /**
  * O envio de imagem pela tela (RF-B01, RF-B02).
@@ -61,7 +23,7 @@ test.describe("acervo — enviar imagem", () => {
   });
 
   test("a tela explica os limites do Instagram antes de escolher o arquivo", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Acervo" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Acervo", exact: true })).toBeVisible();
     await expect(page.getByText(/JPEG de até 8 MB/)).toBeVisible();
     await expect(page.getByText(/320 pixels de largura/)).toBeVisible();
 
@@ -177,5 +139,36 @@ test.describe("acervo — enviar imagem", () => {
     });
 
     await expect(page.getByRole("main").getByRole("alert")).toContainText(/vazio/i);
+  });
+});
+
+/**
+ * A listagem (RF-B04) — a metade que faltava.
+ *
+ * Até 21/09/2026 o Acervo recebia imagens que nunca eram usadas: não havia rota
+ * de leitura, a tela não listava, e a composição mandava uma imagem nova a cada
+ * postagem.
+ */
+test.describe("acervo — o que já foi enviado", () => {
+  test.use({ storageState: ESTADO_SUPER_ADMIN });
+
+  test.beforeEach(async () => {
+    await resetAccounts();
+  });
+
+  test("sem nada enviado, a tela explica para que o acervo serve", async ({ page }) => {
+    await page.goto("/acervo");
+
+    await expect(page.getByText("Nenhuma imagem ainda")).toBeVisible();
+    await expect(page.getByText(/pronto para virar postagem em qualquer conta/i)).toBeVisible();
+  });
+
+  test("as imagens enviadas aparecem, com as medidas", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto("/acervo");
+
+    await expect(page.getByRole("heading", { name: /No acervo/i })).toBeVisible();
+    await expect(page.getByText("1080 × 1350")).toBeVisible();
+    await expect(page.getByText("Nenhuma imagem ainda")).toHaveCount(0);
   });
 });

@@ -3,6 +3,7 @@ import type { ApiEnv } from "../config/env";
 import { MEDIA_CONFIG, mediaConfigFrom } from "./media.config";
 import { MediaController } from "./media.controller";
 import { MediaDomainService } from "./media.domain.service";
+import { MediaQueryService } from "./media.query.service";
 
 /**
  * Envio e validação de mídia (ADR 0012).
@@ -20,7 +21,11 @@ export class MediaModule {
     return {
       module: MediaModule,
       controllers: [MediaController],
-      providers: [{ provide: MEDIA_CONFIG, useValue: mediaConfigFrom(env) }, MediaDomainService],
+      providers: [
+        { provide: MEDIA_CONFIG, useValue: mediaConfigFrom(env) },
+        MediaDomainService,
+        MediaQueryService,
+      ],
     };
   }
 }

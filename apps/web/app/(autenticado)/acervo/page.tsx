@@ -2,22 +2,25 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { can } from "@repo/shared";
-import { UploadField } from "@/components/media/upload-field";
+import { AcervoUpload } from "@/components/media/acervo-upload";
+import { MediaGrid } from "@/components/media/media-grid";
 import { PageHeader } from "@/components/nav/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
+import { listMedia } from "@/lib/data/media";
 
 export const metadata: Metadata = { title: "Acervo" };
 
 /**
- * O acervo de mídias (RF-B01).
+ * O acervo de mídias (RF-B01, RF-B04).
  *
  * **Compartilhado entre contas de propósito** (docs/13): uma imagem enviada
- * serve a qualquer conta, e por isso esta é uma tela geral — não fica sob
- * `/c/<conta>/`.
+ * serve a qualquer conta e a qualquer formato, e por isso esta é uma tela
+ * geral — não fica sob `/c/<conta>/`.
  *
- * Por ora só envia. Listar e reaproveitar o que já foi enviado (RF-B04) vem
- * junto com a tela de composição, quando houver postagem para usar a mídia.
+ * O que entra aqui é escolhido na composição, pelo mesmo `MediaGrid`. Antes de
+ * 21/09/2026 não era: a tela recebia imagens que nunca saíam, porque a
+ * composição mandava uma nova a cada postagem.
  */
 export default async function AcervoPage(): Promise<ReactNode> {
   const { user } = await requireSession();
@@ -25,15 +28,17 @@ export default async function AcervoPage(): Promise<ReactNode> {
   // mostrar um caminho que terminaria em 403.
   if (!can(user, "POST_EDIT")) notFound();
 
+  const media = await listMedia();
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
       <PageHeader
         trail={["Geral", "Acervo"]}
         title="Acervo"
-        description="As imagens que você já enviou, prontas para virar postagem."
+        description="As imagens que você já enviou, prontas para virar postagem em qualquer conta."
       />
 
-      <Card>
+      <Card className="rounded-2xl">
         <CardHeader>
           <CardTitle className="font-heading text-lg">Enviar imagem</CardTitle>
           <CardDescription>
@@ -41,7 +46,7 @@ export default async function AcervoPage(): Promise<ReactNode> {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <UploadField />
+          <AcervoUpload />
           <p className="text-sm text-muted-foreground">
             O arquivo vai direto para o nosso armazenamento e só fica disponível depois de conferido. A
             proporção não impede o envio: cada formato de postagem aceita a sua, e a conferência acontece na
@@ -49,6 +54,13 @@ export default async function AcervoPage(): Promise<ReactNode> {
           </p>
         </CardContent>
       </Card>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-heading text-lg font-bold">
+          No acervo {media.length > 0 && <span className="text-muted-foreground">({media.length})</span>}
+        </h2>
+        <MediaGrid media={media} />
+      </section>
     </main>
   );
 }

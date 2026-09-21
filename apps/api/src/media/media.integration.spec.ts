@@ -237,6 +237,67 @@ describe("envio de mídia", () => {
     });
   });
 
+  /*
+   * O acervo (RF-B04). Sem esta leitura, o que se envia nunca é usado — era
+   * exatamente o estado do sistema até 21/09/2026.
+   */
+  describe("listar o acervo", () => {
+    it("devolve o que foi enviado, com o endereço público", async () => {
+      const token = await entrar();
+      const resposta = await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1350 }));
+      const id = resposta.body["id"] as string;
+
+      const acervo = (await api.request({ method: "GET", url: "/media", token }))
+        .body as unknown as { id: string; url: string; width: number; height: number }[];
+
+      expect(acervo).toHaveLength(1);
+      expect(acervo[0]).toMatchObject({ id, width: 1080, height: 1350 });
+      expect(acervo[0]?.url).toMatch(/^https?:\/\/.+\/publicas\/postagens\/.+\.jpg$/);
+
+      await api.app.get(StorageService).removePublic(await objetoPublico(id));
+    });
+
+    it("mais recentes primeiro", async () => {
+      const token = await entrar();
+      const primeira = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      const segunda = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1350 }))).body[
+        "id"
+      ] as string;
+
+      const acervo = (await api.request({ method: "GET", url: "/media", token }))
+        .body as unknown as { id: string }[];
+
+      expect(acervo.map((item) => item.id)).toEqual([segunda, primeira]);
+
+      const storage = api.app.get(StorageService);
+      for (const id of [primeira, segunda]) await storage.removePublic(await objetoPublico(id));
+    });
+
+    /*
+     * A `Midia` não tem conta no schema: o acervo é compartilhado de propósito
+     * (docs/13), e por isso a leitura é `@AnyAuthenticated` — não exige
+     * POSTAGEM_EDITAR, que é permissão de ação.
+     */
+    it("qualquer pessoa logada lê, mesmo sem permissão de editar", async () => {
+      const comEdicao = await entrar();
+      const resposta = await enviarEConfirmar(comEdicao, jpegBytes({ width: 1080, height: 1080 }));
+
+      const semPermissao = await entrar([]);
+      const acervo = await api.request({ method: "GET", url: "/media", token: semPermissao });
+
+      expect(acervo.statusCode).toBe(200);
+      expect(acervo.body).toHaveLength(1);
+
+      await api.app.get(StorageService).removePublic(await objetoPublico(resposta.body["id"] as string));
+    });
+
+    it("sem sessão, ninguém lê", async () => {
+      expect((await api.request({ method: "GET", url: "/media" })).statusCode).toBe(401);
+    });
+  });
+
   describe("o comprovante", () => {
     it("recusa um comprovante inventado", async () => {
       const token = await entrar();

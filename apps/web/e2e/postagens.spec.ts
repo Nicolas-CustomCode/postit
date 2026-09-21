@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { createAccount, resetAccounts } from "./support/accounts-db";
 import { salvarComoOutraPessoa } from "./support/posts-db";
 import { ESTADO_SUPER_ADMIN } from "./support/estado";
+import { criarMidia } from "./support/media-db";
 
 /**
  * Compor uma postagem pela tela (RF-C01, RF-C03, RF-C12).
@@ -71,6 +72,94 @@ test.describe("postagens", () => {
 
     await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
     await expect(page.getByLabel("Legenda")).toHaveValue("Um dia bonito na loja");
+  });
+
+  /*
+   * A pergunta que motivou esta parte: "consigo enviar as imagens para o
+   * Acervo, mas quando que uso?" — até 21/09/2026, nunca.
+   *
+   * O envio em si não roda aqui: o arquivo vai do navegador direto ao MinIO,
+   * com política assinada e CORS, e isso é roteiro manual (docs/12, V-15). A
+   * mídia é semeada no banco, e o que se prova é o que vem depois.
+   */
+  test("dá para escolher uma imagem do acervo na composição", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await expect(page.getByText("Sem imagem ainda")).toBeVisible();
+    await page.getByRole("button", { name: /escolher do acervo/i }).click();
+    await page.getByRole("dialog").getByRole("button").first().click();
+
+    // A prévia passa a mostrar a imagem…
+    await expect(page.getByText("Sem imagem ainda")).toHaveCount(0);
+    // …e a tela continua sendo "Nova postagem": escolher não cria nada.
+    await expect(page.getByRole("heading", { name: "Nova postagem" })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/nova$`));
+  });
+
+  test("a imagem escolhida é anexada quando se salva", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await page.getByLabel("Legenda").fill("Com foto");
+    await page.getByRole("button", { name: /escolher do acervo/i }).click();
+    await page.getByRole("dialog").getByRole("button").first().click();
+    await page.getByRole("button", { name: /salvar rascunho/i }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
+    // A postagem existe com a imagem: o botão de ficar pronta libera.
+    await expect(page.getByRole("button", { name: /marcar como pronta/i })).toBeEnabled();
+  });
+
+  /*
+   * As incompatíveis aparecem apagadas, não escondidas: quem enviou uma arte
+   * 9:16 precisa ver que ela está lá e por que não serve ao feed.
+   */
+  test("no acervo, a imagem que não serve ao formato aparece apagada", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1920 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await page.getByRole("button", { name: /escolher do acervo/i }).click();
+
+    const folha = page.getByRole("dialog");
+    await expect(folha.getByText(/não serve para Feed/i)).toBeVisible();
+    await expect(folha.getByRole("button").first()).toBeDisabled();
+  });
+
+  /*
+   * O outro defeito: bastava digitar uma data numa postagem nunca agendada para
+   * a tela dizer que o horário tinha sido desmarcado.
+   */
+  test("digitar a data numa postagem nunca agendada não mostra aviso", async ({ page }) => {
+    await criarRascunho(page, "Rascunho comum");
+
+    await page.getByLabel("Data").fill("2030-10-15");
+    await page.getByLabel("Hora").fill("10:00");
+
+    await expect(page.getByText(/desmarcou o horário/i)).toHaveCount(0);
+  });
+
+  test("o formato muda o que a tela cobra", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await expect(page.getByText(/proporção de 4:5 a 1\.91:1/i)).toBeVisible();
+    await expect(page.getByText(/figurinhas, enquetes/i)).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Stories", exact: true }).click();
+
+    // Stories não tem faixa, e ganha o aviso do RF-C11.
+    await expect(page.getByText(/qualquer proporção/i)).toBeVisible();
+    await expect(page.getByText(/figurinhas, enquetes/i)).toBeVisible();
+    await expect(page.getByText("Como vai aparecer nos Stories")).toBeVisible();
+  });
+
+  test("os formatos de vídeo aparecem, mas não dá para escolher", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    for (const formato of ["Carrossel", "Reels", "Vídeo de feed"]) {
+      // Sem `exact`: o nome acessível inclui o selo "Fase 2".
+      await expect(page.getByRole("button", { name: new RegExp(formato, "i") })).toBeDisabled();
+    }
   });
 
   test("a postagem criada aparece na lista, com o trecho e a situação", async ({ page }) => {

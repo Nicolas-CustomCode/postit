@@ -26,10 +26,29 @@ const CAPTION_SANITY_LIMIT = 8000;
  */
 const version = z.number().int().min(1);
 
+/**
+ * Os formatos que a composição oferece hoje: os dois de **imagem**.
+ *
+ * Carrossel, Reels e vídeo de feed exigem o validador de vídeo e a ordenação de
+ * múltiplas mídias — Fase 2. A tela os mostra apagados, com o rótulo da fase, em
+ * vez de escondê-los: saber que existem e quando chegam é informação útil.
+ */
+export const COMPOSABLE_FORMATS = ["FEED_IMAGE", "STORIES"] as const;
+export type ComposableFormat = (typeof COMPOSABLE_FORMATS)[number];
+
 export const createPostSchema = z.strictObject({
-  // Nesta fase só existe imagem de feed; os outros formatos chegam na Fase 2.
-  format: z.literal("FEED_IMAGE"),
+  format: z.enum(COMPOSABLE_FORMATS),
   caption: z.string().max(CAPTION_SANITY_LIMIT).nullish(),
+});
+
+/**
+ * Trocar o formato **é mudança de conteúdo** (RF-E05, que cita formato com todas
+ * as letras): derruba para rascunho e revalida a imagem já anexada, porque uma
+ * arte 9:16 serve a Stories e não ao feed.
+ */
+export const setPostFormatSchema = z.strictObject({
+  version,
+  format: z.enum(COMPOSABLE_FORMATS),
 });
 
 export const setCaptionSchema = z.strictObject({
@@ -63,6 +82,7 @@ export const schedulePostSchema = z.strictObject({
 });
 
 export type SchedulePostInput = z.infer<typeof schedulePostSchema>;
+export type SetPostFormatInput = z.infer<typeof setPostFormatSchema>;
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type SetCaptionInput = z.infer<typeof setCaptionSchema>;

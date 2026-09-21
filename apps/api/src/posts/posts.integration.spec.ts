@@ -149,6 +149,7 @@ describe("postagens", () => {
       { method: "GET" as const, caminho: (p: string) => `/${p}`, payload: undefined },
       { method: "POST" as const, caminho: (p: string) => `/${p}/caption`, payload: { version: 1, caption: "x" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/media`, payload: { version: 1, mediaId: "" } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/format`, payload: { version: 1, format: "STORIES" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/ready`, payload: { version: 1 } },
       {
         method: "POST" as const,
@@ -493,6 +494,137 @@ describe("postagens", () => {
 
       expect(resposta.statusCode).toBe(403);
       expect(resposta.body).toMatchObject({ code: "FORBIDDEN" });
+    });
+  });
+
+  /*
+   * O formato de destino (RF-C02, RF-B03). O acervo aceita uma imagem 9:16
+   * porque ela serve a Stories; é aqui que o formato escolhido decide.
+   */
+  describe("formato", () => {
+    it("uma imagem 9:16 entra num Stories e é recusada num feed", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const vertical = await midia({ width: 1080, height: 1920 });
+
+      const feed = await criar(token, accountId);
+      const recusada = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${feed}/media`,
+        payload: { version: 1, mediaId: vertical },
+        token,
+      });
+      expect(recusada.statusCode).toBe(422);
+      expect(recusada.body).toMatchObject({ code: "MEDIA_RATIO_UNSUPPORTED" });
+
+      const stories = (
+        await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts`,
+          payload: { format: "STORIES" },
+          token,
+        })
+      ).body["id"] as string;
+      const aceita = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${stories}/media`,
+        payload: { version: 1, mediaId: vertical },
+        token,
+      });
+      expect(aceita.statusCode).toBe(200);
+    });
+
+    /*
+     * A rota de estrago que a troca de formato fecha: anexar 9:16 num Stories,
+     * onde ela vale, e depois mudar para feed, onde não vale.
+     */
+    it("trocar de Stories para feed com uma imagem 9:16 é recusado", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+
+      const postId = (
+        await api.request({
+          method: "POST",
+          url: `/accounts/${accountId}/posts`,
+          payload: { format: "STORIES" },
+          token,
+        })
+      ).body["id"] as string;
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1920 }) },
+        token,
+      });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/format`,
+        payload: { version: 2, format: "FEED_IMAGE" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(422);
+      expect(resposta.body).toMatchObject({ code: "MEDIA_RATIO_UNSUPPORTED" });
+      // E o formato não mudou: a recusa não deixa meio caminho andado.
+      expect((await api.db.post.findUniqueOrThrow({ where: { id: postId } })).format).toBe("STORIES");
+    });
+
+    it("sem imagem ainda, trocar o formato é livre", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId, "Só texto");
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/format`,
+        payload: { version: 1, format: "STORIES" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+      expect((await api.db.post.findUniqueOrThrow({ where: { id: postId } })).format).toBe("STORIES");
+    });
+
+    /*
+     * Formato é conteúdo (RF-E05 o cita com todas as letras): trocar derruba a
+     * postagem para rascunho e o horário sai junto, como legenda e mídia.
+     */
+    it("trocar o formato de uma postagem agendada a derruba e apaga o horário", async () => {
+      const { token } = await entrar();
+      const accountId = await conta();
+      const postId = await criar(token, accountId, "Pronta");
+
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/media`,
+        payload: { version: 1, mediaId: await midia({ width: 1080, height: 1080 }) },
+        token,
+      });
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/ready`,
+        payload: { version: 2 },
+        token,
+      });
+      await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/schedule`,
+        payload: { version: 3, day: "2030-10-15", time: "10:00" },
+        token,
+      });
+
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/format`,
+        payload: { version: 4, format: "STORIES" },
+        token,
+      });
+
+      expect(resposta.statusCode).toBe(200);
+      const gravada = await api.db.post.findUniqueOrThrow({ where: { id: postId } });
+      expect(gravada.status).toBe("DRAFT");
+      expect(gravada.scheduledAt).toBeNull();
     });
   });
 
