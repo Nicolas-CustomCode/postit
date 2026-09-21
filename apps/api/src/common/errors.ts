@@ -288,6 +288,8 @@ export class PostNotReadyError extends AppError {
   constructor(
     code:
       | "POST_MEDIA_REQUIRED"
+      | "POST_TOO_MANY_MEDIA"
+      | "POST_FORMAT_SINGLE_MEDIA"
       | "POST_CAPTION_TOO_LONG"
       | "POST_TOO_MANY_HASHTAGS"
       | "POST_TOO_MANY_MENTIONS"

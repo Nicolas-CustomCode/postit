@@ -16,6 +16,7 @@ export * from "./media-formats";
 export * from "./media-types";
 export * from "./caption";
 export * from "./post-types";
+export * from "./post-formats";
 export * from "./post-schemas";
 export * from "./media-crop";
 export * from "./device-name";

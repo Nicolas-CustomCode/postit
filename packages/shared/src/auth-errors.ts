@@ -47,6 +47,8 @@ export const AUTH_ERROR_CODES = [
   "POST_TOO_MANY_HASHTAGS",
   "POST_TOO_MANY_MENTIONS",
   "POST_MEDIA_REQUIRED",
+  "POST_TOO_MANY_MEDIA",
+  "POST_FORMAT_SINGLE_MEDIA",
   "SELF_APPROVAL_FORBIDDEN",
   "SCHEDULE_TIME_DOES_NOT_EXIST",
   "SCHEDULE_IN_PAST",
@@ -135,6 +137,10 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   POST_TOO_MANY_HASHTAGS: "A legenda passa de 30 hashtags",
   POST_TOO_MANY_MENTIONS: "A legenda passa de 20 menções",
   POST_MEDIA_REQUIRED: "Escolha uma imagem antes de marcar a postagem como pronta",
+  POST_TOO_MANY_MEDIA: "O Instagram aceita no máximo 10 imagens numa postagem",
+  // Sem citar o formato: quem sabe qual está em jogo é a tela, e ela completa a
+  // frase — mesmo motivo de MEDIA_RATIO_UNSUPPORTED não citar a faixa.
+  POST_FORMAT_SINGLE_MEDIA: "Este formato aceita uma mídia só. Remova as demais ou mude para Feed",
   SELF_APPROVAL_FORBIDDEN: "Você não pode aprovar a própria postagem",
   // O relógio pula essa hora nesse dia, por causa do horário de verão (ADR 0006).
   SCHEDULE_TIME_DOES_NOT_EXIST: "Esse horário não existe nesse dia, por causa da mudança de horário de verão",

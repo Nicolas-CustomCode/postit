@@ -351,6 +351,46 @@ describe("prontidão da postagem", () => {
       "POST_MEDIA_REQUIRED",
     );
   });
+
+  /*
+   * Carrossel não é formato, é quantidade (ADR 0024): o mesmo `FEED` que aceita
+   * uma imagem aceita dez, e a décima primeira é que não cabe.
+   */
+  it("dez imagens no feed estão prontas; onze não", () => {
+    const dez = Array.from({ length: 10 }, () => imagemDeFeed);
+
+    expect(postReadinessProblem({ format: "FEED", caption: null, media: dez })).toBeNull();
+    expect(postReadinessProblem({ format: "FEED", caption: null, media: [...dez, imagemDeFeed] })).toBe(
+      "POST_TOO_MANY_MEDIA",
+    );
+  });
+
+  it("Stories com duas imagens é recusado: lá cada mídia é uma publicação", () => {
+    expect(
+      postReadinessProblem({ format: "STORIES", caption: null, media: [imagemDeStories, imagemDeStories] }),
+    ).toBe("POST_FORMAT_SINGLE_MEDIA");
+  });
+
+  /*
+   * Onze imagens, e uma delas 9:16: as duas regras reprovam. Reclamar da
+   * proporção mandaria trocar uma foto, e trocar a foto deixaria a postagem com
+   * onze imagens do mesmo jeito. Quantidade primeiro, porque é o que resolve.
+   */
+  it("a quantidade é conferida antes da proporção", () => {
+    const onze = [...Array.from({ length: 10 }, () => imagemDeFeed), imagemDeStories];
+
+    expect(postReadinessProblem({ format: "FEED", caption: null, media: onze })).toBe("POST_TOO_MANY_MEDIA");
+  });
+
+  it("uma imagem ruim no meio do carrossel reprova o carrossel", () => {
+    expect(
+      postReadinessProblem({
+        format: "FEED",
+        caption: null,
+        media: [imagemDeFeed, imagemDeFeed, imagemDeStories],
+      }),
+    ).toBe("MEDIA_RATIO_UNSUPPORTED");
+  });
 });
 
 /**

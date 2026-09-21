@@ -1,10 +1,12 @@
 import {
   captionProblem,
+  postMediaCountProblem,
   validateImageFormat,
   type CaptionProblem,
   type ImageFacts,
   type ImageFormat,
   type ImageProblem,
+  type MediaCountProblem,
 } from "@repo/shared";
 
 /**
@@ -23,7 +25,7 @@ import {
  * RF-C03 diz que a legenda longa impede **o agendamento**, não que impede
  * digitar. Recusar no schema faria a pessoa perder o texto ao salvar.
  */
-export type PostProblem = "POST_MEDIA_REQUIRED" | CaptionProblem | ImageProblem;
+export type PostProblem = MediaCountProblem | CaptionProblem | ImageProblem;
 
 export interface PostReadiness {
   readonly format: ImageFormat;
@@ -33,8 +35,11 @@ export interface PostReadiness {
 
 /** O que impede esta postagem de ficar pronta. `null` quando nada impede. */
 export function postReadinessProblem(post: PostReadiness): PostProblem | null {
-  // Sem imagem não há o que publicar, e é o erro mais provável de todos.
-  if (post.media.length === 0) return "POST_MEDIA_REQUIRED";
+  // A quantidade vem antes da proporção: em Stories, duas imagens 9:16 são as
+  // duas válidas e ainda assim a postagem não pode existir. Reclamar da segunda
+  // por proporção mandaria trocar a foto, que não é o que resolve.
+  const quantidade = postMediaCountProblem(post.format, post.media.length);
+  if (quantidade !== null) return quantidade;
 
   for (const imagem of post.media) {
     const problema = validateImageFormat(imagem, post.format);
