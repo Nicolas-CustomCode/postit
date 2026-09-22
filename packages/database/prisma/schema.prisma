@@ -99,6 +99,12 @@ enum PublishStep {
   CHECK_STATUS     @map("CONSULTAR_STATUS")
   PUBLISH          @map("PUBLICAR")
   COLLECT_METRICS  @map("COLETAR_METRICAS")
+  // As decisões do motor que não são chamada à Meta (docs/09): despachar, adiar
+  // ou recusar por atraso; conferir se saiu depois de um publish sem resposta; e
+  // desistir — atraso no início, teto de 45 min ou tentativas esgotadas.
+  DISPATCH         @map("DESPACHAR")
+  RECONCILE        @map("RECONCILIAR")
+  GIVE_UP          @map("DESISTIR")
 
   @@map("EtapaPublicacao")
 }
@@ -189,21 +195,21 @@ enum AuditOrigin {
 }
 
 enum AuditAction {
-  USER_CREATED          @map("USUARIO_CRIADO")
-  USER_DEACTIVATED      @map("USUARIO_DESATIVADO")
-  USER_REACTIVATED      @map("USUARIO_REATIVADO")
-  SUPER_ADMIN_PROMOTED  @map("SUPER_ADMIN_PROMOVIDO")
-  SUPER_ADMIN_REMOVED   @map("SUPER_ADMIN_REMOVIDO")
-  PERMISSIONS_CHANGED   @map("PERMISSOES_ALTERADAS")
-  RESET_LINK_CREATED    @map("LINK_REDEFINICAO_GERADO")
-  TWO_FACTOR_RESET      @map("DUAS_ETAPAS_RESETADAS")
-  SESSIONS_ENDED        @map("SESSOES_ENCERRADAS")
-  BLOCK_RELEASED        @map("BLOQUEIO_LIBERADO")
+  USER_CREATED         @map("USUARIO_CRIADO")
+  USER_DEACTIVATED     @map("USUARIO_DESATIVADO")
+  USER_REACTIVATED     @map("USUARIO_REATIVADO")
+  SUPER_ADMIN_PROMOTED @map("SUPER_ADMIN_PROMOVIDO")
+  SUPER_ADMIN_REMOVED  @map("SUPER_ADMIN_REMOVIDO")
+  PERMISSIONS_CHANGED  @map("PERMISSOES_ALTERADAS")
+  RESET_LINK_CREATED   @map("LINK_REDEFINICAO_GERADO")
+  TWO_FACTOR_RESET     @map("DUAS_ETAPAS_RESETADAS")
+  SESSIONS_ENDED       @map("SESSOES_ENCERRADAS")
+  BLOCK_RELEASED       @map("BLOQUEIO_LIBERADO")
   // Alguém forçou a renovação dos tokens pelo terminal, fora do horário diário.
   // O detalhe de cada conta fica em EventoToken, uma linha por tentativa.
-  TOKENS_REFRESHED      @map("TOKENS_RENOVADOS")
+  TOKENS_REFRESHED     @map("TOKENS_RENOVADOS")
   // Idem para a coleta de métricas da conta. O resultado fica em MetricaConta.
-  METRICS_COLLECTED     @map("METRICAS_COLETADAS")
+  METRICS_COLLECTED    @map("METRICAS_COLETADAS")
 
   @@map("AcaoAuditoria")
 }
@@ -412,6 +418,9 @@ model Account {
   // Identificador IANA, como America/Sao_Paulo — nunca deslocamento fixo.
   timezone         String        @map("fusoHorario")
   active           Boolean       @default(true) @map("ativa")
+  // Quando a Meta recusou o token por inválido ou sem permissão (docs/09, "sinaliza
+  // a conta"). Nulo é conta com acesso; reconectar ou renovar com sucesso limpa.
+  accessLostAt     DateTime?     @map("acessoPerdidoEm") @db.Timestamptz(3)
   createdAt        DateTime      @default(now()) @map("criadoEm") @db.Timestamptz(3)
 
   posts       Post[]
@@ -451,9 +460,9 @@ model Media {
   derivedFromId String? @map("derivadaDeId") @db.Uuid
 
   usages       PostMedia[]
-  coverOfPosts Post[]     @relation("PostCover")
-  derivedFrom  Media?     @relation("MediaDerivation", fields: [derivedFromId], references: [id], onDelete: SetNull)
-  derivatives  Media[]    @relation("MediaDerivation")
+  coverOfPosts Post[]      @relation("PostCover")
+  derivedFrom  Media?      @relation("MediaDerivation", fields: [derivedFromId], references: [id], onDelete: SetNull)
+  derivatives  Media[]     @relation("MediaDerivation")
 
   // Serve ao filtro do acervo (derivadaDeId IS NULL) e ao próprio SET NULL, que
   // procura as filhas ao apagar a mãe.
@@ -477,6 +486,11 @@ model Post {
   attempts         Int        @default(0) @map("tentativas")
   lastErrorCode    String?    @map("ultimoErroCodigo")
   lastErrorMessage String?    @map("ultimoErroMensagem")
+  // O arrendamento da execução (invariante I-6). O pg-boss reinicia uma tarefa que
+  // passou do prazo com a primeira ainda rodando; só quem segura o arrendamento
+  // fala com a Meta. Só o worker escreve aqui.
+  runId            String?    @map("execucaoId") @db.Uuid
+  runLeaseUntil    DateTime?  @map("execucaoExpiraEm") @db.Timestamptz(3)
   createdById      String     @map("criadoPorId") @db.Uuid
   scheduledById    String?    @map("agendadoPorId") @db.Uuid
   updatedById      String?    @map("atualizadoPorId") @db.Uuid
@@ -546,13 +560,23 @@ model Collaborator {
 
 // A entidade que impede a duplicação: reaproveitar container válido em vez de criar outro.
 model PublishContainer {
-  id            String           @id @default(uuid(7)) @db.Uuid
-  postId        String           @map("postagemId") @db.Uuid
-  igContainerId String
-  role          ContainerRole    @map("papel")
-  statusCode    ContainerStatus?
-  createdAt     DateTime         @default(now()) @map("criadoEm") @db.Timestamptz(3)
-  expiresAt     DateTime         @map("expiraEm") @db.Timestamptz(3)
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  postId             String           @map("postagemId") @db.Uuid
+  igContainerId      String
+  role               ContainerRole    @map("papel")
+  statusCode         ContainerStatus?
+  // A `versao` da postagem quando o container foi criado. Só se reaproveita
+  // container da mesma versão: depois de corrigir e reagendar, o antigo sairia
+  // com o conteúdo velho.
+  postVersion        Int              @map("versaoPostagem")
+  // A posição no carrossel, para filho. Nula no único e no pai.
+  position           Int?             @map("ordem")
+  // Gravado ANTES de chamar media_publish. Uma execução que o encontre preenchido
+  // sabe que a anterior pode ter publicado e caído antes de gravar — e confere
+  // antes de publicar de novo.
+  publishRequestedAt DateTime?        @map("publicarPedidoEm") @db.Timestamptz(3)
+  createdAt          DateTime         @default(now()) @map("criadoEm") @db.Timestamptz(3)
+  expiresAt          DateTime         @map("expiraEm") @db.Timestamptz(3)
 
   post Post @relation(fields: [postId], references: [id])
 
@@ -564,7 +588,10 @@ model Publication {
   id          String   @id @default(uuid(7)) @db.Uuid
   // Único: garantia de banco da invariante I-5. Uma postagem nunca publica duas vezes.
   postId      String   @unique @map("postagemId") @db.Uuid
-  externalId  String   @unique @map("idExterno")
+  // Nulo quando a publicação foi confirmada pelo estado do container, sem que a
+  // Meta devolvesse o id da mídia (docs/08, V-28). Continua único: o Postgres
+  // trata cada nulo como distinto.
+  externalId  String?  @unique @map("idExterno")
   permalink   String?
   publishedAt DateTime @map("publicadoEm") @db.Timestamptz(3)
 

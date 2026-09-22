@@ -167,6 +167,7 @@ erDiagram
         string escopos
         string fusoHorario
         boolean ativa
+        datetime acessoPerdidoEm
         datetime criadoEm
     }
 
@@ -201,6 +202,8 @@ erDiagram
         int tentativas
         string ultimoErroCodigo
         string ultimoErroMensagem
+        string execucaoId
+        datetime execucaoExpiraEm
         string criadoPorId FK
         string agendadoPorId FK
         string atualizadoPorId FK
@@ -236,6 +239,9 @@ erDiagram
         string igContainerId
         string papel
         string statusCode
+        int versaoPostagem
+        int ordem
+        datetime publicarPedidoEm
         datetime criadoEm
         datetime expiraEm
     }
@@ -470,6 +476,10 @@ MinIO** na conexão e na renovação do token: as telas nunca carregam imagem da
 O `fusoHorario` fica aqui, não no usuário: contas diferentes podem operar em fusos diferentes, e é
 o fuso da conta que define o que "10h da manhã" significa.
 
+`acessoPerdidoEm` é o "sinaliza a conta" do [09](09-motor-agendamento.md#classificação-de-erros-e-retentativa):
+preenchido quando a Meta recusa o token por inválido ou sem permissão, ao publicar ou ao renovar. Nulo é
+conta com acesso; reconectar ou renovar com sucesso o limpa. Acrescentado na Fase 1d.
+
 ### `Midia`
 Um arquivo no MinIO mais os metadados extraídos na inspeção. Existe separada da postagem porque a
 mesma mídia pode servir a mais de uma postagem (RF-B04).
@@ -516,6 +526,9 @@ se a execução atual é a primeira, que é quando se aplica a regra de no máxi
 | `criadoPorId` | O autor. Decide a regra de aprovar a própria postagem |
 | `agendadoPorId` | Quem agendou. Recebe a notificação se a publicação falhar |
 | `atualizadoPorId` | Quem fez a última alteração. Aparece no aviso de conflito de edição |
+| `ultimoErroCodigo` | A **causa** da última falha, não o código da Meta: `TOKEN_INVALID`, `SYSTEM_UNAVAILABLE`, `QUOTA_DEFERRED`… A lista e a frase de cada uma estão em `packages/shared/src/publish-failures.ts`. O código cru da Meta fica em `EventoPublicacao.respostaMeta` |
+| `ultimoErroMensagem` | Só um rótulo técnico para quem investiga, como `meta 190/463`. Nunca vai para a tela |
+| `execucaoId`, `execucaoExpiraEm` | O arrendamento da execução — ver abaixo. Só o worker escreve |
 
 **Edição simultânea (RF-C12).** Toda alteração feita por usuário — conteúdo, agendamento, transição de
 aprovação — envia a `versao` que a tela carregou e grava com a condição `id` **e** `versao`. Se nenhuma linha
@@ -525,6 +538,12 @@ gravação bem-sucedida soma um em `versao`.
 Mudanças feitas pelo **worker** — status `PROCESSANDO`, `PUBLICADO`, `FALHOU`, tentativas — **não** mexem em
 `versao`. O conflito com o worker já é barrado pela condição de status: reagendar exige `AGENDADO`, e uma
 postagem já em `PROCESSANDO` não pode ser reagendada.
+
+**O arrendamento da execução (I-6).** O pg-boss dá por travada uma execução que passa do prazo e **inicia
+outra com a primeira ainda rodando** — ele não tem como matá-la ([09](09-motor-agendamento.md#configuração-das-filas)).
+Por isso toda execução do publicador começa tomando o arrendamento: um `UPDATE` que só vale se ninguém o
+segura, ou se o de quem segurava já venceu. Quem não consegue sai sem falar com a Meta. Acrescentado em
+22/09/2026, na Fase 1d.
 
 **Campos específicos do Instagram:** `formato` usa os formatos do Instagram, e `apareceNoFeed`,
 `capaOffsetMs` e `capaMidiaId` seguem a API da Meta. Quando outra rede chegar,
@@ -580,6 +599,14 @@ correndo o risco de publicar dois.
 
 O campo `papel` distingue o container pai do carrossel dos containers filhos.
 
+Três campos decidem o reaproveitamento, acrescentados na Fase 1d:
+
+| Campo | Para quê |
+|---|---|
+| `versaoPostagem` | A `versao` da postagem quando o container nasceu. Só se reaproveita o da mesma versão: depois de `FALHOU → corrigir → reagendar`, o antigo sairia com a legenda ou a imagem velha. Não é chave estrangeira para `PostagemMidia` porque trocar as mídias apaga e recria aquelas linhas |
+| `ordem` | A posição no carrossel, para filho. Nula no único e no pai |
+| `publicarPedidoEm` | Gravado **antes** de chamar `media_publish`. A execução que o encontra preenchido sabe que a anterior pode ter publicado e caído antes de gravar, e confere o estado do container antes de publicar de novo |
+
 ### `Publicacao`
 O resultado. Existe **uma por postagem, no máximo** — a restrição de unicidade em `postagemId` é a
 garantia de banco da invariante I-5. Mesmo que toda a lógica de aplicação falhasse, o banco
@@ -587,6 +614,12 @@ recusaria a segunda publicação.
 
 O `idExterno` — o identificador da mídia publicada dentro da rede — também é único: se por algum
 caminho impossível a mesma mídia fosse registrada duas vezes, a gravação falharia em vez de mentir.
+
+**Ele pode ser nulo** desde a Fase 1d. Quando o `media_publish` fica sem resposta e o container diz
+`PUBLISHED`, a publicação aconteceu, mas a Meta não devolveu o id — e listar as mídias da conta pela nossa
+via não está documentado ([08](08-integracao-instagram.md), V-28). A postagem fica publicada **sem link** em
+vez de `FALHOU`, que convidaria alguém a publicar de novo. O índice único continua valendo: o Postgres
+trata cada nulo como distinto.
 
 ### `MetricaPostagem`
 Série temporal, não sobrescrita. O campo `momento` identifica a coleta — `T1H`, `T24H`, `T7D`,
@@ -681,6 +714,7 @@ StatusContainer   IN_PROGRESS | FINISHED | ERROR | EXPIRED | PUBLISHED
 MomentoMetrica    T1H | T24H | T7D | STORY_20H
 AcaoAprovacao     ENVIOU_REVISAO | APROVOU | REPROVOU | INVALIDOU_POR_EDICAO
 EtapaPublicacao   CRIAR_CONTAINER | CONSULTAR_STATUS | PUBLICAR | COLETAR_METRICAS
+                  | DESPACHAR | RECONCILIAR | DESISTIR
 ResultadoEtapa    SUCESSO | ERRO_RECUPERAVEL | ERRO_FATAL
 AcaoToken         TROCA_LONGA_DURACAO | RENOVACAO
 

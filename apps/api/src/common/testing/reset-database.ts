@@ -16,6 +16,15 @@ import type { PrismaClient } from "@repo/database";
  * CASCADE; a lista é explícita para nunca apagar o esquema do pg-boss por engano.
  */
 const AUTH_TABLES = [
+  // O motor de publicação e as notificações (Fase 1d).
+  "EventoPublicacao",
+  "MetricaPostagem",
+  "Publicacao",
+  "ContainerPublicacao",
+  "NotificacaoEntrega",
+  "Notificacao",
+  "InscricaoPush",
+  "PreferenciaNotificacao",
   "Aprovacao",
   "Marcacao",
   "PostagemMidia",
