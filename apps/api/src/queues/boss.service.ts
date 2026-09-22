@@ -6,6 +6,7 @@ import {
   TOKEN_REFRESH_CRON,
   TOKEN_REFRESH_QUEUE,
 } from "./queue-names";
+import { QUEUE_DEFINITIONS } from "./queue-definitions";
 
 /**
  * A instância do pg-boss do processo worker (docs/09, "O worker").
@@ -27,8 +28,12 @@ export class BossService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger("Filas");
   readonly boss: PgBoss;
 
-  constructor(databaseUrl: string) {
-    this.boss = new PgBoss(databaseUrl);
+  /**
+   * `schema` só existe para os testes: o Jest usa um esquema próprio, e assim um
+   * worker do e2e rodando no mesmo banco não pega as tarefas dele.
+   */
+  constructor(databaseUrl: string, options: { schema?: string } = {}) {
+    this.boss = new PgBoss({ connectionString: databaseUrl, ...options });
 
     // Sem isto, um erro interno do pg-boss derruba o processo: o EventEmitter do
     // Node lança quando ninguém escuta 'error'. O worker precisa continuar de pé
@@ -40,28 +45,40 @@ export class BossService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     await this.boss.start();
+    await this.prepareQueues();
 
-    /*
-     * 3 tentativas no total (docs/09, tabela das filas): a execução original
-     * mais duas repetições.
-     *
-     * `retryBackoff` não é detalhe: a causa mais provável de falha nas duas é a
-     * Meta recusando por limite de uso, e repetir logo em seguida bateria no
-     * mesmo limite. Com a espera dobrando, a segunda tentativa cai num momento
-     * diferente.
-     */
-    const opcoes = { retryLimit: 2, retryBackoff: true };
-
-    await this.boss.createQueue(TOKEN_REFRESH_QUEUE, opcoes);
     await this.boss.schedule(TOKEN_REFRESH_QUEUE, TOKEN_REFRESH_CRON);
-
-    await this.boss.createQueue(ACCOUNT_METRICS_QUEUE, opcoes);
     await this.boss.schedule(ACCOUNT_METRICS_QUEUE, ACCOUNT_METRICS_CRON);
 
     this.logger.log(
-      `Filas prontas: ${TOKEN_REFRESH_QUEUE} (${TOKEN_REFRESH_CRON} UTC), ` +
+      `${QUEUE_DEFINITIONS.length} filas prontas. Recorrentes: ${TOKEN_REFRESH_QUEUE} (${TOKEN_REFRESH_CRON} UTC), ` +
         `${ACCOUNT_METRICS_QUEUE} (${ACCOUNT_METRICS_CRON} UTC).`,
     );
+  }
+
+  /**
+   * Cria as filas que faltam e alinha as que já existem com `QUEUE_DEFINITIONS`.
+   *
+   * Os dois passos são necessários: `createQueue` não mexe em fila existente, então
+   * uma retentativa mudada no código nunca chegaria ao banco sem o `updateQueue`.
+   *
+   * A política é a exceção — o pg-boss não a muda depois de criada. Uma fila de
+   * publicação que tenha nascido `standard` aceitaria duas tarefas da mesma
+   * postagem, e por isso o worker se recusa a subir com ela: é melhor parar no
+   * boot do que publicar duas vezes. O conserto é apagar a fila vazia com
+   * `deleteQueue` e deixar este método recriá-la.
+   */
+  private async prepareQueues(): Promise<void> {
+    for (const { name, policy = "standard", ...options } of QUEUE_DEFINITIONS) {
+      await this.boss.createQueue(name, { policy, ...options });
+      await this.boss.updateQueue(name, options);
+
+      const existing = await this.boss.getQueue(name);
+      const actual = existing?.policy ?? "standard";
+      if (actual !== policy) {
+        throw new Error(`A fila ${name} está com a política ${actual}, e o código exige ${policy}.`);
+      }
+    }
   }
 
   /**

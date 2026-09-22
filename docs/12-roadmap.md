@@ -325,6 +325,9 @@ login, push, a primeira publicação acompanhada e o teste de dump e restauraç�
 cota), V-5 e V-6 (a URL da mídia), V-13 (`singletonKey` do pg-boss), V-22 e V-23 (Traefik do Easypanel, na
 estreia) e V-24 (limite de 100 MB da Cloudflare). Registrar o resultado no próprio documento 08.
 
+**V-13 foi resolvido em 22/09/2026**, com teste automático: o `singletonKey` sozinho não deduplica, e a
+fila de publicação nasce `exclusive`.
+
 **V-15 foi resolvido em 18/09/2026**, pelo túnel: a assinatura da política não cobre o endereço, então ela
 sobrevive ao proxy. Falta só repetir no proxy de verdade, na estreia.
 

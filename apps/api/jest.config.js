@@ -18,6 +18,10 @@
  * partir do Node 24.9. A exceção abaixo manda o ts-jest compilá-los na hora do
  * teste, usando tsconfig.spec.json (allowJs). Em produção nada disso acontece: o
  * Node 22 carrega esses pacotes sozinho.
+ *
+ * O pg-boss 12 entrou na mesma lista quando o motor de publicação ganhou teste
+ * (Fase 1d): ele e três dependências dele — serialize-error (com non-error) e
+ * rrule-temporal (com temporal-spec) — também são só ESM.
  */
 module.exports = {
   testEnvironment: "node",
@@ -29,8 +33,9 @@ module.exports = {
   testTimeout: 30_000,
   transform: { "^.+\\.(ts|js|mjs)$": ["ts-jest", { tsconfig: "tsconfig.spec.json" }] },
   transformIgnorePatterns: [
-    // Nada de node_modules, exceto os pacotes ESM do código de 6 dígitos.
-    "node_modules[\\\\/](?!(otplib|@otplib|@scure|@noble)[\\\\/])",
+    // Nada de node_modules, exceto os pacotes só ESM: os do código de 6 dígitos
+    // e os do pg-boss.
+    "node_modules[\\\\/](?!(otplib|@otplib|@scure|@noble|pg-boss|serialize-error|non-error|rrule-temporal|temporal-spec)[\\\\/])",
     // O dist dos pacotes do monorepo já é CommonJS compilado: transformá-lo de
     // novo só gera aviso e lentidão.
     "packages[\\\\/][^\\\\/]+[\\\\/]dist[\\\\/]",

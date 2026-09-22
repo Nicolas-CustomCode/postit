@@ -288,30 +288,51 @@ a cota de 400 containers diários com rapidez surpreendente.
 
 ## Configuração das filas
 
-```ts
-// apps/api/src/queues/boss.service.ts — esboço, roda quando o worker inicia
-// confirmar nomes das opções na versão instalada
-await this.boss.createQueue('publicar-instagram-falhas')
+A configuração de cada fila mora em `apps/api/src/queues/queue-definitions.ts`, conferida contra o
+pg-boss 12.33.1 instalado. A da publicação:
 
-await this.boss.createQueue('publicar-instagram', {
-  retryLimit: 4,          // até 5 execuções no total
-  retryDelay: 60,         // primeira espera: 60 s
-  retryBackoff: true,     // dobra a espera a cada tentativa
-  retryDelayMax: 900,     // nunca espera mais que 15 min
-  expireInSeconds: 3600,  // ver abaixo
+```ts
+{
+  name: 'publicar-instagram',
+  policy: 'exclusive',       // camada 1 de idempotência — ver abaixo
+  retryLimit: 4,             // até 5 execuções no total
+  retryDelay: 60,            // primeira espera: 60 s
+  retryBackoff: true,        // dobra a espera a cada tentativa
+  retryDelayMax: 900,        // nunca espera mais que 15 min
+  expireInSeconds: 1800,     // ver abaixo
+  heartbeatSeconds: 60,      // ver abaixo
   deadLetter: 'publicar-instagram-falhas',
-})
+}
 ```
 
 Fonte das opções: [jobs](https://pgboss.io/api/jobs) e [queues](https://pgboss.io/api/queues). A
 documentação avisa que *"Queues must be created before sending jobs to them"*, então o worker cria
-as filas ao iniciar.
+as filas ao iniciar — a de falhas **antes** da de publicação, porque o pg-boss recusa `deadLetter`
+apontando para fila que não existe.
+
+**Criar não atualiza.** `createQueue` não mexe em fila que já existe, então o worker chama também
+`updateQueue` a cada subida: uma retentativa mudada no código chega ao banco no próximo boot. A
+**política** é a exceção — o pg-boss não a muda depois de criada. Por isso o worker confere a política
+de cada fila ao subir e **se recusa a rodar** se ela divergir: é melhor parar no boot do que aceitar
+duas tarefas da mesma postagem. O conserto é apagar a fila vazia (`deleteQueue`) e deixar o boot
+recriá-la.
 
 **Sobre `expireInSeconds`:** é o tempo máximo que uma execução pode durar antes de o pg-boss
-considerá-la travada. O padrão é 900 segundos. Um carrossel de 10 vídeos, com até 5 minutos de
-espera por container, passa disso com folga. Se a execução passar do limite, o pg-boss assume falha
-e **inicia outra execução enquanto a primeira ainda roda** — as camadas de idempotência seguram, mas
-é melhor não chegar lá. Por isso uma hora, definida explicitamente.
+considerá-la travada. O padrão é 900 segundos, e um carrossel de 10 itens com até 5 minutos de espera
+por container passa disso. Se a execução passar do limite, o pg-boss dá a tarefa por falha e **inicia
+outra execução enquanto a primeira ainda roda**: ele só aborta o `signal` do tratador, não tem como
+matar a promessa. Por isso 30 minutos, definidos explicitamente — e por isso o publicador respeita o
+`signal` antes de toda chamada que muda algo na Meta.
+
+**Sobre `heartbeatSeconds`:** sem ele, um worker morto no meio de uma publicação (queda, `kill -9`)
+deixaria a tarefa "ativa" até o `expireInSeconds` vencer — 30 minutos para a retomada começar. Com o
+sinal de vida a cada minuto, renovado pelo próprio pg-boss enquanto o tratador roda, a tarefa órfã é
+notada em cerca de um minuto.
+
+**O despachante não é `exclusive`.** Uma varredura travada seguraria todas as seguintes até expirar, e
+cada postagem vencida nesse meio-tempo iria para `FALHOU` por atraso. Duas varreduras simultâneas já
+são inofensivas pela camada 3. Ela também não repete: a próxima volta do cron, um minuto depois, já é a
+repetição.
 
 | Fila | Criada por | O que faz | Tentativas |
 |---|---|---|---|
@@ -339,13 +360,17 @@ A promessa do RNF-02: nenhuma postagem é publicada duas vezes, sob nenhuma circ
 sustenta em quatro camadas independentes — se uma falhar, a seguinte segura.
 
 ### Camada 1 — desduplicação da fila
-A tarefa é criada com `singletonKey` igual ao identificador da postagem, para que o pg-boss não
-aceite duas tarefas da mesma postagem.
+A tarefa é criada com `singletonKey` igual ao identificador da postagem, numa fila de política
+**`exclusive`**, para que o pg-boss não aceite duas tarefas da mesma postagem.
 
-**A conferir na instalação:** a documentação descreve as políticas de fila (`standard`,
-`singleton`, `stately` e outras) e a opção `singletonKey`, mas não deixa explícito como as duas se
-combinam. Antes de confiar nesta camada, testar: enviar duas tarefas com a mesma chave e observar.
-Registrado como item V-13 em [08](08-integracao-instagram.md#a-validar-em-desenvolvimento).
+⚠️ **O `singletonKey` sozinho não faz isso.** Conferido em 22/09/2026 (item V-13 em
+[08](08-integracao-instagram.md#itens-de-infraestrutura)): numa fila `standard`, a padrão, duas tarefas
+com a mesma chave entram as duas — o índice único só existe nas filas com política. A `exclusive`
+permite uma tarefa por chave enquanto ela está criada, em retentativa ou ativa, e libera a chave depois
+de concluída ou falhada, que é o que o reagendamento de uma postagem `FALHOU` precisa.
+
+A duplicata **não lança erro**: `send()` devolve `null`. Como o despachante muda o status e cria a tarefa
+na mesma transação, ele confere o `null` e desfaz — senão a postagem ficaria `PROCESSANDO` sem tarefa.
 
 ### Camada 2 — verificação no início da execução
 Antes de qualquer chamada à Meta, o publicador consulta se já existe `Publicacao` para aquela

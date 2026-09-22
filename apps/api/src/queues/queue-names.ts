@@ -32,3 +32,25 @@ export const ACCOUNT_METRICS_QUEUE = "coletar-metricas-conta-instagram";
  * fuso dela — quem decide isso é o `domain/metrics/day-window.ts`, não o cron.
  */
 export const ACCOUNT_METRICS_CRON = "0 6 * * *";
+
+/** Varre as postagens vencidas e entrega cada uma ao publicador (docs/09, "O despachante"). */
+export const DISPATCH_QUEUE = "despachar";
+
+/** Cria os containers e publica uma postagem (docs/09, "O publicador"). */
+export const PUBLISH_QUEUE = "publicar-instagram";
+
+/**
+ * Para onde o pg-boss move a tarefa de publicação que esgotou as tentativas: o
+ * tratador marca `FALHOU` e avisa (docs/09, "O que acontece ao esgotar").
+ */
+export const PUBLISH_DEAD_LETTER_QUEUE = "publicar-instagram-falhas";
+
+/**
+ * As leituras de métrica de uma publicação, com início atrasado (docs/09,
+ * "Coleta de métricas"). O publicador cria as tarefas desde a 1d; quem as
+ * consome chega na Fase 5.
+ */
+export const POST_METRICS_QUEUE = "coletar-metricas-instagram";
+
+/** Envia o push de uma notificação aos aparelhos dos destinatários (ADR 0017). */
+export const NOTIFY_QUEUE = "notificar";
