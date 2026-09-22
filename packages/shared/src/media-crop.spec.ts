@@ -1,5 +1,5 @@
-import { cropAxis, cropRect, targetRatioFor } from "./media-crop";
-import { IMAGE_SPECS } from "./media-formats";
+import { cropAxis, cropRect, fitFrame, targetRatioFor, FIT_MAX_WIDTH } from "./media-crop";
+import { IMAGE_SPECS, ratioFits } from "./media-formats";
 
 /**
  * O recorte para caber num formato (RF-B02, RF-B03).
@@ -103,4 +103,103 @@ describe("recorte por formato", () => {
       expect(cropAxis(4000, 1000, 1.91)).toBe("horizontal");
     });
   });
+
+  /**
+   * A saída que o corte não dá: a imagem inteira dentro de uma moldura da
+   * proporção certa, com barras nas sobras (ADR 0025).
+   */
+  describe("fitFrame — a moldura que cabe a imagem inteira", () => {
+    it("o que já cabe não vira moldura", () => {
+      expect(fitFrame(1080, 1080, FEED)).toBeNull();
+      expect(fitFrame(1080, 1350, FEED)).toBeNull(); // exatamente 4:5
+      expect(fitFrame(4032, 3024, FEED)).toBeNull();
+    });
+
+    it("formato sem faixa não emoldura nada", () => {
+      expect(fitFrame(1080, 1920, IMAGE_SPECS.STORIES)).toBeNull();
+      expect(fitFrame(4000, 1000, IMAGE_SPECS.STORIES)).toBeNull();
+    });
+
+    it("medida degenerada não vira moldura", () => {
+      expect(fitFrame(0, 100, FEED)).toBeNull();
+      expect(fitFrame(100, 0, FEED)).toBeNull();
+    });
+
+    /*
+     * ⚠️ O eixo é o oposto do corte: nesta mesma foto o recorte mexe na
+     * vertical, e a moldura aparece nas laterais.
+     */
+    it("foto em pé ganha barra nas laterais, e a altura fica intacta", () => {
+      const moldura = fitFrame(CELULAR_EM_PE.width, CELULAR_EM_PE.height, FEED);
+
+      expect(moldura).not.toBeNull();
+      expect(moldura).toMatchObject({ width: 1440, height: 1800 });
+      expect(moldura!.image.y).toBe(0);
+      expect(moldura!.image.height).toBe(1800);
+      expect(moldura!.image.x).toBeGreaterThan(0);
+    });
+
+    it("panorâmica ganha barra em cima e embaixo", () => {
+      const moldura = fitFrame(4000, 1000, FEED);
+
+      expect(moldura).not.toBeNull();
+      expect(moldura!.image.x).toBe(0);
+      expect(moldura!.image.y).toBeGreaterThan(0);
+      expect(moldura!.width).toBeLessThanOrEqual(FIT_MAX_WIDTH);
+    });
+
+    it("abaixo do teto, a moldura preserva os pixels do original", () => {
+      const moldura = fitFrame(1000, 1400, FEED);
+
+      expect(moldura).toEqual({
+        width: 1120,
+        height: 1400,
+        image: { x: 60, y: 0, width: 1000, height: 1400 },
+      });
+    });
+
+    it("a imagem nunca vaza da moldura", () => {
+      for (const [largura, altura] of MEDIDAS_FORA_DA_FAIXA) {
+        const moldura = fitFrame(largura, altura, FEED)!;
+
+        expect(moldura.image.x).toBeGreaterThanOrEqual(0);
+        expect(moldura.image.y).toBeGreaterThanOrEqual(0);
+        expect(moldura.image.x + moldura.image.width).toBeLessThanOrEqual(moldura.width);
+        expect(moldura.image.y + moldura.image.height).toBeLessThanOrEqual(moldura.height);
+      }
+    });
+
+    /*
+     * ⚠️ **O teste que paga o arquivo inteiro.** A moldura existe para caber na
+     * faixa; devolver uma que não cabe é o único jeito de ela ser inútil.
+     *
+     * O caso que separa `Math.ceil` de `Math.round` é **700×1003**: a moldura
+     * sai 803×1003 com `ceil` e 802×1003 com `round`, e 802×5 = 4010 é menor que
+     * 1003×4 = 4012 — um pixel fora da faixa. Tem de ser uma medida **abaixo do
+     * teto de 1440**: acima dele a largura é recalculada e o arredondamento de
+     * antes se perde, então um caso grande passaria com os dois.
+     */
+    it("toda moldura cabe na faixa do formato", () => {
+      for (const [largura, altura] of MEDIDAS_FORA_DA_FAIXA) {
+        const moldura = fitFrame(largura, altura, FEED)!;
+
+        expect(ratioFits(moldura.width, moldura.height, FEED)).toBe(true);
+      }
+    });
+  });
 });
+
+/** Medidas que **não** cabem no feed, das comuns às cruéis com arredondamento. */
+const MEDIDAS_FORA_DA_FAIXA: readonly (readonly [number, number])[] = [
+  [3024, 4032], // foto de celular em pé, 3:4
+  [1080, 1920], // arte de Stories, 9:16
+  [700, 1003], // ⚠️ o caso em que `Math.round` erra por um pixel — ver abaixo
+  [2252, 3003],
+  [1000, 1400],
+  [999, 1399],
+  [4000, 1000], // panorâmica 4:1
+  [4001, 1000],
+  [320, 1000],
+  [5000, 400],
+  [1080, 1351], // um pixel além de 4:5 — 1080×5 = 5400 < 1351×4 = 5404
+];
