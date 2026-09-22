@@ -68,7 +68,16 @@ export function MediaStrip({
             className={cn(
               "flex shrink-0 snap-start flex-col gap-1",
               midias.length > 1 && !disabled && (naMao ? "cursor-grabbing" : "cursor-grab"),
-              naMao ? "z-10" : "transition-transform",
+              naMao && "z-10",
+              /*
+               * ⚠️ **A transição só existe durante o arrasto.** Ela serve para
+               * os vizinhos abrirem passagem com suavidade enquanto a imagem
+               * está na mão. Ao soltar, a lista já foi reordenada e cada item
+               * está onde deve: animar aí faria a imagem escorregar do lugar
+               * onde foi largada para o lugar onde já estava, que é justamente
+               * a sensação de "não ficou onde eu soltei".
+               */
+              drag !== null && !naMao && "transition-transform",
               // Sem `touch-action` fixo: antes de o toque virar arrasto, a faixa
               // ainda precisa rolar com o dedo.
               drag !== null && "touch-none select-none",
