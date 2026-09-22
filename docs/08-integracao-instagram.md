@@ -327,6 +327,17 @@ POST https://graph.instagram.com/v26.0/<IG_USER_ID>/media_publish
 Resposta: `{"id": "<ID_DA_MIDIA>"}`. Fonte:
 [media_publish](https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media_publish/).
 
+**Token no cabeçalho, corpo em JSON.** As duas escritas seguem o
+[guia de publicação do Instagram Login](https://developers.facebook.com/docs/instagram-platform/content-publishing/):
+`Authorization: Bearer` e corpo JSON. A referência de `/media` mostra o outro jeito — `access_token` na
+query, pela via do Facebook Login —, mas o guia é o da nossa via, e o token fora do endereço não aparece
+em log de proxy nenhum. As leituras (`status_code`, `permalink`) continuam com `access_token` na query,
+como `/me` e os insights, que já funcionam assim com a conta de testes.
+
+**`children` do carrossel vai como texto separado por vírgula** — `"children":"<ID_1>,<ID_2>"` —, que é
+o exemplo do mesmo guia. A referência descreve o parâmetro como *"An array of up to 10 container IDs"*;
+o formato do exemplo é o que a nossa via mostra funcionando.
+
 ### Valores de `media_type`
 
 `IMAGE` — padrão se omitido · `VIDEO` · `CAROUSEL` · `REELS` · `STORIES`
@@ -335,9 +346,14 @@ A documentação registra: *"Required for carousels, stories, and reels."* Ou se
 não precisa informar.
 
 **Cuidado ao ler de volta:** depois de publicado, o campo `media_type` da mídia retorna apenas
-`CAROUSEL_ALBUM`, `IMAGE` ou `VIDEO`. Para distinguir um Reels de um Story de um post de feed, é
-preciso ler **`media_product_type`**, que retorna `AD`, `FEED`, `STORY` ou `REELS`. Fonte:
+`CAROUSEL_ALBUM`, `IMAGE` ou `VIDEO`. O campo que distingue Reels, Story e feed é
+**`media_product_type`** (`AD`, `FEED`, `STORY` ou `REELS`) — mas a mesma página o marca como
+*"Available for Instagram API with Facebook Login only"*, e o mesmo vale para `caption`. **Pela nossa via,
+não dá para saber o formato de uma mídia lendo-a de volta** (conferido em 22/09/2026). Fonte:
 [Instagram Media](https://developers.facebook.com/docs/instagram-platform/reference/instagram-media/).
+
+**`permalink`** — *"Permanent URL to the media"*, sem restrição de via na mesma página. É o link que a
+tela mostra depois de publicar, lido com `GET /<ID_DA_MIDIA>?fields=permalink`.
 
 ### Upload resumível para vídeos grandes
 
@@ -902,7 +918,7 @@ todos precisam ser confirmados empiricamente na Fase 1 e o resultado registrado 
 | V-4 | Limite de colaboradores | 3 na criação, 5 na leitura | Limitar a 3 | Tentar 4 e observar |
 | V-5 | HTTPS é obrigatório na URL da mídia? | Diz só "public server" | Usar HTTPS sempre | Não vale testar. Manter HTTPS |
 | V-6 | Redirecionamento na URL da mídia | Nada | Evitar redirecionamento | Não vale testar |
-| V-7 | Vídeo de feed vira Reels? | Sem tabela própria de specs | Aplicar specs de Reels | Publicar e ler `media_product_type` |
+| V-7 | Vídeo de feed vira Reels? | Sem tabela própria de specs | Aplicar specs de Reels | Publicar e ver no aplicativo em que aba ele aparece — `media_product_type` é só da via do Facebook Login |
 | V-8 | Máximo de `user_tags` | Não declarado | Limitar a 20, como as menções | Aumentar até o erro `2207040` |
 | V-9 | Valores de `status` | Sem lista fechada | Decidir só por `status_code` | Coletar os valores observados na auditoria |
 | V-10 | Caminho de menu para cadastrar conta testadora | **O procedimento funciona — confirmado em 17/09/2026**, com a conta cadastrada como testadora e conectada ao PostIt. O **caminho exato de menu não foi anotado** na hora, então continua valendo o do fórum | Seguir o passo a passo acima | Anotar os nomes reais dos menus ao cadastrar a próxima conta |
@@ -912,6 +928,8 @@ todos precisam ser confirmados empiricamente na Fase 1 e o resultado registrado 
 | V-19 | Janela retroativa das métricas da conta | **Resolvido em 18/09/2026** | A pergunta perdeu o sentido original: como só `reach` existe em série temporal, **cada dia é uma chamada própria** e cada janela cobre um dia só. Sobrou escolher quantos dias buscar — **30**, com a Meta guardando 90. Confirmado buscando 30 dias, inclusive anteriores à conexão da conta | — |
 | V-26 | Como a Meta conta os limites da legenda? | *"Maximum 2200 characters, 30 hashtags, and 20 @ tags"* — sem dizer o que é um "caractere", nem o que separa uma hashtag | **Unidades UTF-16** (um emoji conta 2, a contagem maior, que recusa mais cedo); hashtag e menção precisam **começar palavra**, para `contato@empresa.com` não virar menção. Diferença conhecida: `#um#dois` conta 1, não 2 | Publicar uma legenda com 2200 emojis e outra com `#um#dois`, e ver o que a Meta aceita |
 | V-27 | Imagem de Stories tem faixa de proporção obrigatória? | Só "9:16 recomendado", sem mínimo nem máximo | **Não validar proporção para Stories** (`ratio: null`). Como consequência, uma imagem 1:20 entra no acervo: ela não serve ao feed, e não há fonte que a recuse em Stories. Inventar um limite recusaria material legítimo | Publicar um Story com proporção extrema — 4000×400 — e observar se a Meta recusa, enquadra ou corta |
+| V-28 | Listar as mídias recentes da conta pela nossa via | `GET /<IG_USER_ID>/media` só aparece documentado em `graph.facebook.com`, e o `media_product_type` que diria o formato é "Facebook Login only" | A reconciliação do [09](09-motor-agendamento.md#o-caso-difícil-timeout-na-publicação) decide pelo `status_code` do container. Se ele diz `PUBLISHED` e o id da mídia não é conhecido, a postagem fica **publicada sem link** — nunca `FALHOU`, que convidaria alguém a publicar de novo | Chamar `GET /<IG_USER_ID>/media?fields=id,timestamp,permalink` em `graph.instagram.com` com o token da conta de testes |
+| V-29 | Listar Stories pela nossa via | A referência de mídia diz *"Story IG Media not supported, use the GET /{ig-user-id}/stories endpoint instead"*, e `/stories` também só aparece em `graph.facebook.com` | Mesma postura do V-28: Story reconciliado pelo container sai publicado sem link | Chamar `GET /<IG_USER_ID>/stories` em `graph.instagram.com` logo depois de publicar um Story |
 | V-20 | Política de privacidade e exclusão de dados em modo de desenvolvimento | Exigidas para o modo Live; para desenvolvimento, não confirmado | Não publicar páginas de política até ser exigido | Tentar configurar o PostIt Dev sem esses campos |
 
 ### Itens de infraestrutura
@@ -1003,7 +1021,7 @@ ao módulo Nest.
 | `instagram.module.ts` | Módulo Nest, importado pela API e pelo worker |
 | `client.ts` | Único lugar que anexa o token e faz a chamada HTTP |
 | `oauth.ts` | URL de autorização, `state` assinado, troca e renovação de tokens, cópia da foto de perfil |
-| `publicacao.ts` | Containers, consulta de estado, `media_publish`, upload resumível |
+| `publishing.ts` | Containers, consulta de estado, `media_publish`, permalink; o upload resumível chega com o vídeo, na Fase 2. **Não** é provido pelo `InstagramModule`: quem o provê é o `PublishingModule`, só do worker |
 | `insights.ts` | Métricas por formato |
 | `errors.ts` | Tradução dos códigos da Meta para mensagem e ação, com a **origem** (conexão ou uso): o mesmo código quer dizer "conta não é testadora" ao conectar e "o acesso expirou" ao renovar |
 
@@ -1013,6 +1031,12 @@ token não vaza: há um lugar só para auditar.
 
 **Token nunca em mensagem de erro.** O cliente remove o token de qualquer coisa que vá para log,
 auditoria ou resposta — inclusive da URL, onde é fácil esquecer que ele está.
+
+**O erro cru vai para a auditoria, e só para ela.** O RF-F09 pede o erro da Meta como veio. O cliente guarda
+em `MetaRefusedError.detail` os campos documentados do corpo — `message`, `type`, `code`,
+`error_subcode`, `error_user_title`, `error_user_msg`, `fbtrace_id` —, lista fechada, com o token apagado
+de todo texto: pelo valor usado na chamada e por qualquer `access_token=` que a Meta ecoe. Esse detalhe
+vai para `EventoPublicacao.respostaMeta`, nunca para log, resposta ou tela.
 
 **Fronteira de pacote no lugar de `server-only`.** No `sorteio-comentarios-instagram`, o
 `import 'server-only'` impedia o código de ir parar no navegador. Aqui a proteção é estrutural: o

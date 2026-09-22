@@ -43,6 +43,15 @@ const longLivedTokenSchema = z
 export type ShortLivedToken = z.infer<typeof shortLivedTokenSchema>;
 export type LongLivedToken = z.infer<typeof longLivedTokenSchema>;
 
+export interface RequestOptions {
+  /**
+   * Tempo limite desta chamada. O padrão serve para leitura; o `media_publish`
+   * pede mais, porque é justamente nele que desistir cedo cria a ambiguidade de
+   * "publicou ou não?" (docs/09, "O caso difícil").
+   */
+  readonly timeoutMs?: number;
+}
+
 export interface MetaError {
   readonly status: number;
   /** Código numérico da Meta, quando ela manda. É seguro: não é segredo. */
@@ -59,9 +68,34 @@ export class InstagramClient {
   constructor(@Inject(INSTAGRAM_CONFIG) private readonly config: InstagramConfig) {}
 
   /** Uma leitura na Graph API, com o token anexado aqui e em nenhum outro lugar. */
-  async get<T>(path: string, token: string, query: Record<string, string> = {}): Promise<T> {
+  async get<T>(
+    path: string,
+    token: string,
+    query: Record<string, string> = {},
+    options: RequestOptions = {},
+  ): Promise<T> {
     const url = this.graphUrl(path, { ...query, access_token: token });
-    return this.request<T>(url, { method: "GET" });
+    return this.request<T>(url, { method: "GET" }, options.timeoutMs, token);
+  }
+
+  /**
+   * Uma escrita na Graph API — containers e `media_publish` (docs/08, "Publicação
+   * em duas etapas").
+   *
+   * O token vai no cabeçalho, e não na URL, como no guia de publicação do
+   * Instagram Login: fica fora de qualquer endereço que um proxy ou log registre.
+   */
+  async post<T>(path: string, token: string, body: Record<string, unknown>, options: RequestOptions = {}): Promise<T> {
+    return this.request<T>(
+      this.graphUrl(path, {}),
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      },
+      options.timeoutMs,
+      token,
+    );
   }
 
   /** Troca o código da autorização pelo token de curta duração (docs/08, passo 2). */
@@ -136,11 +170,11 @@ export class InstagramClient {
     return url.toString();
   }
 
-  private async request<T>(url: string, init: RequestInit): Promise<T> {
+  private async request<T>(url: string, init: RequestInit, timeoutMs = TIMEOUT_MS, token?: string): Promise<T> {
     let response: Response;
 
     try {
-      response = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
     } catch (error) {
       // Nem a URL nem o erro cru entram no log: os dois carregam o token.
       this.logger.error(`Falha ao falar com a Meta em ${safeUrl(url)}: ${kindOf(error)}`);
@@ -156,7 +190,7 @@ export class InstagramClient {
       this.logger.warn(
         `A Meta recusou ${safeUrl(url)} — status ${erro.status}, código ${erro.code ?? "?"}, subcódigo ${erro.subcode ?? "?"}`,
       );
-      throw new MetaRefusedError(erro);
+      throw new MetaRefusedError(erro, readMetaDetail(corpo, token));
     }
 
     /*
@@ -192,10 +226,61 @@ export class InstagramClient {
  * com erro de usuário pronto acabaria devolvendo mensagem da Meta na tela.
  */
 export class MetaRefusedError extends Error {
-  constructor(readonly meta: MetaError) {
+  /**
+   * @param detail o corpo do erro como a Meta mandou, já sem o token. Existe para a
+   *   auditoria da publicação (RF-F09, "o erro cru da Meta") e **só** para ela:
+   *   nunca vai para log, resposta ou tela.
+   */
+  constructor(
+    readonly meta: MetaError,
+    readonly detail: MetaErrorDetail | null = null,
+  ) {
     super(`A Meta recusou a chamada (status ${meta.status}, código ${meta.code ?? "?"})`);
     this.name = "MetaRefusedError";
   }
+}
+
+/** Os campos de erro que a Graph API documenta, e só eles. */
+export interface MetaErrorDetail {
+  readonly message?: string;
+  readonly type?: string;
+  readonly code?: number;
+  readonly error_subcode?: number;
+  readonly error_user_title?: string;
+  readonly error_user_msg?: string;
+  readonly fbtrace_id?: string;
+}
+
+const DETAIL_TEXT_FIELDS = ["message", "type", "error_user_title", "error_user_msg", "fbtrace_id"] as const;
+const DETAIL_NUMBER_FIELDS = ["code", "error_subcode"] as const;
+
+/**
+ * Copia do corpo do erro só os campos conhecidos, e tira deles o token.
+ *
+ * Lista fechada em vez de cópia inteira: um campo novo que a Meta acrescente
+ * não entra na auditoria sem alguém olhar o que ele traz. E o token sai de todo
+ * texto — pelo valor, quando se sabe qual foi usado, e por qualquer
+ * `access_token=` que a Meta ecoe de volta.
+ */
+function readMetaDetail(corpo: unknown, token: string | undefined): MetaErrorDetail | null {
+  const erro = (corpo as { error?: Record<string, unknown> } | null)?.error;
+  if (erro === undefined || erro === null || typeof erro !== "object") return null;
+
+  const limpa = (texto: string): string => {
+    const semParametro = texto.replace(/access_token=[^&\s"']+/g, "access_token=***");
+    return token ? semParametro.split(token).join("***") : semParametro;
+  };
+
+  const detail: Record<string, string | number> = {};
+  for (const campo of DETAIL_TEXT_FIELDS) {
+    const valor = erro[campo];
+    if (typeof valor === "string") detail[campo] = limpa(valor);
+  }
+  for (const campo of DETAIL_NUMBER_FIELDS) {
+    const valor = erro[campo];
+    if (typeof valor === "number") detail[campo] = valor;
+  }
+  return detail as MetaErrorDetail;
 }
 
 /** Troca todo parâmetro sensível por `***`, mantendo o resto legível. */
