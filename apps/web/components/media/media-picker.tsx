@@ -27,6 +27,7 @@ export function MediaPicker({
   open,
   onOpenChange,
   onConfirm,
+  onAdjust,
 }: {
   readonly media: readonly MediaSummary[];
   /** O formato de destino: é ele que decide quais imagens servem. */
@@ -41,6 +42,11 @@ export function MediaPicker({
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onConfirm: (media: readonly MediaSummary[]) => void;
+  /**
+   * Clicou numa que não serve ao formato: quem abre a tela de ajuste é o
+   * chamador, porque ela precisa ser **irmã** desta folha, não filha.
+   */
+  readonly onAdjust: (media: MediaSummary) => void;
 }): ReactNode {
   const [pendentes, setPendentes] = useState<readonly MediaSummary[]>([]);
 
@@ -92,6 +98,18 @@ export function MediaPicker({
                 atual.includes(escolhida) ? atual.filter((item) => item !== escolhida) : [...atual, escolhida],
               )
             }
+            /*
+             * ⚠️ **Confirma o que já foi escolhido antes de sair.** Quem montou
+             * meio carrossel e então pediu o ajuste de mais uma perderia as
+             * anteriores — a folha zera a seleção ao fechar. Sair daqui é
+             * navegação, não desistência.
+             */
+            onAdjust={(incompativel) => {
+              if (pendentes.length > 0) onConfirm(pendentes);
+              setPendentes([]);
+              onOpenChange(false);
+              onAdjust(incompativel);
+            }}
           />
 
           <Button

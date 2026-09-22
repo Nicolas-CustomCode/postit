@@ -111,10 +111,11 @@ test.describe("postagens", () => {
   });
 
   /*
-   * As incompatíveis aparecem apagadas, não escondidas: quem enviou uma arte
-   * 9:16 precisa ver que ela está lá e por que não serve ao feed.
+   * As incompatíveis aparecem, e desde 22/09/2026 com saída: quem enviou uma
+   * arte 9:16 e compõe para o feed não perde a imagem — o card vira a porta do
+   * ajuste (ADR 0025). Antes disso ele ficava apagado e inerte.
    */
-  test("no acervo, a imagem que não serve ao formato aparece apagada", async ({ page }) => {
+  test("no acervo, a imagem que não serve ao formato oferece o ajuste", async ({ page }) => {
     await criarMidia({ width: 1080, height: 1920 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
@@ -122,8 +123,39 @@ test.describe("postagens", () => {
     await page.getByRole("menuitem", { name: "Do acervo" }).click();
 
     const folha = page.getByRole("dialog");
-    await expect(folha.getByText(/não serve para Feed/i)).toBeVisible();
-    await expect(folha.getByRole("listitem").first().getByRole("button")).toBeDisabled();
+    await expect(folha.getByText(/ajustar para Feed/i)).toBeVisible();
+    await expect(folha.getByRole("listitem").first().getByRole("button")).toBeEnabled();
+  });
+
+  /*
+   * O ajuste é **irmão** do acervo, não filho: aninhar duas folhas do Radix faz
+   * a de fora arrancar o foco da de dentro ao fechar.
+   *
+   * E o que mais custaria caro: pedir o ajuste de uma **não pode** perder o que
+   * já estava escolhido. A folha zera a seleção ao fechar, então quem sai por
+   * aqui precisa confirmar antes.
+   *
+   * ⚠️ **O ajuste em si não roda no Playwright**: a mídia semeada não tem objeto
+   * no MinIO, e o canvas precisa dos pixels de verdade. Recortar e enviar é
+   * roteiro manual (docs/12), como o envio. O que se prova aqui é a navegação.
+   */
+  test("pedir o ajuste troca de folha sem perder o que já foi escolhido", async ({ page }) => {
+    // A mais nova vem primeiro na grade: a quadrada é a de índice 0.
+    await criarMidia({ width: 1080, height: 1920 });
+    await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await abrirMenuDeMidia(page);
+    await page.getByRole("menuitem", { name: "Do acervo" }).click();
+
+    const acervo = page.getByRole("dialog", { name: "Escolher do acervo" });
+    await acervo.getByRole("listitem").nth(0).getByRole("button").click();
+    await acervo.getByRole("listitem").nth(1).getByRole("button").click();
+
+    await expect(page.getByRole("dialog", { name: "Ajustar imagem" })).toBeVisible();
+    await expect(acervo).toHaveCount(0);
+    // A quadrada foi anexada mesmo sem ninguém clicar em "Usar".
+    await expect(page.getByText("Sem imagem ainda")).toHaveCount(0);
   });
 
   /*

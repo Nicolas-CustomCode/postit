@@ -12,11 +12,16 @@ import { cn } from "@/lib/utils";
  * seletor. A diferença é `format` — com ele, cada imagem passa a dizer se serve
  * ao formato escolhido.
  *
- * ⚠️ **As incompatíveis aparecem apagadas, não escondidas.** Quem enviou uma
- * arte 9:16 e está compondo para o feed precisa **ver** que ela está lá e por
- * que não pode escolhê-la. Escondê-la faria a pessoa procurar uma foto que sabe
- * que enviou e não achar — e concluir que o envio falhou. Vale igual para a
- * lixeira: a de uma imagem em uso fica **desligada**, não sumida (RF-B07).
+ * ⚠️ **As incompatíveis aparecem, não são escondidas.** Quem enviou uma arte
+ * 9:16 e está compondo para o feed precisa **ver** que ela está lá. Escondê-la
+ * faria a pessoa procurar uma foto que sabe que enviou e não achar — e concluir
+ * que o envio falhou. Vale igual para a lixeira: a de uma imagem em uso fica
+ * **desligada**, não sumida (RF-B07).
+ *
+ * Com `onAdjust`, a incompatível deixa de estar apagada e passa a ser **a porta
+ * do ajuste**: clicar nela abre a tela que a recorta ou emoldura para o formato
+ * (ADR 0025). Sem ele — e até 22/09/2026 era o único jeito — ela fica apagada e
+ * inerte, que é o que resta quando não há saída a oferecer.
  *
  * ⚠️ **Sobrepor, nunca aninhar.** O card inteiro é um `<button>`, então lixeira
  * e caixa de seleção são **irmãs** dele, posicionadas por cima — botão dentro de
@@ -29,6 +34,7 @@ export function MediaGrid({
   selectedIds,
   disabledIds,
   onSelect,
+  onAdjust,
   onDelete,
   checkedIds,
   onCheck,
@@ -42,6 +48,13 @@ export function MediaGrid({
   /** Serve ao formato, mas não cabe agora: a postagem já chegou ao limite. */
   readonly disabledIds?: readonly string[];
   readonly onSelect?: (media: MediaSummary) => void;
+  /**
+   * O que fazer com uma que **não serve** ao formato (RF-B03; ADR 0025).
+   *
+   * Só tem sentido junto de `format`: sem formato de destino não existe
+   * incompatível, e é o formato que diz para o que ajustar.
+   */
+  readonly onAdjust?: (media: MediaSummary) => void;
   /** A lixeira do card (RF-B07). Sem ela, a grade não apaga nada. */
   readonly onDelete?: (media: MediaSummary) => void;
   /**
@@ -87,7 +100,13 @@ export function MediaGrid({
          * exatamente o que se reaproveita (RF-B04). Ela só pesa no acervo.
          */
         const presa = noAcervo && item.inUse;
-        const clicavel = modoSelecao ? !presa : onSelect !== undefined && serve && !naoCabe;
+        /*
+         * ⚠️ **`naoCabe` vence o ajuste.** Com a postagem cheia, ajustar
+         * produziria uma imagem nova que não teria onde entrar — e o arquivo já
+         * estaria no acervo, enviado à toa.
+         */
+        const ajustavel = onAdjust !== undefined && format !== undefined && !serve && !naoCabe;
+        const clicavel = modoSelecao ? !presa : ajustavel || (onSelect !== undefined && serve && !naoCabe);
 
         return (
           // O `group` vai no `<li>`: a lixeira é irmã do botão, não descendente
@@ -101,12 +120,17 @@ export function MediaGrid({
               aria-checked={modoSelecao ? marcada : undefined}
               aria-label={noAcervo ? `Imagem de ${item.width} por ${item.height} pixels` : undefined}
               disabled={!clicavel}
-              onClick={() => (modoSelecao ? onCheck?.(item, !marcada) : onSelect?.(item))}
+              onClick={() => {
+                if (modoSelecao) onCheck?.(item, !marcada);
+                else if (ajustavel) onAdjust?.(item);
+                else onSelect?.(item);
+              }}
               className={cn(
                 "flex w-full flex-col gap-1.5 rounded-xl border p-1.5 text-left transition-colors",
                 clicavel && "hover:bg-muted",
                 (selecionada || marcada) && "border-primary ring-2 ring-accent",
-                (!serve || naoCabe || presa) && "opacity-45",
+                // Apagada é "não dá": a que tem ajuste a oferecer dá, e fica inteira.
+                ((!serve && !ajustavel) || naoCabe || presa) && "opacity-45",
                 onSelect === undefined && !modoSelecao && "cursor-default",
               )}
             >
@@ -123,7 +147,10 @@ export function MediaGrid({
               </span>
               {!serve && format !== undefined && (
                 <span className="px-0.5 text-[11px] font-semibold text-warning">
-                  Não serve para {IMAGE_SPECS[format].label}
+                  {/* A frase diz o que fazer, não só o que está errado: é a
+                      mesma linha, e a diferença é haver saída. */}
+                  {ajustavel ? "Ajustar para " : "Não serve para "}
+                  {IMAGE_SPECS[format].label}
                 </span>
               )}
               {presa && <span className="px-0.5 text-[11px] text-muted-foreground">Em uso numa postagem</span>}

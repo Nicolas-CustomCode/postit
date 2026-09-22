@@ -21,6 +21,7 @@ import {
   type PostDetail,
 } from "@repo/shared";
 import { AccountDateTime, accountZoneName, civilFieldsFor, todayIn } from "@/components/account-time";
+import { MediaAdjustSheet } from "@/components/media/media-adjust-sheet";
 import { MediaPicker } from "@/components/media/media-picker";
 import { UploadField, type UploadHandle } from "@/components/media/upload-field";
 import { ComposeSection } from "@/components/posts/compose-section";
@@ -93,6 +94,8 @@ export function ComposeForm({
   /** O que a última reordenação fez, para quem navega por leitor de tela. */
   const [anuncio, setAnuncio] = useState("");
   const [acervoAberto, setAcervoAberto] = useState(false);
+  /** A imagem do acervo que não serve ao formato e está sendo ajustada. */
+  const [ajustando, setAjustando] = useState<MediaSummary | null>(null);
   /** O seletor de arquivos, aberto pelo item "Enviar nova" do menu. */
   const envio = useRef<UploadHandle>(null);
 
@@ -397,6 +400,27 @@ export function ComposeForm({
               open={acervoAberto}
               onOpenChange={setAcervoAberto}
               onConfirm={(escolhidas) => setMidias((atual) => [...atual, ...escolhidas])}
+              onAdjust={setAjustando}
+            />
+
+            {/*
+              ⚠️ **Irmã do seletor, nunca filha** — duas folhas aninhadas do
+              Radix brigam pelo foco. Fora do ramo do `cheia` pela mesma razão do
+              `UploadField`: em Stories o sucesso tornaria `cheia` verdadeiro e
+              arrancaria a folha no meio do próprio desmonte.
+            */}
+            <MediaAdjustSheet
+              media={ajustando}
+              format={format}
+              onOpenChange={(aberta) => {
+                if (!aberta) setAjustando(null);
+              }}
+              /*
+               * Sem `router.refresh()`, ao contrário do envio: a ajustada nasce
+               * derivada e **não entra na lista do acervo**, então não há nada
+               * novo para o servidor mandar.
+               */
+              onDone={(ajustada) => setMidias((atual) => [...atual, ajustada])}
             />
 
             {/*
