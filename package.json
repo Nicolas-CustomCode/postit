@@ -44,10 +44,10 @@
   "//scripts": "db:deploy é o único comando de banco para produção: nunca db:push nem reset lá. tunnel abre os dois túneis rápidos do desenvolvimento (docs/adr/0022). postinstall liga os hooks de .githooks quando a pasta é um repositório git. Nomes de comando em inglês (docs/adr/0023).",
   "devDependencies": {
     "@eslint/js": "9.39.5",
-    "@types/node": "22.20.2",
+    "@types/node": "22.20.4",
     "eslint": "9.39.5",
     "globals": "17.12.0",
-    "turbo": "2.10.13",
+    "turbo": "2.11.2",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0"
   },
