@@ -225,6 +225,7 @@ testes** e o app PostIt Dev — nunca numa conta real. Não há homologação ([
 | 14 | Fazer uma publicação falhar com o push ativado num celular | Push "Uma publicação falhou", **sem nome da conta nem motivo**; tocar abre a postagem com a causa |
 | 15 | Abrir a mesma postagem em dois aparelhos e salvar nos dois | O segundo recebe o aviso de conflito e não perde o que digitou |
 | 16 | Compor, marcar pessoas e agendar pelo celular | Tudo funciona sem computador |
+| 17 | Excluir do acervo uma imagem **enviada de verdade** e abrir a URL dela | 404. É a única conferência que cobre o caminho completo com um objeto que existiu mesmo: no Playwright a mídia é semeada no banco e nunca teve arquivo no MinIO |
 
 O teste 6 é o mais importante do projeto inteiro. Se ele falhar, nada mais importa.
 

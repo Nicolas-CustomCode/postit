@@ -775,5 +775,5 @@ ações — reagendar, corrigir, cancelar — aparecem dentro do PostIt, com a p
 | 11 — Receber e ler notificações | RF-F08, RF-J01 a RF-J05 |
 
 Requisitos não exercitados por nenhuma jornada, por serem de administração ou visualização:
-RF-A03, RF-A05, RF-A07, RF-B04, RF-B06, RF-C02, RF-C04, RF-C09, RF-D04 a RF-D08, RF-D10,
+RF-A03, RF-A05, RF-A07, RF-B04, RF-B06, RF-B07, RF-C02, RF-C04, RF-C09, RF-D04 a RF-D08, RF-D10,
 RF-G05, RF-H02.

@@ -56,7 +56,7 @@ Definido no código, num enum `Permissao`. Não é configurável pela tela — s
 
 | Permissão | Libera |
 |---|---|
-| `POSTAGEM_EDITAR` | Criar e editar rascunhos, enviar mídia, enviar para revisão, descartar rascunho, comentar |
+| `POSTAGEM_EDITAR` | Criar e editar rascunhos, enviar **e excluir** mídia, enviar para revisão, descartar rascunho, comentar |
 | `POSTAGEM_APROVAR` | Aprovar e reprovar postagens **de outros** |
 | `POSTAGEM_APROVAR_PROPRIA` | Aprovar a própria postagem. Só tem efeito junto com `POSTAGEM_APROVAR` |
 | `POSTAGEM_AGENDAR` | Agendar, reagendar (inclusive arrastando no calendário), cancelar, publicar agora, decidir sobre postagem em `FALHOU` |

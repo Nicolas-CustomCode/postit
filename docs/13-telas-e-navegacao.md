@@ -58,7 +58,9 @@ ela. Nada de escolher a conta de novo a cada postagem, filtro ou métrica (RF-A0
   conta dela
 - **Acervo** é compartilhado: uma mídia enviada pode ser usada em qualquer conta **e em qualquer
   formato**. Por isso o envio não pergunta o formato de destino e não confere proporção — quem faz
-  isso é a composição, contra o formato escolhido (RF-B03)
+  isso é a composição, contra o formato escolhido (RF-B03). É também por ser compartilhado que a
+  recusa de excluir (RF-B07) **não diz qual postagem** segura a imagem: ela pode ser de outra conta,
+  e a tela do acervo não conhece — nem deve conhecer — o outro lado
 - **Saúde** mostra todas as contas lado a lado — cota, token, falhas —, porque é onde se percebe problema em conta
   que ninguém está olhando
 
@@ -156,7 +158,7 @@ flowchart TD
 | **Postagens** | Lista da conta ativa, com filtros por status e período; fila de pendências | — | RF-E06, RF-A09 | Filtros numa folha deslizante |
 | **Compor** | Criar e editar na conta ativa: formato, mídia, legenda, marcações, colaboradores, horário | `POSTAGEM_EDITAR` | RF-B01 a RF-B05, RF-C01 a RF-C12, RF-A09 | Etapas em sequência — formato, mídia, legenda, detalhes, horário — em vez de um formulário longo |
 | **Revisão** | Prévia fiel com as marcações visíveis sobre a foto; **detalhes de cada foto** — pessoas marcadas e texto alternativo, com aviso quando falta — e colaboradores da postagem; comentários internos; aprovar ou reprovar, agendar | Aprovar: `POSTAGEM_APROVAR`; agendar: `POSTAGEM_AGENDAR` | RF-E02 a RF-E05, RF-D01 | Ações fixas no rodapé |
-| **Acervo** | Mídias enviadas, reaproveitar | Enviar: `POSTAGEM_EDITAR` | RF-B01, RF-B04 | Envio pela câmera ou galeria |
+| **Acervo** | Mídias enviadas, reaproveitar, **excluir** | Enviar e excluir: `POSTAGEM_EDITAR` | RF-B01, RF-B04, RF-B07 | Envio pela câmera ou galeria |
 | **Contas** | Contas conectadas, prazo do token, cota | Conectar, desconectar, fuso: `CONTA_GERENCIAR` | RF-A01 a RF-A08 | — |
 | **Métricas** | Da conta ativa: por postagem e da conta, com evolução | — | RF-G01 a RF-G07 | Gráficos com rolagem horizontal; números-chave em cartões |
 | **Notificações** | Sino: lista, marcar como lida | — | RF-J01 | Também acessível pelo toque no push |
@@ -325,6 +327,24 @@ P geométrico branco sobre o azul PostIt, com o ponto lima no miolo: o momento m
 | Favicon, 16 e 32 px | **Sem o ponto lima**, que some nesse tamanho |
 | Painel da Meta, nos dois apps | A mesma arte, no tamanho que o painel pedir |
 | Topo da barra lateral | 32 px, ao lado do nome PostIt em Bricolage Grotesque 800 |
+
+### Acervo
+
+**Cada card tem uma lixeira no canto superior direito.** No ponteiro preciso ela aparece com o cursor
+sobre o card ou com o **foco do teclado**; no toque fica **sempre visível**, porque hover não existe
+lá. O alvo é de 44 px, com o desenho de 32 px dentro. Imagem em uso mostra "Em uso numa postagem" e a
+lixeira nasce desligada — **apagada, não escondida**, pelo mesmo motivo das incompatíveis na
+composição.
+
+**"Selecionar" liga o modo de várias.** As lixeiras somem — um gesto destrutivo por card —, uma caixa
+aparece no canto superior esquerdo, e **o card inteiro é a caixa** (`role="checkbox"`): um controle
+menor dentro dele seria botão dentro de botão, com alvo de toque abaixo do mínimo. A barra "N
+selecionadas · Cancelar · Excluir N" fica grudada no rodapé no celular e na linha do título no
+computador.
+
+**Excluir várias pergunta antes**, numa folha de baixo no celular e caixa centrada no computador; a
+lixeira de um card, não — é uma imagem só, e chegar até ela já é deliberado. A confirmação é uma folha
+e não um segundo estado da barra: ali o "Excluir 8" e o "Confirmar" cairiam no mesmo pixel.
 
 ### Prévia da postagem
 

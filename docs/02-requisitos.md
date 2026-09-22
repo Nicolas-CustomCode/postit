@@ -123,7 +123,8 @@ subia sem nenhuma tela no meio.
 ### RF-B04 — Reaproveitar mídia **[MVP]**
 Uma mídia já enviada pode ser usada em mais de uma postagem.
 
-**Aceite:** apagar uma postagem não apaga a mídia se outra postagem ainda a referencia.
+**Aceite:** apagar uma postagem não apaga a mídia se outra postagem ainda a referencia. Excluir a
+mídia **em si** é o RF-B07, e ele recusa enquanto qualquer postagem viva ou publicada a usar.
 
 **Atendido em 21/09/2026.** A tela do Acervo lista o que foi enviado, e a composição escolhe dali —
 com as incompatíveis **apagadas, não escondidas**: quem enviou uma arte 9:16 precisa ver que ela está
@@ -148,6 +149,33 @@ Converter arquivos fora da especificação em vez de recusar: PNG para JPEG, rec
 mover o átomo `moov` para o início.
 
 **Aceite:** um PNG enviado é convertido e aceito, com aviso de que houve conversão.
+
+### RF-B07 — Excluir mídia do acervo **[MVP]**
+O usuário tira do acervo uma imagem que não serve mais. A `Midia` sai do banco e o objeto sai de
+`publicas/`.
+
+**A recusa é por uso, não por dono.** Enquanto qualquer postagem **viva** (`RASCUNHO`, `EM_REVISAO`,
+`APROVADO`, `AGENDADO`, `PROCESSANDO`, `FALHOU`) ou **`PUBLICADO`** usar a imagem, a exclusão é
+recusada — o histórico não se apaga. Quando **todas** as postagens que a usam estão `CANCELADO`, os
+vínculos `PostagemMidia` saem na mesma transação e a imagem vai embora.
+
+⚠️ **Sem isso, descartar um rascunho prenderia a imagem para sempre:** `discard()` só marca
+`CANCELADO` e não apaga o vínculo, e a chave estrangeira é `RESTRICT`.
+
+⚠️ **A tela avisa antes de a pessoa tentar.** A listagem diz quais imagens estão em uso, e a lixeira
+delas nasce desligada — descobrir pela recusa seria o mesmo defeito que o RF-B04 resolveu ao mostrar
+as incompatíveis apagadas em vez de escondidas.
+
+**Dois gestos, uma confirmação.** A lixeira do card apaga direto: é uma imagem, e chegar até ela já é
+deliberado. O "Excluir N" do modo seleção pergunta antes, porque um clique errado ali leva várias.
+
+**Aceite:** (1) uma imagem sem uso some da grade e a URL pública dela passa a responder 404; (2) uma
+imagem usada por postagem viva ou publicada é recusada, com a mensagem dizendo o motivo e **sem citar
+qual postagem** — o acervo é compartilhado entre contas; (3) uma imagem usada só por postagens
+descartadas é excluída, e os vínculos saem junto; (4) num lote em que uma está presa, **nenhuma** é
+excluída; (5) excluir exige `POSTAGEM_EDITAR`.
+
+**Atendido em 22/09/2026.**
 
 ---
 
@@ -487,7 +515,7 @@ saúde, e gerencia o próprio perfil. **Agir** exige permissão:
 
 | Permissão | Requisitos que ela libera |
 |---|---|
-| `POSTAGEM_EDITAR` | RF-B01 a RF-B05, RF-C01 a RF-C12, RF-E01, RF-E04 |
+| `POSTAGEM_EDITAR` | RF-B01 a RF-B05 e RF-B07, RF-C01 a RF-C12, RF-E01, RF-E04 |
 | `POSTAGEM_APROVAR` | RF-E02, RF-E03 — postagens de outros |
 | `POSTAGEM_APROVAR_PROPRIA` | RF-E02 — a própria postagem, junto com `POSTAGEM_APROVAR` |
 | `POSTAGEM_AGENDAR` | RF-D01, RF-D02, RF-D04, RF-D05, RF-D07, e as decisões de RF-F07 |

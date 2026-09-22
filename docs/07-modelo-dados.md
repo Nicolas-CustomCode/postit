@@ -755,8 +755,17 @@ Regras importantes demais para ficarem só na aplicação:
 
 ### Exclusão
 
-Nada de exclusão em cascata a partir de `Postagem` para `Midia` — o RF-B04 permite reaproveitamento,
-então apagar uma postagem só remove a ligação.
+Nada de exclusão em cascata a partir de `Postagem` para `Midia` — o RF-B04 permite reaproveitamento.
+E **descartar uma postagem não remove ligação nenhuma**: `discard` só marca `CANCELADO`, e a linha de
+`PostagemMidia` continua lá.
+
+**Excluir mídia (RF-B07) é a única exclusão física de conteúdo do modelo.** A `Midia` sai do banco e o
+objeto sai de `publicas/`, **nessa ordem** — o banco é a verdade, e um objeto apagado antes de a
+transação fechar deixaria imagem quebrada para sempre. A recusa é por uso: qualquer `PostagemMidia`
+cuja `Postagem` não esteja `CANCELADO` — inclusive `PUBLICADO` — segura a mídia. Quando todas as que a
+usam estão `CANCELADO`, essas `PostagemMidia` e as `Marcacao` delas saem na mesma transação; as duas
+são `RESTRICT`, então a ordem é `Marcacao` → `PostagemMidia` → `Midia`. `Postagem.capaMidiaId` é
+`SET NULL` e por isso entra na conferência: sem ela, um Reels perderia a capa em silêncio.
 
 `EventoPublicacao` e `Aprovacao` **nunca** são apagados junto com a postagem: a auditoria precisa
 sobreviver ao objeto auditado. A exclusão de postagem é lógica, não física.
