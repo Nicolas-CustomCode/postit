@@ -57,6 +57,7 @@ Não escreva `ecosystem.config.cjs`, configuração do Apache nem `deploy.sh` an
 | CSP, cabeçalhos, proxy | [docs/adr/0014-csp-e-cabecalhos-de-seguranca.md](docs/adr/0014-csp-e-cabecalhos-de-seguranca.md) |
 | Permissões, super admin, área de administração | [docs/adr/0015-super-admin-e-permissoes.md](docs/adr/0015-super-admin-e-permissoes.md) |
 | Envio de mídia | [docs/adr/0012-upload-direto-minio.md](docs/adr/0012-upload-direto-minio.md) |
+| Recorte, moldura, proporção que não cabe | [docs/adr/0025-ajustar-imagem-ao-formato.md](docs/adr/0025-ajustar-imagem-ao-formato.md) |
 | Deploy, Easypanel, Docker, PM2, Apache | [docs/10-infra-deploy.md](docs/10-infra-deploy.md) e [docs/adr/0020-easypanel-na-validacao.md](docs/adr/0020-easypanel-na-validacao.md) |
 | Token, segredo, cifra | [docs/11-seguranca.md](docs/11-seguranca.md) |
 | Telas, navegação, celular | [docs/13-telas-e-navegacao.md](docs/13-telas-e-navegacao.md) |
@@ -154,7 +155,10 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
     não é formato, é quantidade** — a Meta o monta a partir de `children` ([ADR 0024](docs/adr/0024-carrossel-e-quantidade-nao-formato.md)).
     A quantidade é conferida **antes** da proporção: em Stories, duas imagens 9:16 são as duas
     válidas, e reclamar da segunda mandaria trocar a foto, que não resolve.
-    Recortar é oferta, nunca imposição: recortar uma arte 9:16 para 4:5 destrói o formato pretendido.
+    Ajustar é oferta, nunca imposição: recortar uma arte 9:16 para 4:5 destrói o formato pretendido.
+    A que não serve **ganha saída** — recortar ou caber inteira com fundo —, e o ajuste gera uma
+    `Midia` nova, marcada como derivada, que não entra no acervo
+    ([ADR 0025](docs/adr/0025-ajustar-imagem-ao-formato.md)).
 11. **Verificação em duas etapas é obrigatória para todos.** Senha certa cria só um desafio; sessão só
     nasce depois do código. Não crie atalho, modo de teste nem exceção por usuário. Detalhes em
     [docs/adr/0013-autenticacao-com-duas-etapas.md](docs/adr/0013-autenticacao-com-duas-etapas.md).

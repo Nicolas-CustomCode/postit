@@ -368,11 +368,33 @@ As setas não são redundância, são o que esta página exige como alternativa 
 passa quem usa teclado ou leitor de tela. As duas entradas anunciam o resultado por `aria-live`.
 
 **"Enviar nova"** abre o seletor do sistema e mostra a imagem escolhida **antes de qualquer byte subir**, com
-"Usar esta imagem" ou "Escolher outra" — e, quando ela não serve ao formato, a oferta de recorte na mesma tela.
+"Usar esta imagem" ou "Escolher outra" — e, quando ela não serve ao formato, a oferta de ajuste na mesma tela.
 
 **O acervo abre como folha de baixo no celular e caixa centrada no computador**, resolvido **por classes, sem
 JavaScript de breakpoint** — o projeto não tem hook de media query, e renderizar um contêiner para cada tamanho
 faria dois `role="dialog"` na mesma página.
+
+### Ajustar a imagem que não serve (a partir de 22/09/2026)
+
+A foto de celular em pé é 3:4 e não cabe no feed pela API. Em vez de barrá-la, a tela **oferece o ajuste**, e há
+três portas para a mesma folha ([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)):
+
+| Porta | O que a pessoa vê | O que acontece depois |
+|---|---|---|
+| Card do seletor do acervo | "Ajustar para Feed" no lugar de "Não serve para Feed", e o card **não** apagado | A ajustada **entra** na postagem |
+| Tarja vermelha da miniatura na faixa | A mesma tarja de sempre, agora tocável | A ajustada **substitui** aquela posição |
+| Confirmação do "Enviar nova" | "Ajustar para Feed" ao lado de "Escolher outra" | Sobe a ajustada; a original não sobe |
+
+A folha tem duas pílulas — **Recortar** e **Imagem inteira** — sobre a mesma prévia, para dar para **comparar**: o
+véu escuro mostra o que sai no recorte, e a moldura branca mostra o que sobra na outra. Um controle deslizante
+escolhe a faixa que fica; no modo "imagem inteira" ele some, porque não há grau de liberdade nenhum.
+
+**Duas regras da tela:** ajustar nunca acontece sozinho — é sempre um toque —, e a tarja continua **vermelha** ao
+virar botão, porque a imagem segue bloqueando o salvamento. A cor diz o problema; o texto diz a saída. Enquanto o
+arquivo sobe, a folha **não fecha**.
+
+**Apagado passou a significar uma coisa só: "não dá".** Sobrou para a imagem presa numa postagem (RF-B07) e para a
+que não cabe porque a postagem chegou ao limite de mídias — nos dois casos não há ajuste que resolva.
 
 ---
 

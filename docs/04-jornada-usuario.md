@@ -164,7 +164,9 @@ apagado e nunca fica público. Ver [ADR 0012](adr/0012-upload-direto-minio.md).
 | Envio em andamento | Barra de progresso real, do navegador direto ao armazenamento |
 | Validando | "Conferindo o arquivo" — a API está inspecionando dimensões e, se vídeo, codecs e duração |
 | Mídia recusada | Mensagem específica: "JPEG de até 8 MB. Este arquivo tem 12 MB" — nunca "arquivo inválido" |
-| Proporção fora do feed | **Não é recusa**: a tela diz para que formatos a imagem serve e oferece duas saídas — "enviar como está" ou "recortar para o feed", com prévia do corte e a faixa de 4:5 a 1.91:1. Uma arte 9:16 é válida para Stories, e recortá-la à força destruiria o formato pretendido. **É a mesma tela do estado acima**, e a imagem aparece nela: decidir sobre proporção sem ver a foto era pedir confiança na memória |
+| Proporção fora do feed | **Não é recusa**: a tela diz para que formatos a imagem serve e oferece duas saídas — "enviar como está" ou "ajustar para o feed", com a faixa de 4:5 a 1.91:1 dita por extenso. Uma arte 9:16 é válida para Stories, e recortá-la à força destruiria o formato pretendido. **É a mesma tela do estado acima**, e a imagem aparece nela: decidir sobre proporção sem ver a foto era pedir confiança na memória |
+| Ajustando a imagem | Duas pílulas sobre a mesma prévia — **Recortar**, com véu escuro no que sai e um controle deslizante para a faixa que fica, e **Imagem inteira**, com a moldura branca. Alternar é um toque, porque a pergunta é de comparação. Desde 22/09/2026 esta tela também abre a partir de uma imagem **já no acervo**, pelo card do seletor ou pela tarja da miniatura ([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)) |
+| Imagem ajustada pronta | Ela entra na postagem — acrescentada, se veio do seletor; no lugar da anterior, se veio da tarja — e **não aparece no acervo**: é variante de uma que já está lá. A original fica intacta |
 | Legenda no limite | Contador vira alerta ao passar de 2200 caracteres, 30 hashtags ou 20 menções |
 | Marcando pessoas | Sobreposição da imagem com os pontos arrastáveis |
 | Horário no passado | Campo recusa e explica |

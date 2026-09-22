@@ -113,12 +113,25 @@ formato escolhido na postagem.
 
 **Aceite:** um vídeo de 5 minutos é aceito para Reels e recusado para Stories (limite de 60s), com
 a mensagem certa em cada caso. Uma imagem 9:16 é aceita para Stories e recusada para o feed, que aceita
-de 4:5 a 1.91:1 — e nesse caso o sistema **oferece o recorte**, sem impô-lo.
+de 4:5 a 1.91:1 — e nesse caso o sistema **oferece o ajuste**, sem impô-lo: recortar para a faixa, ou
+caber inteira com fundo branco. As duas produzem uma imagem nova e deixam a original intacta
+([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)).
+
+**Aceite do ajuste:** a imagem ajustada **não aparece no acervo** — ela é variante de uma que já está
+lá. Excluída a original, ela volta a aparecer. Ajustar nunca acontece sozinho: é sempre um toque de
+quem publica, e quem pede diz para qual formato.
 
 **Estado:** o envio genérico está pronto desde 18/09/2026; a conferência por formato acontece na tela
 de composição. **Desde 21/09/2026 a oferta e a confirmação são a mesma tela, e ela mostra a imagem** —
 antes, decidir sobre proporção era decidir sobre uma foto que não se via, e a imagem que já servia
-subia sem nenhuma tela no meio.
+subia sem nenhuma tela no meio. **Desde 22/09/2026 o ajuste também parte de uma imagem já enviada**,
+pelo seletor do acervo e pela tarja da faixa de mídia: até então, quem já tinha subido a foto 3:4 só
+podia mandar outra.
+
+⚠️ **A foto de celular em pé é 3:4, e 3:4 não cabe no feed pela API** — o aplicativo do Instagram a
+aceita desde maio de 2025, a API não acompanhou
+([08](08-integracao-instagram.md#o-aplicativo-aceita-34-a-api-não--observado-em-22092026)). É o caso
+mais comum que existe, e é por isso que a saída não pode ser "mande outra".
 
 ### RF-B04 — Reaproveitar mídia **[MVP]**
 Uma mídia já enviada pode ser usada em mais de uma postagem.
@@ -127,9 +140,14 @@ Uma mídia já enviada pode ser usada em mais de uma postagem.
 mídia **em si** é o RF-B07, e ele recusa enquanto qualquer postagem viva ou publicada a usar.
 
 **Atendido em 21/09/2026.** A tela do Acervo lista o que foi enviado, e a composição escolhe dali —
-com as incompatíveis **apagadas, não escondidas**: quem enviou uma arte 9:16 precisa ver que ela está
-lá e por que não serve ao feed. Antes disso o Acervo recebia imagens que nunca eram usadas, porque a
-composição mandava uma nova a cada postagem.
+com as incompatíveis **à vista, nunca escondidas**: quem enviou uma arte 9:16 precisa ver que ela está
+lá. Antes disso o Acervo recebia imagens que nunca eram usadas, porque a composição mandava uma nova a
+cada postagem.
+
+Desde 22/09/2026 a incompatível deixou de estar apagada e **virou a porta do ajuste** (RF-B03): o card
+diz "Ajustar para Feed" no lugar de "Não serve para Feed". A opacidade voltou a significar só uma
+coisa — "não dá" —, e sobrou para a que está presa em postagem e para a que não cabe porque a postagem
+já chegou ao limite.
 
 As duas portas — escolher do acervo e enviar nova — saíram de dois botões soltos para um **menu no
 quadrado "Adicionar"** que fecha a faixa de miniaturas, e o acervo passou a abrir num diálogo: folha

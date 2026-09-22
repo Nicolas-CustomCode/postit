@@ -182,6 +182,7 @@ erDiagram
         string codecAudio
         boolean moovNoInicio
         string hashSha256
+        string derivadaDeId FK
         datetime criadoEm
     }
 
@@ -487,6 +488,19 @@ para recusar cedo o que a Meta recusaria tarde. O `hashSha256` detecta reenvio d
 `largura` e `altura`, comparadas com a faixa daquele formato na hora de compor. Por isso as medidas
 são gravadas **já com a rotação do EXIF aplicada**: a foto tirada em pé chega deitada nos bytes, e
 guardá-la deitada faria a composição oferecê-la para o feed por engano.
+
+`derivadaDeId` aponta para a `Midia` de que esta nasceu, quando ela é o **ajuste** de uma imagem que
+já estava no acervo — recortada ou emoldurada para caber num formato ([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)).
+É `NULL` na esmagadora maioria das linhas, e a listagem do acervo mostra só essas: a variante é a
+mesma foto, e listá-la faria uma foto virar três.
+
+⚠️ **Isto não contradiz o parágrafo acima.** Origem é **fato**, da mesma família de `bytes` e
+`hashSha256` — "este arquivo saiu daquele". Guardar **para que formato** o ajuste foi feito é que
+seria intenção de uso, e continua proibido.
+
+`ON DELETE SET NULL`, e não `RESTRICT`: a derivada pode estar numa postagem agendada, e apagar a
+original não pode impedir a publicação. A consequência aceita é que, sem original, ela volta a
+aparecer no acervo — o que é verdade, porque deixou de ser variante de alguma coisa.
 
 ### `Postagem`
 A unidade central. Existe no nosso banco muito antes de existir no Instagram — e pode nunca chegar

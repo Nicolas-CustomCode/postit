@@ -226,6 +226,8 @@ testes** e o app PostIt Dev — nunca numa conta real. Não há homologação ([
 | 15 | Abrir a mesma postagem em dois aparelhos e salvar nos dois | O segundo recebe o aviso de conflito e não perde o que digitou |
 | 16 | Compor, marcar pessoas e agendar pelo celular | Tudo funciona sem computador |
 | 17 | Excluir do acervo uma imagem **enviada de verdade** e abrir a URL dela | 404. É a única conferência que cobre o caminho completo com um objeto que existiu mesmo: no Playwright a mídia é semeada no banco e nunca teve arquivo no MinIO |
+| 18 | Enviar uma foto de celular em pé (3:4), escolhê-la para o feed pelo acervo e **ajustar** — nos dois modos | O recorte sai na proporção escolhida e a imagem inteira sai com faixas brancas; as duas entram na postagem, **e nenhuma das duas aparece no acervo**. Mesma razão do item 17: o canvas precisa dos pixels de verdade, e o e2e semeia mídia sem objeto no MinIO |
+| 19 | Publicar a imagem ajustada e comparar com o que o aplicativo faz com a mesma foto | A Meta aceita sem `36003 / 2207009`. É o que fecha o achado registrado no [08](08-integracao-instagram.md#o-aplicativo-aceita-34-a-api-não--observado-em-22092026) |
 
 O teste 6 é o mais importante do projeto inteiro. Se ele falhar, nada mais importa.
 

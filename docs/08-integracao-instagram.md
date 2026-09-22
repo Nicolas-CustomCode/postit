@@ -570,6 +570,29 @@ Três cuidados que só apareceram ao implementar:
 - **Recomendado não é obrigatório.** Para imagem de Stories a Meta só diz "9:16 recomendado". Sem faixa
   publicada não há o que validar, e inventar um limite recusaria material legítimo.
 
+#### O aplicativo aceita 3:4; a API não — observado em 22/09/2026
+
+**A foto de celular tirada em pé é 3:4** — é o padrão de quase toda câmera — e **3:4 fica fora da
+faixa do feed**: 3 × 5 = 15 é menor que 4 × 4 = 16, ou seja, mais alta que o mínimo de 4:5. Pela API,
+ela é recusada com `36003 / 2207009` (tabela de erros acima).
+
+**Pelo aplicativo, a mesma foto é aceita.** O Instagram passou a publicar 3:4 sem recorte em maio de
+2025, anunciado por Adam Mosseri no Threads — *"now supports 3:4 aspect ratio photos, the format that
+almost every phone camera defaults to"*, para foto única e carrossel
+([9to5Mac, 29/05/2025](https://9to5mac.com/2025/05/29/instagram-changes-standard-photo-aspect-ratio/)).
+A grade do perfil já tinha virado 3:4 em janeiro de 2025. Confirmado na mão em 22/09/2026: a mesma
+foto que a API recusa, o aplicativo publica, oferecendo redimensionar.
+
+⚠️ **A fonte do lado do aplicativo é jornalística, não documentação de desenvolvedor.** A Meta não
+atualizou a tabela de especificações da API, e **é a tabela que vale aqui** — a API é o que este
+projeto chama. O registro existe para explicar a diferença que o usuário percebe, não para afrouxar
+validação: continuar recusando 3:4 na composição do feed está certo enquanto a API o recusar.
+
+**O que o projeto faz com isso.** Em vez de barrar a imagem, a tela **oferece o ajuste** — recortar
+para a faixa ou emoldurar a imagem inteira, escolha de quem publica
+([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)). O aplicativo faz o primeiro; o segundo é
+invenção nossa.
+
 ### Reels
 
 | Item | Valor |
