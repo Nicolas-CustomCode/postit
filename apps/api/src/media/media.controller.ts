@@ -2,7 +2,9 @@ import { Body, Controller, Get, HttpCode, Post } from "@nestjs/common";
 import {
   confirmUploadSchema,
   deleteMediaSchema,
+  uploadPolicySchema,
   type DeleteMediaInput,
+  type UploadPolicyInput,
   type MediaSummary,
   type UploadPermission,
 } from "@repo/shared";
@@ -44,8 +46,11 @@ export class MediaController {
   @RequirePermission("POST_EDIT")
   @Post("upload-policy")
   @HttpCode(200)
-  authorize(@Auth() auth: AuthContext): Promise<UploadPermission> {
-    return this.media.authorizeUpload(auth.userId, new Date());
+  authorize(
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(uploadPolicySchema)) body: UploadPolicyInput,
+  ): Promise<UploadPermission> {
+    return this.media.authorizeUpload(auth.userId, new Date(), body.derivedFrom);
   }
 
   /** Confere o que foi enviado. Passou, vira `Midia`; não passou, é apagado. */

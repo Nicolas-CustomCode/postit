@@ -14,14 +14,13 @@ import {
   type ImageSpec,
   type MediaSummary,
   type MediaPreProblem,
-  type UploadPermission,
 } from "@repo/shared";
-import { confirmUploadAction, requestUploadPermissionAction } from "@/lib/actions/media";
 import { ImageAdjust, type AdjustChoice } from "@/components/media/image-adjust";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { blobToFile, cropToJpeg, fitToJpeg, loadImage, type LoadedImage } from "@/lib/media/crop-image";
+import { uploadImage } from "@/lib/media/upload";
 
 /**
  * Escolher uma imagem e enviá-la (RF-B01, RF-B02, RF-B03).
@@ -175,34 +174,18 @@ export function UploadField({
   }
 
   async function enviar(file: File): Promise<void> {
-    const permissao = await requestUploadPermissionAction();
-    if (!permissao.ok) {
-      setErro(permissao.message);
+    // Os três passos moram em `lib/media/upload.ts` desde que ganharam um
+    // segundo chamador: o ajuste de imagem que já está no acervo.
+    const resultado = await uploadImage(file, (passo) => setEstado(passo));
+
+    if (!resultado.ok) {
+      setErro(resultado.message);
       setEstado({ fase: "parado" });
       return;
     }
 
-    setEstado({ fase: "enviando", porcento: 0 });
-    try {
-      await enviarAoArmazenamento(permissao.data, file, (porcento) => setEstado({ fase: "enviando", porcento }));
-    } catch {
-      // O armazenamento recusa aqui o que passa do limite ou do tipo assinado —
-      // e é ele que precisa recusar, antes de o arquivo ocupar espaço.
-      setErro("Não consegui enviar o arquivo. Tente de novo.");
-      setEstado({ fase: "parado" });
-      return;
-    }
-
-    setEstado({ fase: "conferindo" });
-    const confirmado = await confirmUploadAction(permissao.data.ticket);
-    if (!confirmado.ok) {
-      setErro(completarMensagem(confirmado.code, confirmado.message, file.size));
-      setEstado({ fase: "parado" });
-      return;
-    }
-
-    setEstado({ fase: "pronto", midia: confirmado.data });
-    onUploaded?.(confirmado.data);
+    setEstado({ fase: "pronto", midia: resultado.media });
+    onUploaded?.(resultado.media);
   }
 
   /*
@@ -452,35 +435,6 @@ function rotulo(estado: Estado, label?: string): string {
   }
 }
 
-/**
- * Envia o arquivo ao armazenamento com os campos assinados.
- *
- * ⚠️ **O arquivo é o último campo do formulário.** É exigência do protocolo: o
- * armazenamento lê os campos na ordem, e o que vier depois do arquivo é
- * ignorado — inclusive a assinatura.
- */
-function enviarAoArmazenamento(
-  permissao: UploadPermission,
-  file: File,
-  aoProgredir: (porcento: number) => void,
-): Promise<void> {
-  const form = new FormData();
-  for (const [nome, valor] of Object.entries(permissao.fields)) form.append(nome, valor);
-  form.append("file", file);
-
-  return new Promise((resolver, rejeitar) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", permissao.url);
-
-    xhr.upload.onprogress = (evento) => {
-      if (evento.lengthComputable) aoProgredir(Math.round((evento.loaded / evento.total) * 100));
-    };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolver() : rejeitar(new Error(String(xhr.status))));
-    xhr.onerror = () => rejeitar(new Error("rede"));
-    xhr.send(form);
-  });
-}
-
 /** O que a tela mesma detectou, antes de enviar. */
 function mensagemLocal(problema: MediaPreProblem, bytes: number): string {
   switch (problema) {
@@ -493,14 +447,3 @@ function mensagemLocal(problema: MediaPreProblem, bytes: number): string {
   }
 }
 
-/**
- * Completa a mensagem da API com o que só a tela sabe.
- *
- * A API manda o limite; o tamanho real do arquivo ela não tem por que devolver —
- * quem o mediu foi o navegador. Juntando os dois sai a frase que o docs/04 pede:
- * "JPEG de até 8 MB. Este arquivo tem 12,3 MB".
- */
-function completarMensagem(code: string, message: string, bytes: number): string {
-  if (code === "MEDIA_TOO_LARGE") return `${message}. Este arquivo tem ${megabytes(bytes)} MB.`;
-  return message;
-}

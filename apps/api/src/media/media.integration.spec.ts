@@ -534,6 +534,153 @@ describe("envio de mídia", () => {
     });
   });
 
+  /**
+   * A mídia ajustada a partir de uma que já estava no acervo (RF-B03).
+   *
+   * A origem viaja **dentro do comprovante assinado**, não numa chamada depois:
+   * assim a `Midia` nasce já marcada, e não existe instante em que a derivada
+   * apareça no acervo.
+   */
+  describe("mídia derivada", () => {
+    it("o comprovante carrega a origem, e a derivada nasce marcada", async () => {
+      const token = await entrar();
+      const original = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1350 }))).body[
+        "id"
+      ] as string;
+
+      const permissao = (
+        await api.request({
+          method: "POST",
+          url: "/media/upload-policy",
+          token,
+          payload: { derivedFrom: original },
+        })
+      ).body;
+      expect(await enviar(permissao, jpegBytes({ width: 1080, height: 1080 }))).toBe(204);
+
+      const derivada = await api.request({
+        method: "POST",
+        url: "/media/confirm",
+        token,
+        payload: { ticket: permissao["ticket"] },
+      });
+
+      expect(derivada.statusCode).toBe(201);
+      const linha = await api.db.media.findUniqueOrThrow({
+        where: { id: derivada.body["id"] as string },
+      });
+      expect(linha.derivedFromId).toBe(original);
+
+      const storage = api.app.get(StorageService);
+      for (const id of [original, linha.id]) await storage.removePublic(await objetoPublico(id));
+    });
+
+    it("a derivada não aparece no acervo, e a original continua lá", async () => {
+      const token = await entrar();
+      const original = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1350 }))).body[
+        "id"
+      ] as string;
+
+      const permissao = (
+        await api.request({
+          method: "POST",
+          url: "/media/upload-policy",
+          token,
+          payload: { derivedFrom: original },
+        })
+      ).body;
+      await enviar(permissao, jpegBytes({ width: 1080, height: 1080 }));
+      const derivada = (
+        await api.request({
+          method: "POST",
+          url: "/media/confirm",
+          token,
+          payload: { ticket: permissao["ticket"] },
+        })
+      ).body["id"] as string;
+
+      const acervo = (await api.request({ method: "GET", url: "/media", token }))
+        .body as unknown as { id: string }[];
+
+      expect(acervo.map((item) => item.id)).toEqual([original]);
+      expect(await api.db.media.count()).toBe(2);
+
+      const storage = api.app.get(StorageService);
+      for (const id of [original, derivada]) await storage.removePublic(await objetoPublico(id));
+    });
+
+    /*
+     * A conferência acontece antes de assinar, onde recusar não custa nada:
+     * deixar para a confirmação estouraria a chave estrangeira depois de o
+     * arquivo já ter subido.
+     */
+    it("origem inexistente é recusada antes de o envio começar", async () => {
+      const token = await entrar();
+
+      const resposta = await api.request({
+        method: "POST",
+        url: "/media/upload-policy",
+        token,
+        payload: { derivedFrom: "00000000-0000-4000-8000-000000000000" },
+      });
+
+      expect(resposta.statusCode).toBe(400);
+      expect(resposta.body).toMatchObject({ code: "MEDIA_UPLOAD_INVALID" });
+    });
+
+    /*
+     * O caminho de sempre continua sendo um POST sem corpo. Se ele quebrasse,
+     * **todo** o envio do projeto quebraria junto — daí o `.default({})` no
+     * schema.
+     */
+    it("pedir permissão sem corpo continua funcionando, e grava origem nula", async () => {
+      const token = await entrar();
+      const resposta = await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }));
+
+      expect(resposta.statusCode).toBe(201);
+      const linha = await api.db.media.findUniqueOrThrow({ where: { id: resposta.body["id"] as string } });
+      expect(linha.derivedFromId).toBeNull();
+
+      await api.app.get(StorageService).removePublic(linha.objectKey);
+    });
+
+    it("excluir a original solta a derivada, que volta a aparecer no acervo", async () => {
+      const token = await entrar();
+      const original = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1350 }))).body[
+        "id"
+      ] as string;
+
+      const permissao = (
+        await api.request({
+          method: "POST",
+          url: "/media/upload-policy",
+          token,
+          payload: { derivedFrom: original },
+        })
+      ).body;
+      await enviar(permissao, jpegBytes({ width: 1080, height: 1080 }));
+      const derivada = (
+        await api.request({
+          method: "POST",
+          url: "/media/confirm",
+          token,
+          payload: { ticket: permissao["ticket"] },
+        })
+      ).body["id"] as string;
+
+      expect(
+        (await api.request({ method: "POST", url: "/media/delete", token, payload: { ids: [original] } }))
+          .statusCode,
+      ).toBe(200);
+
+      const acervo = (await api.request({ method: "GET", url: "/media", token }))
+        .body as unknown as { id: string }[];
+      expect(acervo.map((item) => item.id)).toEqual([derivada]);
+
+      await api.app.get(StorageService).removePublic(await objetoPublico(derivada));
+    });
+  });
+
   describe("o comprovante", () => {
     it("recusa um comprovante inventado", async () => {
       const token = await entrar();

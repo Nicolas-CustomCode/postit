@@ -28,6 +28,13 @@ export class MediaQueryService {
 
   async list(): Promise<MediaSummary[]> {
     const midias = await this.prisma.db.media.findMany({
+      /*
+       * A derivada é variante de uma que já está aqui (RF-B03): mostrá-la faria
+       * a mesma foto virar duas ou três entradas, que é o oposto do que o
+       * acervo serve. Sem original — se ele for excluído —, ela volta a
+       * aparecer, e é verdade: deixou de ser variante de alguma coisa.
+       */
+      where: { derivedFromId: null },
       orderBy: { createdAt: "desc" },
       take: MEDIA_LIST_LIMIT,
       include: {

@@ -438,9 +438,26 @@ model Media {
   sha256      String   @map("hashSha256")
   createdAt   DateTime @default(now()) @map("criadoEm") @db.Timestamptz(3)
 
-  usages     PostMedia[]
-  coverOfPosts Post[]    @relation("PostCover")
+  /// De qual mídia do acervo esta nasceu — recortada ou enquadrada (RF-B03).
+  ///
+  /// ⚠️ **É fato de origem, não intenção de uso.** A regra continua valendo:
+  /// origem é da mesma família de `bytes` e `hashSha256`, e guardar **para que
+  /// formato** a mídia foi feita seria a violação.
+  ///
+  /// SET NULL e não RESTRICT: a derivada pode estar numa postagem agendada, e
+  /// apagar a original não pode impedir a publicação. A consequência aceita é
+  /// que, sem original, a derivada volta a aparecer no acervo — o que é verdade,
+  /// porque ela deixou de ser variante de alguma coisa.
+  derivedFromId String? @map("derivadaDeId") @db.Uuid
 
+  usages       PostMedia[]
+  coverOfPosts Post[]     @relation("PostCover")
+  derivedFrom  Media?     @relation("MediaDerivation", fields: [derivedFromId], references: [id], onDelete: SetNull)
+  derivatives  Media[]    @relation("MediaDerivation")
+
+  // Serve ao filtro do acervo (derivadaDeId IS NULL) e ao próprio SET NULL, que
+  // procura as filhas ao apagar a mãe.
+  @@index([derivedFromId])
   @@map("Midia")
 }
 

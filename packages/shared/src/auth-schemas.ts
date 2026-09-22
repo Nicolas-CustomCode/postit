@@ -85,6 +85,26 @@ export const confirmUploadSchema = z.strictObject({
 export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
 
 /**
+ * Pedir autorização de envio (ADR 0012).
+ *
+ * `derivedFrom` é a mídia do acervo de que esta nasce — recortada ou enquadrada
+ * (RF-B03). A API confere que ela existe **antes de assinar**, onde recusar não
+ * custa nada: deixar para a confirmação estouraria a chave estrangeira depois de
+ * o arquivo já ter subido.
+ *
+ * ⚠️ **O `.default({})` não é enfeite.** Esta rota sempre foi um POST sem corpo,
+ * e o cliente do Next omite o corpo quando não há o que mandar — sem o padrão,
+ * um `strictObject` recebendo `undefined` derrubaria **todo** o envio do
+ * projeto, não só o caminho novo.
+ */
+export const uploadPolicySchema = z
+  .strictObject({
+    derivedFrom: z.string().uuid().optional(),
+  })
+  .default({});
+export type UploadPolicyInput = z.infer<typeof uploadPolicySchema>;
+
+/**
  * Excluir do acervo (RF-B07).
  *
  * Uma lista sempre, mesmo para a lixeira de um card só: a regra de recusa é a

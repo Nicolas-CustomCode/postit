@@ -25,6 +25,15 @@ export interface UploadTicket {
   readonly maxBytes: number;
   /** Quando o comprovante deixa de valer, em milissegundos. */
   readonly expiresAt: number;
+  /**
+   * De qual mídia do acervo esta nasce, quando é ajuste de uma existente.
+   *
+   * Viaja **dentro do comprovante assinado**, e não numa chamada depois: a
+   * `Midia` nasce já marcada, na mesma `create`. Marcar em seguida abriria uma
+   * janela em que a derivada existe sem marcação — e nessa janela ela apareceria
+   * no acervo.
+   */
+  readonly derivedFrom?: string | undefined;
 }
 
 export function signUploadTicket(ticket: UploadTicket, secret: Buffer): string {
@@ -35,6 +44,7 @@ export function signUploadTicket(ticket: UploadTicket, secret: Buffer): string {
       t: ticket.contentType,
       m: ticket.maxBytes,
       e: ticket.expiresAt,
+      d: ticket.derivedFrom,
       // Dois envios do mesmo usuário no mesmo milissegundo não geram o mesmo
       // texto. Não é conferido na volta: a chave já é única.
       n: randomBytes(8).toString("base64url"),
@@ -75,14 +85,15 @@ export function readUploadTicket(
   // um corpo `null` escaparia do catch e só estouraria ao ler um campo.
   if (typeof dados !== "object" || dados === null) return null;
 
-  const { k, u, t, m, e } = dados as Record<string, unknown>;
+  const { k, u, t, m, e, d } = dados as Record<string, unknown>;
   if (typeof k !== "string" || typeof u !== "string" || typeof t !== "string") return null;
   if (typeof m !== "number" || typeof e !== "number") return null;
+  if (d !== undefined && typeof d !== "string") return null;
 
   if (u !== userId) return null;
   if (e < now.getTime()) return null;
 
-  return { objectKey: k, userId: u, contentType: t, maxBytes: m, expiresAt: e };
+  return { objectKey: k, userId: u, contentType: t, maxBytes: m, expiresAt: e, derivedFrom: d };
 }
 
 function sign(corpo: string, secret: Buffer): string {

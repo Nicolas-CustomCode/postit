@@ -55,7 +55,17 @@ export class MediaDomainService {
    * a proteção (ADR 0005, docs/11). São 128 bits aleatórios, só US-ASCII, como
    * a Meta exige do caminho do objeto.
    */
-  async authorizeUpload(userId: string, now: Date) {
+  async authorizeUpload(userId: string, now: Date, derivedFrom?: string) {
+    /*
+     * A origem é conferida **aqui**, antes de assinar, onde recusar não custa
+     * nada: deixar para a confirmação estouraria a chave estrangeira depois de o
+     * arquivo já ter subido.
+     */
+    if (derivedFrom !== undefined) {
+      const origem = await this.prisma.db.media.findUnique({ where: { id: derivedFrom } });
+      if (origem === null) throw new MediaUploadInvalidError();
+    }
+
     const objectKey = `${RECEIVED_PREFIX}postagens/${randomBytes(16).toString("hex")}.jpg`;
 
     const politica = await this.storage.signedUpload({
@@ -75,6 +85,7 @@ export class MediaDomainService {
         contentType: IMAGE_UPLOAD_SPEC.mime,
         maxBytes: IMAGE_UPLOAD_SPEC.maxBytes,
         expiresAt: politica.expiresAt.getTime(),
+        derivedFrom,
       },
       this.config.uploadSecret,
     );
@@ -124,6 +135,9 @@ export class MediaDomainService {
           width: fatos.width,
           height: fatos.height,
           sha256: createHash("sha256").update(bytes).digest("hex"),
+          // Já nasce marcada: a origem veio assinada no comprovante, então não
+          // existe instante em que a derivada apareça no acervo.
+          derivedFromId: ticket.derivedFrom ?? null,
         },
       });
 

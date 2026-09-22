@@ -21,13 +21,22 @@ import { failure, success, type ActionResult } from "./result";
  */
 
 /** Para onde mandar o arquivo, com quais campos, e por quanto tempo vale. */
-export async function requestUploadPermissionAction(): Promise<ActionResult<UploadPermission>> {
+export async function requestUploadPermissionAction(
+  derivedFrom?: string,
+): Promise<ActionResult<UploadPermission>> {
   await requireSession();
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
 
   try {
     return success(
-      await apiFetch<UploadPermission>({ method: "POST", path: "/media/upload-policy", token }),
+      await apiFetch<UploadPermission>({
+        method: "POST",
+        path: "/media/upload-policy",
+        // Sempre um corpo, mesmo vazio: o cliente omite `body` quando é
+        // `undefined`, e do outro lado o schema tem `.default({})` para o caso.
+        body: derivedFrom === undefined ? {} : { derivedFrom },
+        token,
+      }),
     );
   } catch (error) {
     return failure(error);
