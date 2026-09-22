@@ -73,6 +73,17 @@ Como o sistema não age sozinho, ele precisa ser **excelente** em avisar:
 
 Sem isso, a decisão vira omissão.
 
+## O teto de 45 minutos — acrescentado em 22/09/2026
+
+A regra dos 15 minutos vale para o **início**. Uma postagem que começou no horário e caiu em retentativa
+podia, pela espera real do pg-boss (1–2, 2–4, 4–8 e 8–15 minutos entre as tentativas, mais o preparo do
+container), sair bem depois de 45 minutos — e o docs/09 prometia "uns 20".
+
+Decidido: **passados 45 minutos do horário marcado, nenhuma tentativa cria container nem publica.** A
+postagem vai para `FALHOU` com a causa `LATE_CEILING` e espera decisão humana, como qualquer outra falha
+definitiva. É o mesmo raciocínio desta decisão, levado ao fim da linha: uma postagem das 10h não sai
+quase às 11h sem ninguém decidir.
+
 ## Reversibilidade
 
 **Alta.** Passar a aceitar atraso automático, ou adicionar janela de tolerância por postagem, é

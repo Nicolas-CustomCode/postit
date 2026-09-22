@@ -106,6 +106,8 @@ export class AccountsDomainService {
             tokenRefreshedAt: null,
             scopes: INSTAGRAM_SCOPES.join(","),
             active: true,
+            // Token novo: o sinal de acesso perdido não vale mais (docs/07).
+            accessLostAt: null,
           },
         });
         await tx.tokenEvent.create({

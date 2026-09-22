@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@repo/database";
 import { generateSync } from "otplib";
-import type { Permission } from "@repo/shared";
+import type { Permission, PostFormat, PostStatus } from "@repo/shared";
 import { encryptSecret } from "../crypto";
 import { hashPassword } from "../../auth/password";
 import { newTotpSecret } from "../../auth/totp";
@@ -107,6 +107,58 @@ export async function createTestAccount(
   });
 
   return { id: account.id, username: account.username };
+}
+
+/**
+ * Postagem pronta para o motor de publicação, já com as imagens no lugar.
+ *
+ * O padrão é `PROCESSANDO` — como o despachante a deixa — para o teste do
+ * publicador começar dali; o do despachante pede `SCHEDULED`. As mídias são linhas
+ * sem arquivo no MinIO: a Meta falsa não baixa nada.
+ */
+export async function createTestPost(
+  db: PrismaClient,
+  options: {
+    accountId: string;
+    createdById: string;
+    status?: PostStatus;
+    format?: PostFormat;
+    caption?: string | null;
+    mediaCount?: number;
+    scheduledAt?: Date;
+    attempts?: number;
+    lastErrorCode?: string | null;
+  },
+): Promise<{ id: string; version: number; objectKeys: string[] }> {
+  const objectKeys: string[] = [];
+  const mediaIds: string[] = [];
+  for (let i = 0; i < (options.mediaCount ?? 1); i += 1) {
+    const objectKey = `publicas/postagens/${Math.random().toString(16).slice(2, 12)}.jpg`;
+    const media = await db.media.create({
+      data: { objectKey, mimeType: "image/jpeg", bytes: 500_000, width: 1080, height: 1350, sha256: "b".repeat(64) },
+    });
+    objectKeys.push(objectKey);
+    mediaIds.push(media.id);
+  }
+
+  const post = await db.post.create({
+    data: {
+      accountId: options.accountId,
+      createdById: options.createdById,
+      scheduledById: options.createdById,
+      format: options.format ?? "FEED",
+      status: options.status ?? "PROCESSING",
+      caption: options.caption === undefined ? "Legenda de teste" : options.caption,
+      scheduledAt: options.scheduledAt ?? new Date(),
+      attempts: options.attempts ?? 0,
+      lastErrorCode: options.lastErrorCode ?? null,
+      media: {
+        create: mediaIds.map((mediaId, position) => ({ mediaId, position, altText: `Descrição ${position}` })),
+      },
+    },
+  });
+
+  return { id: post.id, version: post.version, objectKeys };
 }
 
 /**

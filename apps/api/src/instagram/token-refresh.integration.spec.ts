@@ -148,6 +148,20 @@ describe("renovação de token do Instagram", () => {
     expect(eventos[0]).toMatchObject({ action: "REFRESH", result: "FATAL_ERROR" });
   });
 
+  // O mesmo sinal que o publicador acende (docs/07, `acessoPerdidoEm`).
+  it("recusa definitiva sinaliza a conta; renovar com sucesso apaga o sinal", async () => {
+    const perdida = await contaConectadaHa(31, "token-revogado-pela-pessoa");
+    const recuperada = await contaConectadaHa(31);
+    await api.db.account.update({ where: { id: recuperada.id }, data: { accessLostAt: new Date() } });
+
+    await refresh.refreshDue(new Date());
+
+    const sinal = async (id: string) =>
+      (await api.db.account.findUniqueOrThrow({ where: { id }, select: { accessLostAt: true } })).accessLostAt;
+    expect(await sinal(perdida.id)).not.toBeNull();
+    expect(await sinal(recuperada.id)).toBeNull();
+  });
+
   it("uma conta com problema não impede as outras de renovar", async () => {
     await contaConectadaHa(31, "token-revogado-pela-pessoa");
     const boa = await contaConectadaHa(31);

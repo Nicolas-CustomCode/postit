@@ -16,10 +16,11 @@ import { BossService } from "./boss.service";
 @Global()
 @Module({})
 export class QueuesModule {
-  static forEnv(env: WorkerEnv): DynamicModule {
+  /** `options.schema` só nos testes — ver `BossService`. */
+  static forEnv(env: WorkerEnv, options: { schema?: string } = {}): DynamicModule {
     return {
       module: QueuesModule,
-      providers: [{ provide: BossService, useFactory: () => new BossService(env.DATABASE_URL) }],
+      providers: [{ provide: BossService, useFactory: () => new BossService(env.DATABASE_URL, options) }],
       exports: [BossService],
     };
   }

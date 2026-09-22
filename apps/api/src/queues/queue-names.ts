@@ -36,6 +36,13 @@ export const ACCOUNT_METRICS_CRON = "0 6 * * *";
 /** Varre as postagens vencidas e entrega cada uma ao publicador (docs/09, "O despachante"). */
 export const DISPATCH_QUEUE = "despachar";
 
+/**
+ * A cada minuto, em UTC. O pg-boss confere os agendamentos a cada 30 segundos,
+ * então a varredura roda mais ou menos uma vez por minuto — e olha um minuto
+ * adiante para compensar (docs/09).
+ */
+export const DISPATCH_CRON = "* * * * *";
+
 /** Cria os containers e publica uma postagem (docs/09, "O publicador"). */
 export const PUBLISH_QUEUE = "publicar-instagram";
 

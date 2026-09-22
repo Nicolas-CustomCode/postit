@@ -136,25 +136,27 @@ por minuto.
    (RF-D09)
 3. Confere se a postagem está atrasada demais — ver [Atraso por indisponibilidade](#atraso-por-indisponibilidade)
 4. Numa **única transação**: muda o status para `PROCESSANDO` e cria a tarefa de publicação
+5. Depois da varredura, **recolhe as postagens sem dono** — ver [A rede de segurança](#a-rede-de-segurança-recolher-as-postagens-sem-dono)
 
 ```ts
-// apps/api/src/publishing/dispatcher.service.ts — esboço
-// a forma final depende da versão instalada do pg-boss
-await this.prisma.$transaction(async (tx) => {
-  // trava otimista: só muda se ainda estiver AGENDADO
-  const travou = await tx.postagem.updateMany({
-    where: { id: postagem.id, status: 'AGENDADO' },
-    data: { status: 'PROCESSANDO' },
-  })
-  if (travou.count === 0) return   // outra execução já pegou esta postagem
+// apps/api/src/publishing/instagram/dispatcher.service.ts — resumido
+await this.prisma.db.$transaction(async (tx) => {
+  // trava otimista: só muda se ainda estiver AGENDADO **e na versão que a varredura leu**
+  if (!(await this.store.dispatch(tx, postId, version))) return false
 
-  await this.boss.send('publicar-instagram', { postagemId: postagem.id }, {
-    singletonKey: postagem.id,       // não aceita duas tarefas da mesma postagem
-    startAfter: postagem.publicarEm, // começa no instante exato
-    db: fromPrisma(tx),              // entra na mesma transação
+  const jobId = await this.queues.boss.send(PUBLISH_QUEUE, { postId, version }, {
+    singletonKey: postId,   // numa fila exclusive — ver camada 1
+    startAfter: scheduledAt,
+    db: fromPrisma(tx),     // entra na mesma transação
   })
+  if (jobId === null) throw new DispatchConflict()   // a duplicata não lança: desfaz à mão
 })
 ```
+
+**A versão na condição não é zelo.** Reagendar uma postagem `AGENDADO` mantém o status e sobe a
+`versao`. Sem ela na condição, uma pessoa que reagenda entre a leitura da varredura e a transição veria
+a tarefa nascer com o horário **velho** — e a postagem sair antes do que ela acabou de marcar. A versão
+também vai na tarefa: é por ela que o publicador e o tratador de falhas sabem de que ciclo a tarefa é.
 
 A opção `db: fromPrisma(tx)` é o ponto mais importante do desenho. Segundo a
 [documentação de adaptadores](https://pgboss.io/api/adapters): *"if the transaction rolls back, so
@@ -202,7 +204,9 @@ Regra: **uma postagem só começa a ser publicada até 15 minutos depois do hor�
   tarefa pode ter sido criada antes da queda e só executada depois dela
 
 A tolerância vale para o **início**. Uma postagem que começou no horário e entrou em retentativa pode
-terminar alguns minutos depois — ver [Retentativa](#retentativa).
+terminar depois — mas nunca passa do **teto de 45 minutos**: passado dele, nenhuma tentativa cria
+container nem chama `media_publish`, e a postagem vai para `FALHOU` com a causa `LATE_CEILING`. Decidido
+em 22/09/2026, depois de conferir as esperas reais do pg-boss — ver [Retentativa](#retentativa).
 
 ---
 
@@ -394,20 +398,59 @@ ambíguo: a chamada de publicação deu timeout e não sabemos se a Meta publico
 Retentar às cegas arrisca duplicar. Desistir arrisca marcar como falha algo que foi publicado — e
 aí o usuário publica de novo na mão, e o resultado é o mesmo estrago.
 
-**Procedimento de reconciliação:**
+**Antes de chamar**, o publicador grava `publicarPedidoEm` no container. Quem encontrar essa marca —
+esta execução, depois da falha, ou outra, depois de uma queda — sabe que o pedido pode ter chegado à
+Meta. A partir daí **nunca se cria outro container** para aquela versão da postagem: só se confere e, se
+for o caso, publica-se **o mesmo**.
 
-1. Aguardar 30 segundos, dando tempo para a Meta consolidar
-2. Consultar o estado do container. Se `status_code` for `PUBLISHED`, a publicação aconteceu
-3. Se ainda estiver ambíguo, listar as mídias recentes da conta e procurar uma compatível com esta
-   postagem — mesmo formato, publicada nos últimos minutos
-4. **Encontrou:** grava a `Publicacao` com o identificador encontrado e marca `PUBLICADO`. Registra
-   na auditoria que veio por reconciliação
-5. **Não encontrou:** o container ainda está válido, então retentar a publicação é seguro
-6. **Não encontrou e o container expirou:** vai para `FALHOU` com causa registrada como incerteza,
-   e a interface avisa explicitamente que é preciso conferir o perfil antes de republicar
+**Procedimento de reconciliação** — decidido pelo estado do container, revisto em 22/09/2026:
 
-O passo 6 é o único cenário em que o sistema admite não saber. Melhor dizer isso do que arriscar
+1. Aguardar 30 segundos desde o pedido, dando tempo para a Meta consolidar
+2. Consultar o estado do container
+3. **`PUBLISHED`:** a publicação aconteceu. Grava a `Publicacao` e marca `PUBLICADO`, registrando na
+   auditoria que veio por reconciliação. O id da mídia não vem nessa resposta, e listar as mídias da
+   conta pela nossa via não está documentado (V-28 e V-29 em [08](08-integracao-instagram.md#a-validar-em-desenvolvimento)):
+   a postagem fica **publicada sem link**, e sem métricas. Nunca `FALHOU`, que convidaria alguém a
+   publicar de novo
+4. **`FINISHED` ou `IN_PROGRESS`:** o container não foi consumido; nova tentativa, com o mesmo container
+5. **`ERROR` ou `EXPIRED`:** não há mais como saber. `FALHOU` com a causa `PUBLISH_UNCERTAIN`, e a
+   interface avisa explicitamente que é preciso conferir o perfil antes de republicar
+
+O passo 5 é o único cenário em que o sistema admite não saber. Melhor dizer isso do que arriscar
 uma publicação duplicada — e a mensagem ao usuário precisa ser honesta sobre a incerteza.
+
+**Recusa clara também confere.** Se o `media_publish` volta com um erro de código conhecido, o
+publicador ainda lê o estado do container antes de aceitar: se ele diz `PUBLISHED`, saiu.
+
+⚠️ **Resta uma janela que não se fecha daqui:** duas chamadas ao `media_publish` com o **mesmo**
+container — a primeira travada por mais tempo que o arrendamento, ou processada pela Meta muito depois de
+enviada. Se a Meta aceita publicar duas vezes o mesmo container não está documentado (V-30 em
+[08](08-integracao-instagram.md#a-validar-em-desenvolvimento)).
+
+### A camada que o pg-boss não dá: o arrendamento
+
+As quatro camadas acima impedem uma segunda **linha** no banco. Não impedem uma segunda **chamada à
+Meta**, e o pg-boss 12 tem um caminho para isso: uma execução que passa do `expireInSeconds` é dada por
+travada, e a retentativa começa **com a primeira ainda rodando** — com o mesmo id de tarefa, então o
+pg-boss não tem como distinguir as duas.
+
+Por isso cada execução do publicador começa **tomando a postagem**: um `UPDATE` que só vale se
+`execucaoExpiraEm` estiver vazio ou vencido, medido pelo relógio do banco. Quem não consegue sai quieto.
+Quem consegue renova o arrendamento antes de cada chamada que muda algo na Meta, e a renovação é cercada
+pelo próprio `execucaoId`: se outra execução tomou a postagem, a renovação falha e esta para sem escrever.
+O arrendamento de 3 minutos cobre com folga a mais longa das esperas entre duas renovações — o
+`media_publish` tem 40 segundos de limite. Ver [07](07-modelo-dados.md#postagem).
+
+### A rede de segurança: recolher as postagens sem dono
+
+Com execuções que saem quietas, há desfechos em que a tarefa termina e a postagem fica no meio: a execução
+que caiu na última tentativa com o arrendamento ainda válido, ou a que saiu quieta porque outra a segurava,
+e essa outra caiu depois. Sem nada mais, ficariam `PROCESSANDO` para sempre.
+
+A cada varredura, o despachante procura postagens `PROCESSANDO` **sem arrendamento válido** e manda de novo
+a tarefa delas. Numa fila `exclusive`, se ainda houver tarefa viva, o pg-boss devolve `null` e nada acontece.
+O limite de tentativas é **nosso** — `tentativas`, contado a cada vez que uma execução toma a postagem —,
+então recolher não cria tentativa infinita: a sexta execução marca `FALHOU` com a última causa.
 
 ---
 
@@ -418,10 +461,13 @@ desistir de erro que vai.**
 
 ### Retentativa
 
-Quem agenda a nova tentativa é o pg-boss, pela configuração da fila: até 5 execuções, esperando 1,
-2, 4 e 8 minutos entre elas. Somando as esperas e o processamento, uma postagem que entrou em
-retentativa pode sair **uns 20 minutos depois** do horário. É o limite aceito; passou disso, vai para
-a fila de falhas e espera decisão humana.
+Quem agenda a nova tentativa é o pg-boss, pela configuração da fila: até 5 execuções. A espera
+**real** entre elas, conferida no código do pg-boss 12.33.1 em 22/09/2026, não é 1, 2, 4 e 8 minutos
+exatos: tem sorteio, e fica entre 1–2, 2–4, 4–8 e 8–15 minutos. Somada ao preparo do container — até 5
+minutos na vida de cada um —, uma postagem em retentativa passaria de 45 minutos de atraso.
+
+Por isso o **teto de 45 minutos**: passado dele, nenhuma tentativa cria container nem publica, e a
+postagem vai para `FALHOU` (`LATE_CEILING`). Uma postagem das 10h não sai quase às 11h sem ninguém decidir.
 
 ### Recuperáveis — o publicador lança o erro
 
@@ -445,6 +491,7 @@ a fila de falhas e espera decisão humana.
 | Cota estourada | Sugere o próximo horário com cota disponível |
 | Postagem inválida — carrossel fora da faixa, marcações demais | Exige correção |
 | Mais de 15 minutos de atraso na primeira execução | Explica que o sistema estava indisponível |
+| Mais de 45 minutos de atraso em qualquer execução | Pede novo horário |
 
 A tabela completa de códigos está em
 [08 — Tabela de códigos de erro](08-integracao-instagram.md#tabela-de-códigos-de-erro).
@@ -452,7 +499,12 @@ A tabela completa de códigos está em
 ### O que acontece ao esgotar as tentativas
 
 O pg-boss move a tarefa para a fila `publicar-instagram-falhas`. O tratador dessa fila marca a
-postagem como `FALHOU`, grava a causa da última tentativa e notifica.
+postagem como `FALHOU`, com a causa da última tentativa, e notifica.
+
+O tratador **nunca lança erro**. A escrita dele é cercada pela versão que veio na tarefa e pelo
+arrendamento livre: se a postagem já saiu, está noutro ciclo ou alguém ainda a segura, ele sai quieto — e o
+que sobrar sem dono o despachante recolhe. Lançar gastaria as tentativas desta fila em segundos (a espera
+padrão do pg-boss é de 1 segundo), com a postagem ainda segura por uma execução viva.
 
 A postagem **fica lá**. O sistema não reagenda sozinho, não publica atrasado, não tenta de novo no
 dia seguinte.
@@ -492,10 +544,20 @@ Na mesma transação que grava a `Publicacao`, o publicador cria as tarefas de c
 atrasado:
 
 ```ts
-await this.boss.send('coletar-metricas-instagram',
-  { publicacaoId, momento: 'T7D' },
+await this.queues.boss.send(POST_METRICS_QUEUE,
+  { postId, moment: 'T7D' },
   { startAfter: seteDiasDepois, db: fromPrisma(tx) })
 ```
+
+A tarefa leva o id da **postagem**, e não o da publicação: a `Publicacao` é gravada com
+`ON CONFLICT DO NOTHING`, que não devolve o id, e `postagemId` é único nela. Só a publicação com id de mídia
+ganha tarefas — a confirmada pelo container, sem id, não tem o que medir.
+
+⚠️ **Até a Fase 5, ninguém consome esta fila.** As tarefas nascem desde a 1d, como o desenho pede, e
+esperam. O pg-boss apaga tarefa que fica em `created` por mais de 14 dias (`retentionSeconds`), então
+as de publicações anteriores à Fase 5 podem sumir sem rodar, e as que rodarem vão rodar atrasadas — o
+coletor precisa aceitar `coletadoEm` bem depois do momento. Um consumidor vazio, antes disso, concluiria
+as tarefas e perderia justamente o que se quer guardar.
 
 | Momento | Formato | Observação |
 |---|---|---|

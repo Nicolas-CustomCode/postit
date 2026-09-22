@@ -121,6 +121,7 @@ export class InstagramTokenRefreshService {
       // isso — ela descreveria o formato do que está guardado.
       this.logger.error(`O token guardado da conta ${conta.username} não pôde ser lido.`);
       await this.record(conta.id, "FATAL_ERROR");
+      await this.flagAccessLost(conta.id, now);
       return "fatal";
     }
 
@@ -133,6 +134,9 @@ export class InstagramTokenRefreshService {
 
       this.logger.warn(`Não renovei o token da conta ${conta.username}: ${traduzido.name}`);
       await this.record(conta.id, tipo === "recoverable" ? "RECOVERABLE_ERROR" : "FATAL_ERROR");
+      // Recusa definitiva é a conta sem acesso — o mesmo sinal que o publicador
+      // acende (docs/09, "sinaliza a conta").
+      if (tipo === "fatal") await this.flagAccessLost(conta.id, now);
       return tipo;
     }
 
@@ -155,7 +159,8 @@ export class InstagramTokenRefreshService {
     return this.prisma.db.$transaction(async (tx) => {
       await tx.account.update({
         where: { id: accountId },
-        data: { tokenEncrypted, tokenExpiresAt, tokenRefreshedAt: now },
+        // Renovou: a Meta aceitou o token, então o sinal de acesso perdido cai.
+        data: { tokenEncrypted, tokenExpiresAt, tokenRefreshedAt: now, accessLostAt: null },
       });
       await tx.tokenEvent.create({ data: { accountId, action: "REFRESH", result: "SUCCESS" } });
     });
@@ -174,6 +179,11 @@ export class InstagramTokenRefreshService {
       // A renovação já deu certo, que é o que importa. Avatar velho não é falha.
       this.logger.warn(`Não reli o perfil da conta ${conta.username} depois de renovar; a foto continua a anterior.`);
     }
+  }
+
+  /** Só na primeira vez, para a data dizer desde quando a conta está sem acesso. */
+  private async flagAccessLost(accountId: string, now: Date): Promise<void> {
+    await this.prisma.db.account.updateMany({ where: { id: accountId, accessLostAt: null }, data: { accessLostAt: now } });
   }
 
   private async record(accountId: string, result: "RECOVERABLE_ERROR" | "FATAL_ERROR"): Promise<void> {

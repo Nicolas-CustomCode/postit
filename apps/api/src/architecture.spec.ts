@@ -68,6 +68,26 @@ describe("arquitetura", () => {
     expect(alcancaveis.filter((file) => file.startsWith("fake-meta/"))).toEqual([]);
   });
 
+  /**
+   * O worker escreve em `Postagem` por uma porta só, e ela nunca toca `versao`
+   * (AGENTS.md, regra 20). Toda escrita lá é cercada por status, versão ou
+   * arrendamento; uma escrita solta em outro arquivo seria o worker atropelando a
+   * pessoa que edita a mesma postagem.
+   */
+  it("o worker escreve postagem só pelo post-outcome.store", () => {
+    const STORE = "publishing/instagram/post-outcome.store.ts";
+    const doWorker = reachableFrom(join(SRC, "worker.module.ts"))
+      .map((file) => relative(SRC, file).replace(/\\/g, "/"))
+      .filter((file) => !file.endsWith(".spec.ts"));
+    expect(doWorker).toContain(STORE);
+
+    const escreve = (fonte: string) =>
+      /\bpost\.(?:update|updateMany|create|createMany|delete|deleteMany|upsert)\b/.test(fonte) ||
+      /UPDATE\s+"Postagem"/.test(fonte);
+    const infratores = doWorker.filter((file) => file !== STORE && escreve(readFileSync(join(SRC, file), "utf8")));
+    expect(infratores).toEqual([]);
+  });
+
   // As chamadas de publicação ficam fora do InstagramModule justamente para isto.
   it("o processo HTTP não alcança as chamadas de publicação", () => {
     expect(alcancaveis).not.toContain("instagram/publishing.ts");

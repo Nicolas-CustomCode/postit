@@ -235,9 +235,9 @@ Regras que valem sempre e que a implementação precisa garantir, não apenas re
 | I-3 | `PUBLICADO` é terminal e irreversível | Nenhuma transição sai de `PUBLICADO`. A API da Meta não apaga posts |
 | I-4 | `FALHOU` só sai por ação humana | O worker nunca reagenda sozinho a partir de `FALHOU` |
 | I-5 | Uma postagem com identificador de mídia gravado nunca republica | Verificação no início da execução, antes de qualquer chamada à Meta |
-| I-6 | Só uma execução por postagem ao mesmo tempo | Trava otimista na transição para `PROCESSANDO`, criando a tarefa na mesma transação, com `singletonKey` igual ao id da postagem |
+| I-6 | Só uma execução por postagem ao mesmo tempo | Trava otimista na transição para `PROCESSANDO`, criando a tarefa na mesma transação, com `singletonKey` igual ao id da postagem numa fila `exclusive`; e o **arrendamento** da execução (`execucaoId`, `execucaoExpiraEm`), porque o pg-boss reinicia a tarefa vencida com a anterior ainda rodando. Ver [09](09-motor-agendamento.md#a-camada-que-o-pg-boss-não-dá-o-arrendamento) |
 | I-7 | `publicarEm` é sempre UTC | Coluna com fuso; conversão só na borda da tela |
-| I-8 | Nenhuma publicação começa mais de 15 minutos depois do horário marcado | Verificação no despachante e na primeira execução do publicador. Ver [ADR 0007](adr/0007-falha-exige-decisao-humana.md) |
+| I-8 | Nenhuma publicação começa mais de 15 minutos depois do horário marcado — e nenhuma chamada à Meta acontece mais de 45 minutos depois | Verificação no despachante e na primeira execução do publicador; o teto de 45 minutos, antes de cada chamada. Ver [ADR 0007](adr/0007-falha-exige-decisao-humana.md) |
 | I-9 | Só o processo worker publica | Módulos de publicação e filas importados só pelo `WorkerModule`, com teste de arquitetura |
 | I-10 | Sempre existe ao menos um super admin ativo | Desativar ou remover super admin conta os restantes na mesma transação e desiste se sobraria zero. Ver [ADR 0015](adr/0015-super-admin-e-permissoes.md) |
 

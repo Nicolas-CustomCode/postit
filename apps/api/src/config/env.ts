@@ -118,8 +118,19 @@ const workerSchema = z
     VAPID_PUBLIC_KEY: optional,
     VAPID_PRIVATE_KEY: optional,
     VAPID_SUBJECT: optional,
+    /*
+     * Só para o teste de tela: o despachante varre também a cada tantos segundos,
+     * além do cron de um minuto. Fora de NODE_ENV=test o processo não sobe com ela —
+     * em produção, varrer a cada segundo seria só carga sem motivo.
+     */
+    DISPATCH_TICK_SECONDS: z.preprocess(emptyAsMissing, z.coerce.number().int().positive().optional()),
   })
-  .superRefine(refuseMetaOverrideOutsideTests);
+  .superRefine(refuseMetaOverrideOutsideTests)
+  .superRefine((value, ctx) => {
+    if (value.DISPATCH_TICK_SECONDS !== undefined && value.NODE_ENV !== "test") {
+      ctx.addIssue({ code: "custom", path: ["DISPATCH_TICK_SECONDS"], message: "só vale com NODE_ENV=test" });
+    }
+  });
 
 export type ApiEnv = z.infer<typeof apiSchema>;
 export type WorkerEnv = z.infer<typeof workerSchema>;
