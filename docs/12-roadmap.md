@@ -268,12 +268,23 @@ escolher formato, "o acervo serve a qualquer formato" era promessa sem uso.
 ([ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md)). `FormatoPostagem` perdeu `FEED_IMAGEM`,
 `FEED_VIDEO` e `CARROSSEL`: a Meta monta o carrossel a partir de `children` (2 a 10), e as
 especificações de item de carrossel sempre foram as mesmas do feed. A composição passou a aceitar de
-1 a 10 imagens no Feed, com reordenação por botões e remoção, e a prévia ganhou o carrossel com o
-aviso do recorte pela primeira imagem. Isso **antecipa o RF-C04 inteiro** da Fase 2; o que fica lá é
-a montagem dos containers pai e filho na publicação.
+1 a 10 imagens no Feed, com reordenação e remoção, e a prévia ganhou o carrossel com o aviso do
+recorte pela primeira imagem. Isso **antecipa o RF-C04 inteiro** da Fase 2; o que fica lá é a montagem
+dos containers pai e filho na publicação.
 
 Reels continua na Fase 2, apagado no seletor: depende do validador de vídeo. **Feed aceita só imagem
 nesta fase** pelo mesmo motivo.
+
+**21/09/2026 — a seção de mídia ganhou forma.** Os dois botões soltos viraram um quadrado pontilhado
+que fecha a faixa, com as duas portas num menu; o acervo passou a abrir num diálogo — folha no celular,
+caixa centrada no computador, por classes; as miniaturas passaram a **arrastar** (Pointer Events
+próprios, sem dependência), com as setas mantidas como alternativa; e **nada mais sobe sem a pessoa
+ver a imagem** — a confirmação e a oferta de recorte viraram a mesma tela, que mostra a foto.
+
+⚠️ **Fica um item para o roteiro manual:** o arrasto **por toque**. O Playwright não gera evento de
+ponteiro em contexto com toque emulado, então o teste roda só no computador; o gesto do dedo — segurar
+250 ms antes de arrastar, para não roubar a rolagem da faixa — precisa ser conferido no aparelho, pelo
+túnel.
 
 **Falta desta fase:** o motor de publicação — despachante, publicador, as quatro camadas de
 idempotência, notificações (1d). Sem ele, uma postagem agendada fica esperando para sempre.

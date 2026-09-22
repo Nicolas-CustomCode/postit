@@ -116,7 +116,9 @@ a mensagem certa em cada caso. Uma imagem 9:16 é aceita para Stories e recusada
 de 4:5 a 1.91:1 — e nesse caso o sistema **oferece o recorte**, sem impô-lo.
 
 **Estado:** o envio genérico está pronto desde 18/09/2026; a conferência por formato acontece na tela
-de composição.
+de composição. **Desde 21/09/2026 a oferta e a confirmação são a mesma tela, e ela mostra a imagem** —
+antes, decidir sobre proporção era decidir sobre uma foto que não se via, e a imagem que já servia
+subia sem nenhuma tela no meio.
 
 ### RF-B04 — Reaproveitar mídia **[MVP]**
 Uma mídia já enviada pode ser usada em mais de uma postagem.
@@ -127,6 +129,10 @@ Uma mídia já enviada pode ser usada em mais de uma postagem.
 com as incompatíveis **apagadas, não escondidas**: quem enviou uma arte 9:16 precisa ver que ela está
 lá e por que não serve ao feed. Antes disso o Acervo recebia imagens que nunca eram usadas, porque a
 composição mandava uma nova a cada postagem.
+
+As duas portas — escolher do acervo e enviar nova — saíram de dois botões soltos para um **menu no
+quadrado "Adicionar"** que fecha a faixa de miniaturas, e o acervo passou a abrir num diálogo: folha
+de baixo no celular, caixa centrada no computador ([13](13-telas-e-navegacao.md#prévia-da-postagem)).
 
 ⚠️ **A listagem não filtra por conta**, e não deve: `Midia` não tem dono no schema, e o acervo é
 compartilhado (docs/13). Filtrar significaria enviar a mesma foto duas vezes para usá-la em duas
@@ -194,10 +200,12 @@ viraria menção. Registrado como item a validar no [08](08-integracao-instagram
 **Aceite:** a ordem é persistida e respeitada na publicação. **Mínimo 1**, máximo 10 itens, validado
 antes de agendar — uma imagem é publicação simples, e é a segunda que cria o carrossel.
 
-**Atendido desde 21/09/2026** na composição: a faixa de miniaturas aceita de 1 a 10, reordena por
-botões (`◀ ▶`, e não por arrasto — o sistema vive no celular) e remove por `✕`. A ordem vira a coluna
-`ordem` de `PostagemMidia`, e **trocá-la é mudança de conteúdo**: derruba a postagem para rascunho,
-porque aprovar uma sequência e publicar outra seria publicar o que ninguém aprovou.
+**Atendido desde 21/09/2026** na composição: a faixa de miniaturas aceita de 1 a 10 e remove por `✕`.
+Reordenar é **por arrasto e pelos botões `◀ ▶`** — o arrasto é o gesto natural; as setas são a
+alternativa que o [13](13-telas-e-navegacao.md#acessibilidade) exige para toda ação por gesto, e é por
+elas que passa quem usa teclado ou leitor de tela. A ordem vira a coluna `ordem` de `PostagemMidia`, e
+**trocá-la é mudança de conteúdo**: derruba a postagem para rascunho, porque aprovar uma sequência e
+publicar outra seria publicar o que ninguém aprovou.
 
 A montagem dos containers pai e filho na publicação continua na Fase 2.
 

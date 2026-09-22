@@ -338,9 +338,21 @@ pontinhos —, usa a proporção da **primeira** imagem em todas, que é o que a
 cartão. Como qualquer informação nossa, o aviso fica fora da moldura: dentro dela, quebraria a imitação no lugar
 exato onde a pessoa está comparando com o aplicativo que conhece.
 
-**Na composição**, a faixa de miniaturas mostra de 1 a 10 imagens com o número da posição em cada uma, e reordena
-por botões `◀ ▶`, não por arrasto — o arrasto exigiria biblioteca e sairia ruim no celular, que é onde o sistema
-vive. Quem move por teclado recebe o resultado por `aria-live`.
+**Na composição**, a faixa de miniaturas mostra de 1 a 10 imagens com o número da posição em cada uma, e **termina
+num quadrado pontilhado de 112 px com "+ Adicionar"** — o próximo lugar, e não um botão solto sem relação visual
+com as fotos. Ele abre um menu com **"Do acervo"** e **"Enviar nova"**, e some quando o formato já está cheio.
+
+**Reordenar é por arrasto**, que é o gesto natural, **e pelos botões `◀ ▶`**, que continuam ali: o arrasto começa
+na foto (os controles não arrastam) e, no dedo, só depois de segurar — senão rolar a faixa reordenaria sem querer.
+As setas não são redundância, são o que esta página exige como alternativa a toda ação por gesto, e é por elas que
+passa quem usa teclado ou leitor de tela. As duas entradas anunciam o resultado por `aria-live`.
+
+**"Enviar nova"** abre o seletor do sistema e mostra a imagem escolhida **antes de qualquer byte subir**, com
+"Usar esta imagem" ou "Escolher outra" — e, quando ela não serve ao formato, a oferta de recorte na mesma tela.
+
+**O acervo abre como folha de baixo no celular e caixa centrada no computador**, resolvido **por classes, sem
+JavaScript de breakpoint** — o projeto não tem hook de media query, e renderizar um contêiner para cada tamanho
+faria dois `role="dialog"` na mesma página.
 
 ---
 

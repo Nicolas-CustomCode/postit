@@ -160,10 +160,11 @@ apagado e nunca fica público. Ver [ADR 0012](adr/0012-upload-direto-minio.md).
 | Estado | O que o usuário vê |
 |---|---|
 | Arquivo escolhido fora do básico | A tela recusa antes de enviar: tipo ou tamanho já visivelmente fora das especificações |
+| Arquivo aceito | A imagem escolhida aparece **em tamanho grande**, com as medidas ao lado. **Nada sobe até "Usar esta imagem"**; "Escolher outra" volta ao seletor. Antes de 21/09/2026 o arquivo partia sem nenhuma tela, e quem pegou a foto errada só descobria depois |
 | Envio em andamento | Barra de progresso real, do navegador direto ao armazenamento |
 | Validando | "Conferindo o arquivo" — a API está inspecionando dimensões e, se vídeo, codecs e duração |
 | Mídia recusada | Mensagem específica: "JPEG de até 8 MB. Este arquivo tem 12 MB" — nunca "arquivo inválido" |
-| Proporção fora do feed | **Não é recusa**: a tela diz para que formatos a imagem serve e oferece duas saídas — "enviar como está" ou "recortar para o feed", com prévia do corte e a faixa de 4:5 a 1.91:1. Uma arte 9:16 é válida para Stories, e recortá-la à força destruiria o formato pretendido |
+| Proporção fora do feed | **Não é recusa**: a tela diz para que formatos a imagem serve e oferece duas saídas — "enviar como está" ou "recortar para o feed", com prévia do corte e a faixa de 4:5 a 1.91:1. Uma arte 9:16 é válida para Stories, e recortá-la à força destruiria o formato pretendido. **É a mesma tela do estado acima**, e a imagem aparece nela: decidir sobre proporção sem ver a foto era pedir confiança na memória |
 | Legenda no limite | Contador vira alerta ao passar de 2200 caracteres, 30 hashtags ou 20 menções |
 | Marcando pessoas | Sobreposição da imagem com os pontos arrastáveis |
 | Horário no passado | Campo recusa e explica |
