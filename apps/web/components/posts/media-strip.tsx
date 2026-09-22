@@ -1,6 +1,9 @@
+"use client";
+
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatsFor, IMAGE_SPECS, type ImageFormat, type MediaSummary } from "@repo/shared";
+import { useDragReorder } from "@/components/posts/use-drag-reorder";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,10 +13,10 @@ import { cn } from "@/lib/utils";
  * recorte da primeira (docs/08), então "quem é a primeira" precisa ser
  * inequívoco — daí o selo com o número em cada miniatura.
  *
- * ⚠️ **Botões, e não arrastar.** Reordenar por gesto exigiria biblioteca e
- * ainda assim sairia ruim no celular, que é onde este sistema vive. Três alvos
- * de toque resolvem, funcionam no teclado e já são o que o docs/13 pede como
- * alternativa a qualquer gesto.
+ * **Duas formas de reordenar, e as duas chamam o mesmo `onMover`:** arrastar,
+ * que é o caminho natural, e as setas `◀ ▶`. As setas não são redundância — são
+ * o que o docs/13 exige como alternativa a toda ação por gesto, e é por elas que
+ * passa quem usa teclado, leitor de tela ou tem a mão trêmula.
  */
 export function MediaStrip({
   midias,
@@ -35,12 +38,23 @@ export function MediaStrip({
    */
   readonly acrescentar?: ReactNode;
 }): ReactNode {
+  const { drag, containerRef, handlers } = useDragReorder({
+    total: midias.length,
+    onMover,
+    disabled,
+  });
+
   return (
-    <ul className="flex snap-x gap-2 overflow-x-auto pb-1">
+    <ul ref={containerRef} className="flex snap-x gap-2 overflow-x-auto pb-1">
       {midias.map((item, indice) => {
         const serve = formatsFor(item.width, item.height).includes(format);
         const primeira = indice === 0;
         const ultima = indice === midias.length - 1;
+        const naMao = drag?.indice === indice;
+        // Quem fica entre a origem e o destino abre passagem: é o que mostra
+        // onde a imagem vai cair, sem precisar de um espaço fantasma.
+        const abrePassagem =
+          drag !== null && !naMao && entre(indice, drag.indice, drag.destino) ? (drag.destino > drag.indice ? -1 : 1) : 0;
 
         return (
           /*
@@ -48,14 +62,41 @@ export function MediaStrip({
            * duas vezes na lista, e o `id` como chave faria o React embaralhar o
            * DOM. É o slot que tem identidade aqui, não a foto.
            */
-          <li key={indice} className="flex shrink-0 snap-start flex-col gap-1">
-            <div className="relative">
+          <li
+            key={indice}
+            data-midia
+            className={cn(
+              "flex shrink-0 snap-start flex-col gap-1",
+              midias.length > 1 && !disabled && (naMao ? "cursor-grabbing" : "cursor-grab"),
+              naMao ? "z-10" : "transition-transform",
+              // Sem `touch-action` fixo: antes de o toque virar arrasto, a faixa
+              // ainda precisa rolar com o dedo.
+              drag !== null && "touch-none select-none",
+            )}
+            style={
+              naMao
+                ? { transform: `translateX(${drag.deslocamento}px) scale(1.05)` }
+                : abrePassagem !== 0
+                  ? // O passo é a largura mais o intervalo — `gap-2`, 0.5rem.
+                    { transform: `translateX(calc(${abrePassagem} * (100% + 0.5rem)))` }
+                  : undefined
+            }
+            {...handlers(indice)}
+          >
+            <div className={cn("relative", naMao && "shadow-lg")}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.url}
                 alt=""
                 width={item.width}
                 height={item.height}
+                /*
+                 * ⚠️ **Imagem é arrastável por padrão no HTML.** Sem isto, pegar
+                 * a miniatura com o mouse inicia o arrasto **nativo** do
+                 * navegador — com a imagem fantasma pendurada no cursor — e o
+                 * nosso nunca começa.
+                 */
+                draggable={false}
                 className={cn("size-28 rounded-xl object-cover", !serve && "opacity-45")}
               />
 
@@ -102,12 +143,18 @@ export function MediaStrip({
       })}
 
       {/* `items-start` prende o quadrado no topo: com duas ou mais imagens o
-          `<li>` estica para a altura das setas, e ele tem só a da foto. */}
+          `<li>` estica para a altura das setas, e ele tem só a da foto.
+          Sem `data-midia`: ele não é arrastável nem é destino de arrasto. */}
       {acrescentar !== undefined && (
         <li className="flex shrink-0 snap-start items-start">{acrescentar}</li>
       )}
     </ul>
   );
+}
+
+/** O item está no trecho que a imagem arrastada atravessa? */
+function entre(indice: number, origem: number, destino: number): boolean {
+  return destino > origem ? indice > origem && indice <= destino : indice < origem && indice >= destino;
 }
 
 function SetaDeOrdem({

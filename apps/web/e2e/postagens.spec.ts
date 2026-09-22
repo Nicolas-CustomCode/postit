@@ -275,6 +275,52 @@ test.describe("postagens", () => {
     await expect(conteudo(page).getByRole("button", { name: "Remover a imagem 3" })).toBeVisible();
   });
 
+  /*
+   * Arrastar com Pointer Events próprios, sem biblioteca.
+   *
+   * ⚠️ **Só no computador, e não por preguiça:** num contexto com toque
+   * emulado, o `page.mouse` do Playwright não gera evento de ponteiro nenhum —
+   * o `pointerdown` simplesmente não acontece, e o teste passaria ou falharia
+   * sem relação com o código. O caminho do dedo (segurar 250 ms para não roubar
+   * a rolagem da faixa) se confere no aparelho, pelo túnel, e as setas `◀ ▶`
+   * são a garantia de que ninguém fica sem reordenar se ele falhar.
+   */
+  test("arrastar a primeira imagem sobre a segunda troca a ordem", async ({ page, isMobile }) => {
+    test.skip(isMobile === true, "O Playwright não emula arrasto por toque; a conferência é manual.");
+    for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 3);
+
+    const faixa = conteudo(page).getByRole("listitem");
+    // O endereço da imagem é a única identidade visível de cada miniatura: as
+    // setas e os selos dizem a posição, e continuariam iguais sem arrasto nenhum.
+    const antes = await faixa.first().locator("img").getAttribute("src");
+    const eraSegunda = await faixa.nth(1).locator("img").getAttribute("src");
+
+    const primeira = await faixa.first().boundingBox();
+    const segunda = await faixa.nth(1).boundingBox();
+    expect(primeira).not.toBeNull();
+    expect(segunda).not.toBeNull();
+
+    await page.mouse.move(primeira!.x + primeira!.width / 2, primeira!.y + 40);
+    await page.mouse.down();
+    /*
+     * Segurar antes de mover. No computador é indiferente — com mouse o arrasto
+     * começa na hora —, mas onde o ponteiro é toque, sair do lugar antes dos
+     * 250 ms é rolagem da faixa e cancela o arrasto de propósito. Esperar aqui
+     * exercita justamente esse gesto.
+     */
+    await page.waitForTimeout(350);
+    // Em dois passos: um salto único não gera o `pointermove` intermediário.
+    await page.mouse.move(segunda!.x, segunda!.y + 40);
+    await page.mouse.move(segunda!.x + segunda!.width / 2, segunda!.y + 40);
+    await page.mouse.up();
+
+    // As duas trocaram de lugar.
+    await expect(faixa.first().locator("img")).toHaveAttribute("src", eraSegunda!);
+    await expect(faixa.nth(1).locator("img")).toHaveAttribute("src", antes!);
+  });
+
   test("remover uma imagem tira ela da faixa", async ({ page }) => {
     for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
