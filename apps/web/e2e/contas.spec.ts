@@ -63,14 +63,20 @@ test.describe("conta ativa", () => {
     await outraAba.close();
   });
 
+  /*
+   * Escopado no `<main>`, como o teste da aba acima: desde 22/09/2026 a casca
+   * mostra a conta lembrada **também** nas telas gerais, e o nome dela aparece
+   * duas vezes na página — no seletor e no cartão. O assunto aqui é o cartão.
+   */
   test("a tela de contas mostra as duas, com fuso e prazo do acesso", async ({ page }) => {
     await page.goto("/contas");
+    const conteudo = page.getByRole("main");
 
-    await expect(page.getByText("Loja Aurora")).toBeVisible();
-    await expect(page.getByText("Café Brisa")).toBeVisible();
-    await expect(page.getByText("America/Sao_Paulo", { exact: false })).toBeVisible();
-    await expect(page.getByText("Europe/Lisbon", { exact: false })).toBeVisible();
-    await expect(page.getByText(/acesso válido por 5[0-9] dias/i).first()).toBeVisible();
+    await expect(conteudo.getByText("Loja Aurora")).toBeVisible();
+    await expect(conteudo.getByText("Café Brisa")).toBeVisible();
+    await expect(conteudo.getByText("America/Sao_Paulo", { exact: false })).toBeVisible();
+    await expect(conteudo.getByText("Europe/Lisbon", { exact: false })).toBeVisible();
+    await expect(conteudo.getByText(/acesso válido por 5[0-9] dias/i).first()).toBeVisible();
   });
 
   test("conta com acesso vencido aparece marcada", async ({ page }) => {
@@ -93,37 +99,73 @@ test.describe("conta ativa", () => {
 test.describe("a conta ativa acompanha a navegação", () => {
   test.use({ storageState: ESTADO_SUPER_ADMIN });
 
-  test.beforeEach(async ({ page }) => {
+  // Sem `page`: cada teste entra por onde precisa, porque a carga completa é
+  // parte do que se prova aqui.
+  test.beforeEach(async () => {
     await resetAccounts();
     await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
-    await page.goto("/contas");
+    await createAccount({ username: "brisa.cafe", name: "Café Brisa" });
   });
 
-  test("a barra lateral mostra a conta depois de escolhê-la numa tela geral", async ({ page, isMobile }) => {
+  test("a barra lateral acompanha a conta escolhida numa tela geral", async ({ page, isMobile }) => {
     test.skip(isMobile === true, "a barra lateral não existe no celular");
 
-    // Carga completa numa tela GERAL: aqui não há conta ativa, e está certo.
-    const lateral = page.getByRole("button", { name: /escolher conta/i });
-    await expect(lateral).toBeVisible();
+    // Passa por aurora para o cookie ficar determinístico, e então vai para uma
+    // tela geral — de onde a casca já mostra aquela conta.
+    await page.goto("/c/aurora.loja/calendario");
+    await page.goto("/contas");
 
     // Daqui em diante é navegação pelo cliente, que não recarrega o layout.
-    await lateral.click();
-    await page.getByRole("dialog").getByRole("button", { name: /loja aurora/i }).click();
-    await expect(page).toHaveURL(/\/c\/aurora\.loja\//);
+    await page.getByRole("button", { name: /conta ativa: aurora\.loja/i }).filter({ visible: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /café brisa/i }).click();
+    await expect(page).toHaveURL(/\/c\/brisa\.cafe\//);
 
-    // O seletor precisa ter acompanhado, em vez de continuar em "Nenhuma conta".
-    await expect(page.getByRole("button", { name: /conta ativa: aurora\.loja/i })).toBeVisible();
+    // O seletor precisa ter acompanhado, em vez de ficar na conta anterior.
+    await expect(page.getByRole("button", { name: /conta ativa: brisa\.cafe/i })).toBeVisible();
   });
 
-  test("os itens da conta deixam de estar desabilitados", async ({ page, isMobile }) => {
+  /*
+   * O pedido de 22/09/2026: a conta escolhida continua à mão nas telas gerais.
+   * Antes, abrir o Acervo dizia "Nenhuma conta" e apagava Calendário, Postagens
+   * e Métricas — com o título "Conecte uma conta primeiro", mentira quando há
+   * conta conectada. Voltar custava escolher a conta de novo.
+   */
+  test("a conta continua na casca ao abrir uma tela geral", async ({ page, isMobile }) => {
     test.skip(isMobile === true, "a barra lateral não existe no celular");
 
-    await page.getByRole("button", { name: /escolher conta/i }).click();
-    await page.getByRole("dialog").getByRole("button", { name: /loja aurora/i }).click();
-    await expect(page).toHaveURL(/\/c\/aurora\.loja\//);
+    await page.goto("/c/brisa.cafe/calendario");
+    await page.goto("/acervo");
 
-    // Sem conta ativa eles são texto apagado; com conta, viram link.
+    await expect(page.getByRole("button", { name: /conta ativa: brisa\.cafe/i })).toBeVisible();
+
+    // E os itens da conta continuam sendo link, apontando para ela.
     const menu = page.getByRole("navigation", { name: "Menu principal" });
-    await expect(menu.getByRole("link", { name: "Calendário" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Calendário" })).toHaveAttribute(
+      "href",
+      "/c/brisa.cafe/calendario",
+    );
+  });
+
+  /*
+   * O defeito que o `rememberedAccount` sozinho tinha, e que nenhuma das outras
+   * medidas pegava: ele nasce no layout, que congela na primeira carga completa.
+   * Aqui a carga completa é em `aurora.loja` e **toda** navegação seguinte é
+   * pelo cliente — sem o `useShellAccount`, a tela geral voltaria para `aurora`,
+   * que não é onde a pessoa estava.
+   */
+  test("depois de trocar de conta, a tela geral lembra a nova", async ({ page, isMobile }) => {
+    test.skip(isMobile === true, "a barra lateral não existe no celular");
+
+    await page.goto("/c/aurora.loja/calendario");
+
+    await page.getByRole("button", { name: /conta ativa: aurora\.loja/i }).filter({ visible: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /café brisa/i }).click();
+    await expect(page).toHaveURL(/\/c\/brisa\.cafe\//);
+
+    const menu = page.getByRole("navigation", { name: "Menu principal" });
+    await menu.getByRole("link", { name: "Acervo" }).click();
+    await expect(page).toHaveURL(/\/acervo$/);
+
+    await expect(page.getByRole("button", { name: /conta ativa: brisa\.cafe/i })).toBeVisible();
   });
 });

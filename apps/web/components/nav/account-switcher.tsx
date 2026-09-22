@@ -31,16 +31,26 @@ import { cn } from "@/lib/utils";
 export function AccountSwitcher({
   accounts,
   variant,
+  fallbackAccount = null,
 }: {
   readonly accounts: readonly AccountSummary[];
   readonly variant: "sidebar" | "mobile";
+  /**
+   * Qual conta mostrar quando o endereço não tem nenhuma — as telas gerais.
+   *
+   * Ausente na pílula do celular, e de propósito: lá ela some nas telas gerais
+   * (docs/13), porque o espaço do topo é escasso e a barra inferior já leva de
+   * volta à conta.
+   */
+  readonly fallbackAccount?: string | null;
 }): ReactNode {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // Do endereço, não de prop: o layout do servidor não reage à navegação.
   const { username: activeUsername, section: currentSection } = useActiveAccount();
 
-  const ativa = accounts.find((conta) => conta.username === activeUsername) ?? null;
+  const mostrada = activeUsername ?? fallbackAccount;
+  const ativa = accounts.find((conta) => conta.username === mostrada) ?? null;
   const rotulo =
     ativa === null ? "Escolher conta do Instagram" : `Conta ativa: ${ativa.username}. Trocar de conta`;
 
@@ -80,7 +90,7 @@ export function AccountSwitcher({
           <div className="flex min-h-0 flex-1 flex-col px-2 pb-6">
             <ListaDeContas
               accounts={accounts}
-              activeUsername={activeUsername}
+              activeUsername={mostrada}
               onPick={trocar}
               onNavigate={() => setOpen(false)}
             />
@@ -133,7 +143,7 @@ export function AccountSwitcher({
         >
           <ListaDeContas
             accounts={accounts}
-            activeUsername={activeUsername}
+            activeUsername={mostrada}
             onPick={trocar}
             onNavigate={() => setOpen(false)}
           />

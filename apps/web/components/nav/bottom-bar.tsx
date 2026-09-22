@@ -8,7 +8,7 @@ import type { SessionUser } from "@repo/shared";
 import { UserCard } from "@/components/nav/user-card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { hrefFor, visibleItems } from "@/lib/nav/items";
-import { useActiveAccount } from "@/lib/nav/use-active-account";
+import { useShellAccount } from "@/lib/nav/use-shell-account";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,17 +32,20 @@ export function BottomBar({
   readonly rememberedAccount: string | null;
 }): ReactNode {
   const pathname = usePathname();
-  const { username: activeUsername } = useActiveAccount();
   const [aberto, setAberto] = useState(false);
 
   /*
    * Nas telas gerais — Contas, Perfil, Acervo — o endereço não tem conta, e a
-   * pílula do topo não aparece. Sem o `rememberedAccount`, os dois primeiros
-   * alvos apontavam para `/contas`: de lá, tocar em Calendário devolvia para a
-   * mesma tela, e no celular não sobrava caminho de volta para as telas da
-   * conta. É a mesma conta em que o sistema abre na raiz.
+   * pílula do topo não aparece. Sem um destino, os dois primeiros alvos
+   * apontavam para `/contas`: de lá, tocar em Calendário devolvia para a mesma
+   * tela, e no celular não sobrava caminho de volta para as telas da conta.
+   *
+   * ⚠️ **Pelo `useShellAccount`, e não por `?? rememberedAccount`.** A prop vem
+   * do layout, que no App Router congela na primeira carga completa (regra 25):
+   * entrar numa conta, trocar para outra e ir ao Perfil mandava a barra de volta
+   * para a **primeira**, não para a última usada.
    */
-  const destino = activeUsername ?? rememberedAccount;
+  const destino = useShellAccount(rememberedAccount);
   const conta = (secao: string) => (destino === null ? "/contas" : `/c/${destino}/${secao}`);
   const restantes = visibleItems({ superAdmin: user.superAdmin, permissions: user.permissions }).filter(
     (item) => !["calendario", "postagens", "notificacoes"].includes(item.key),

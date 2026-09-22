@@ -20,6 +20,11 @@ import { Sidebar } from "@/components/nav/sidebar";
  * layout não roda de novo ao navegar entre rotas que o compartilham, e a barra
  * lateral ficava congelada em "Nenhuma conta" depois de entrar por uma tela
  * geral.
+ *
+ * O `rememberedAccount` **não é a conta ativa** e não contraria o de cima: é a
+ * semente para as telas gerais, onde o endereço não tem conta nenhuma. Pela
+ * mesma razão do parágrafo anterior ele não pode ser usado sozinho — quem o
+ * recebe passa pelo `useShellAccount()`, que dá precedência ao endereço atual.
  */
 export function AppShell({
   user,
@@ -29,7 +34,7 @@ export function AppShell({
 }: {
   readonly user: SessionUser;
   readonly accounts: readonly AccountSummary[];
-  /** Para onde a barra inferior volta quando o endereço não tem conta. */
+  /** Que conta a casca mostra quando o endereço não tem nenhuma. */
   readonly rememberedAccount: string | null;
   readonly children: ReactNode;
 }): ReactNode {
@@ -37,7 +42,7 @@ export function AppShell({
     // min-h-dvh, e não min-h-screen: no celular a barra do navegador aparece e
     // some, e `vh` não acompanha — o rodapé fica cortado.
     <div className="flex min-h-dvh">
-      <Sidebar user={user} accounts={accounts} />
+      <Sidebar user={user} accounts={accounts} rememberedAccount={rememberedAccount} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileTopBar accounts={accounts} />

@@ -69,6 +69,21 @@ test.describe("casca no computador", () => {
     await expect(menu.getByText("Fase 5").first()).toBeVisible();
   });
 
+  /*
+   * De 17/09 a 22/09/2026 este botão entregava a **lista** de postagens: faltava
+   * o `/nova` no endereço. Passou despercebido porque o teste da composição
+   * escopa no `<main>` e só alcança o botão da página, nunca o da casca — a
+   * barra inferior do celular, escrita no mesmo período, sempre esteve certa.
+   */
+  test("o botão 'Nova postagem' da casca leva direto a compor, não à lista", async ({ page }) => {
+    await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
+    await page.goto("/c/aurora.loja/calendario");
+
+    await page.getByRole("complementary").getByRole("link", { name: "Nova postagem" }).click();
+
+    await expect(page).toHaveURL(/\/c\/aurora\.loja\/postagens\/nova$/);
+  });
+
   test("quem não é super admin não vê Administração", async ({ page }) => {
     // O usuário do teste nasce sem privilégio: admin:create sem --super-admin.
     await expect(page.getByText("Administração")).toHaveCount(0);

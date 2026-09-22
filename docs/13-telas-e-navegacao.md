@@ -25,7 +25,7 @@ reagendar no calendário, aprovar, administrar. E pode ser instalado como aplica
 
 | | Celular | Computador |
 |---|---|---|
-| Conta ativa | Pílula no topo das telas da conta — e **só nelas**: em Perfil ou Contas ela não aparece, porque não há conta ativa. **Por isso os alvos da barra inferior voltam para a última conta usada**, e não para a tela de Contas: sem isso, quem estivesse numa tela geral não teria caminho de volta | Seletor no topo da barra lateral, sob o rótulo "CONTA" |
+| Conta ativa | Pílula no topo das telas da conta — e **só nelas**: no celular o topo é estreito, e uma pílula em Perfil ou Acervo custaria uma faixa numa tela que não é da conta. **Os alvos da barra inferior voltam para a última conta usada**, e não para a tela de Contas: é por eles que se volta | Seletor no topo da barra lateral, sob o rótulo "CONTA" — **também nas telas gerais**, mostrando a última conta usada |
 | Menu principal | Barra inferior com até 5 itens | Barra lateral de 248 px, em dois grupos: **Nesta conta** e **Geral** |
 | Itens | Calendário, Postagens, Nova postagem, Notificações, Mais | Todos os itens abaixo |
 | "Mais" | Métricas, Acervo, Contas, Saúde, Perfil, Administração | — |
@@ -96,8 +96,27 @@ uma conta errada. Por quê:
   se não pertencer, a tela redireciona para o endereço com a conta certa, em vez de mostrar uma conta e agir em
   outra
 
-A **última conta usada** fica num cookie do navegador, só com o identificador da conta. Serve apenas para abrir
-o sistema já nela; não vale como autorização de nada.
+A **última conta usada** fica num cookie do navegador, só com o identificador da conta. Serve para abrir o
+sistema já nela e para a casca continuar mostrando-a nas telas gerais; não vale como autorização de nada.
+
+#### A conta na casca das telas gerais — desde 22/09/2026
+
+Nas telas gerais o endereço não tem conta, mas **a casca continua mostrando a última usada**: o seletor exibe
+aquela conta, e Calendário, Postagens e Métricas seguem sendo link para ela. Antes, abrir o Acervo dizia
+"Nenhuma conta" e apagava os três itens com o título "Conecte uma conta primeiro" — mentira, quando há conta
+conectada —, e voltar custava escolher a conta outra vez.
+
+⚠️ **São duas perguntas diferentes, e só uma mudou.** "Em que conta a ação acontece?" continua sendo respondida
+**só pelo endereço** (AGENTS.md, regra 24), e nas telas gerais não há ação de conta nenhuma — o Acervo é
+compartilhado, o Perfil é de quem está usando. O que a casca responde é "para qual conta os atalhos apontam?",
+e essa resposta nunca vira alvo de escrita.
+
+**Escolher conta continua sendo navegar.** De uma tela geral, escolher uma conta no seletor leva ao calendário
+dela: sem isso, "trocar de conta" viraria estado guardado, que é justamente o que o endereço existe para evitar.
+
+⚠️ **O valor do cookie sozinho não serve.** Ele chega pelo layout autenticado, e o layout congela na primeira
+carga completa (regra 25): quem entrou numa conta, trocou para outra e foi ao Acervo veria a **primeira**. Por
+isso o endereço atual tem precedência e o cookie é só a semente — é o que faz `useShellAccount()`.
 
 ### Proteção contra agir na conta errada
 

@@ -9,7 +9,7 @@ import { AccountSwitcher } from "@/components/nav/account-switcher";
 import { UserCard } from "@/components/nav/user-card";
 import { BrandSvg } from "@/components/brand";
 import { hrefFor, visibleItems, type NavItem } from "@/lib/nav/items";
-import { useActiveAccount } from "@/lib/nav/use-active-account";
+import { useShellAccount } from "@/lib/nav/use-shell-account";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,15 +21,24 @@ import { cn } from "@/lib/utils";
  * as contas — e o cartão de quem está usando, colado no rodapé.
  *
  * Só aparece a partir de `md`; no celular quem navega é a barra inferior.
+ *
+ * ⚠️ **Nas telas gerais a casca continua mostrando a conta** (`useShellAccount`),
+ * em vez de dizer "Nenhuma conta" e apagar os itens dela. Sem isso, abrir o
+ * Acervo custava escolher a conta de novo para voltar a qualquer tela dela — e
+ * o título dos itens apagados dizia "Conecte uma conta primeiro", que é mentira
+ * quando há conta conectada. Quem **age** continua sendo o endereço (regra 24).
  */
 export function Sidebar({
   user,
   accounts,
+  rememberedAccount,
 }: {
   readonly user: SessionUser;
   readonly accounts: readonly AccountSummary[];
+  /** A conta a mostrar quando o endereço não tem nenhuma. */
+  readonly rememberedAccount: string | null;
 }): ReactNode {
-  const { username: activeUsername } = useActiveAccount();
+  const conta = useShellAccount(rememberedAccount);
   const itens = visibleItems({ superAdmin: user.superAdmin, permissions: user.permissions });
   const daConta = itens.filter((item) => item.scope === "account");
   const gerais = itens.filter((item) => item.scope === "general");
@@ -41,13 +50,13 @@ export function Sidebar({
         <span className="font-heading text-[22px] font-extrabold tracking-[-0.02em]">PostIt</span>
       </div>
 
-      <AccountSwitcher accounts={accounts} variant="sidebar" />
+      <AccountSwitcher accounts={accounts} variant="sidebar" fallbackAccount={conta} />
 
-      <NovaPostagem activeUsername={activeUsername} />
+      <NovaPostagem activeUsername={conta} />
 
       <nav className="flex min-h-0 flex-col gap-0.5 overflow-y-auto" aria-label="Menu principal">
-        <NavGroup title="Nesta conta" items={daConta} activeUsername={activeUsername} />
-        <NavGroup title="Geral" items={gerais} activeUsername={activeUsername} spaced />
+        <NavGroup title="Nesta conta" items={daConta} activeUsername={conta} />
+        <NavGroup title="Geral" items={gerais} activeUsername={conta} spaced />
       </nav>
 
       {/* Empurra o cartão do usuário para o rodapé, seja qual for o tamanho do menu. */}
@@ -62,11 +71,16 @@ export function Sidebar({
  * O botão principal da tela. Sem conta conectada ele leva às contas, porque
  * compor sem conta não é possível — e um botão desabilitado sem explicação é o
  * que faz a pessoa achar que o sistema quebrou.
+ *
+ * ⚠️ **Leva direto a compor, e não à lista.** De 17/09 a 22/09/2026 faltou o
+ * `/nova` aqui: o botão dizia "Nova postagem" e entregava a lista de postagens,
+ * com um segundo clique pela frente. A barra inferior do celular, escrita no
+ * mesmo período, sempre apontou para o lugar certo.
  */
 function NovaPostagem({ activeUsername }: { readonly activeUsername: string | null }): ReactNode {
   return (
     <Link
-      href={activeUsername === null ? "/contas" : `/c/${activeUsername}/postagens`}
+      href={activeUsername === null ? "/contas" : `/c/${activeUsername}/postagens/nova`}
       className={cn(
         "flex h-10 items-center justify-center gap-2 rounded-[10px] bg-primary text-sm font-semibold text-primary-foreground",
         "hover:bg-primary/90 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none",
