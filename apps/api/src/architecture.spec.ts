@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 /**
@@ -66,6 +66,28 @@ describe("arquitetura", () => {
   it("a Meta falsa não entra no processo HTTP", () => {
     // Ela só sobe pelo próprio ponto de entrada, e só com NODE_ENV=test.
     expect(alcancaveis.filter((file) => file.startsWith("fake-meta/"))).toEqual([]);
+  });
+
+  // As chamadas de publicação ficam fora do InstagramModule justamente para isto.
+  it("o processo HTTP não alcança as chamadas de publicação", () => {
+    expect(alcancaveis).not.toContain("instagram/publishing.ts");
+  });
+
+  /**
+   * `domain/` são regras puras, sem Nest nem Prisma (AGENTS.md, "Na API"). É o que
+   * as deixa testáveis sem subir banco — e onde um erro custa caro, como a
+   * classificação de erros da publicação.
+   */
+  it("as regras de domínio não dependem de Nest nem de Prisma", () => {
+    const regras = readdirSync(join(SRC, "domain"), { recursive: true, encoding: "utf8" })
+      .map((file) => `domain/${file.replace(/\\/g, "/")}`)
+      .filter((file) => file.endsWith(".ts") && !file.endsWith(".spec.ts"));
+    expect(regras).toContain("domain/publishing/classify.ts");
+
+    const infratores = regras.filter((file) =>
+      /from\s+["'](?:@nestjs\/|@repo\/database|@prisma\/)/.test(readFileSync(join(SRC, file), "utf8")),
+    );
+    expect(infratores).toEqual([]);
   });
 
   /**
