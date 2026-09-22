@@ -670,6 +670,8 @@ function midiasIniciais(post: PostDetail | null, acervo: readonly MediaSummary[]
         height: anexada.height,
         bytes: 0,
         createdAt: "",
+        // Está anexada **a esta** postagem, por definição.
+        inUse: true,
       },
   );
 }

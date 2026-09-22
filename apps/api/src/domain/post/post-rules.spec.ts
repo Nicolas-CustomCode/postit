@@ -5,6 +5,7 @@ import { canCancel, resolveSchedule, scheduleMoveFor } from "./schedule";
 import {
   canMarkReady,
   canTransition,
+  holdsMedia,
   isEditable,
   keepsSchedule,
   READY_CHAIN,
@@ -166,6 +167,27 @@ describe("máquina de estados da postagem", () => {
       for (const status of ["DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED", "FAILED"] as const) {
         expect(isEditable(status)).toBe(true);
       }
+    });
+  });
+
+  /**
+   * Quem segura a mídia, para a exclusão do acervo (RF-B07).
+   *
+   * Varrendo `POST_STATUSES`: um estado novo no enum **obriga** a decidir de que
+   * lado ele fica, em vez de herdar um `true` por acaso.
+   */
+  describe("holdsMedia", () => {
+    it("só a postagem descartada solta a imagem", () => {
+      expect(POST_STATUSES.filter((status) => !holdsMedia(status))).toEqual(["CANCELED"]);
+    });
+
+    /*
+     * O caso que separa `holdsMedia` de `isEditable`: `PROCESSANDO` não aceita
+     * edição, mas é a que mais segura a mídia — o worker está subindo o arquivo.
+     */
+    it("publicada e em processamento seguram", () => {
+      expect(holdsMedia("PUBLISHED")).toBe(true);
+      expect(holdsMedia("PROCESSING")).toBe(true);
     });
   });
 });

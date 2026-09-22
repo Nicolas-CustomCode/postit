@@ -112,3 +112,20 @@ export function keepsSchedule(next: PostStatus): boolean {
 export function isEditable(status: PostStatus): boolean {
   return status !== "PUBLISHED" && status !== "CANCELED" && status !== "PROCESSING";
 }
+
+/**
+ * Esta postagem ainda segura a mídia que usa (RF-B07)?
+ *
+ * **Tudo menos `CANCELADO`.** `PUBLICADO` segura de propósito: o histórico não
+ * se apaga, e a imagem de um post que foi ao ar não é rascunho de ninguém. As
+ * vivas seguram porque ainda vão ao ar. `CANCELADO` solta — é o único estado
+ * terminal que não deixou marca no mundo, e sem ele a mídia de um rascunho
+ * descartado ficaria refém para sempre: `discard()` não apaga o vínculo.
+ *
+ * ⚠️ **Não use `isEditable` aqui.** Ela exclui `PROCESSANDO`, e uma postagem em
+ * processamento é justamente a que mais segura a mídia — o worker está subindo
+ * o arquivo naquele instante.
+ */
+export function holdsMedia(status: PostStatus): boolean {
+  return status !== "CANCELED";
+}

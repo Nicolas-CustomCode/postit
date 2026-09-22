@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { MediaSummary } from "@repo/shared";
+import { MEDIA_LIST_LIMIT, type MediaSummary } from "@repo/shared";
 import { PrismaService } from "../prisma/prisma.service";
 import { publicUrlFor } from "../storage/public-url";
 import { MEDIA_CONFIG, type MediaConfig } from "./media.config";
@@ -15,9 +15,9 @@ import { MEDIA_CONFIG, type MediaConfig } from "./media.config";
  * Sem paginação: a lista sai com um teto, as mais recentes primeiro. Numa
  * ferramenta interna, paginar antes de haver volume é inventar problema — e o
  * dia em que houver, a busca vem junto, que é o que a pessoa vai querer de
- * verdade.
+ * verdade. O mesmo teto limita o lote de exclusão (RF-B07): não existe seleção
+ * maior do que o que a tela mostra.
  */
-const LIMITE = 60;
 
 @Injectable()
 export class MediaQueryService {
@@ -29,7 +29,20 @@ export class MediaQueryService {
   async list(): Promise<MediaSummary[]> {
     const midias = await this.prisma.db.media.findMany({
       orderBy: { createdAt: "desc" },
-      take: LIMITE,
+      take: MEDIA_LIST_LIMIT,
+      include: {
+        /*
+         * O que segura a imagem (RF-B07). Postagem descartada **não** conta: é
+         * o que a exclusão libera. A capa entra porque o banco a desvincularia
+         * em silêncio — `capaMidiaId` é `SET NULL`.
+         */
+        _count: {
+          select: {
+            usages: { where: { post: { status: { not: "CANCELED" } } } },
+            coverOfPosts: true,
+          },
+        },
+      },
     });
 
     return midias.map((midia) => ({
@@ -42,6 +55,7 @@ export class MediaQueryService {
       height: midia.height,
       bytes: midia.bytes,
       createdAt: midia.createdAt.toISOString(),
+      inUse: midia._count.usages > 0 || midia._count.coverOfPosts > 0,
     }));
   }
 }

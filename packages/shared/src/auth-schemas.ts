@@ -14,6 +14,7 @@
  * de serviço com uma senha de 1 MB.
  */
 import { z } from "zod";
+import { MEDIA_LIST_LIMIT } from "./media-types";
 import { PASSWORD_MAX_LENGTH } from "./password";
 
 const email = z.string().trim().toLowerCase().min(1).max(320).email();
@@ -82,3 +83,17 @@ export const confirmUploadSchema = z.strictObject({
   ticket: z.string().min(1).max(1024),
 });
 export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
+
+/**
+ * Excluir do acervo (RF-B07).
+ *
+ * Uma lista sempre, mesmo para a lixeira de um card só: a regra de recusa é a
+ * mesma dos dois lados, e duas rotas seriam a mesma regra escrita duas vezes.
+ *
+ * O teto é o da listagem — não existe seleção maior do que o que a tela mostra,
+ * e sem teto o corpo da requisição vira negação de serviço.
+ */
+export const deleteMediaSchema = z.strictObject({
+  ids: z.array(z.string().uuid()).min(1).max(MEDIA_LIST_LIMIT),
+});
+export type DeleteMediaInput = z.infer<typeof deleteMediaSchema>;

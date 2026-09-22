@@ -73,4 +73,25 @@ export interface MediaSummary {
   readonly height: number;
   readonly bytes: number;
   readonly createdAt: string;
+  /**
+   * A imagem está presa a alguma postagem (RF-B07)?
+   *
+   * Conta postagem **viva e publicada**; descartada não conta — é justamente o
+   * que a exclusão libera. Inclui a capa de Reels, que o banco desvincularia em
+   * silêncio.
+   *
+   * ⚠️ **Booleano e não contador, de propósito.** `PostagemMidia` conta
+   * **vínculos**: a mesma imagem repetida num carrossel apareceria duas vezes, e
+   * "em uso em 2 postagens" seria mentira. Quem decide se dá para excluir é a
+   * API (regra 17) — a tela só precisa saber se oferece a lixeira.
+   */
+  readonly inUse: boolean;
 }
+
+/**
+ * Quantas imagens a listagem devolve, e o teto de um lote de exclusão.
+ *
+ * O mesmo número serve aos dois porque não existe seleção maior do que o que a
+ * tela mostra — e sem teto o corpo da requisição vira negação de serviço.
+ */
+export const MEDIA_LIST_LIMIT = 60;

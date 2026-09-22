@@ -1,5 +1,5 @@
-import { IMAGE_MAX_BYTES } from "@repo/shared";
-import { createTestUser, TEST_PASSWORD, totpCodeFor } from "../common/testing/factories";
+import { IMAGE_MAX_BYTES, type PostStatus } from "@repo/shared";
+import { createTestAccount, createTestUser, TEST_PASSWORD, totpCodeFor } from "../common/testing/factories";
 import { jpegBytes, pngBytes } from "../common/testing/image-fixtures";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
 import { PUBLIC_PREFIX, StorageService } from "../storage/storage.service";
@@ -76,6 +76,28 @@ describe("envio de mídia", () => {
     const midia = await api.db.media.findUniqueOrThrow({ where: { id } });
     return midia.objectKey;
   };
+
+  /**
+   * Prende a mídia a uma postagem no estado pedido — o que decide se ela pode
+   * ser excluída (RF-B07).
+   *
+   * Escreve direto pelo Prisma: passar pelas rotas de composição exigiria conta
+   * conectada, formato compatível e a máquina de estados inteira, para provar
+   * algo que é sobre a **linha** em `PostagemMidia`, não sobre como ela nasceu.
+   */
+  async function anexar(mediaId: string, status: PostStatus): Promise<string> {
+    const conta = await createTestAccount(api.db, api.config.encryptionKey, {
+      username: `conta.${Math.random().toString(16).slice(2, 8)}`,
+    });
+    const autor = await createTestUser(api.db, api.config.encryptionKey, {});
+
+    const postagem = await api.db.post.create({
+      data: { accountId: conta.id, format: "FEED", status, createdById: autor.id },
+    });
+    await api.db.postMedia.create({ data: { postId: postagem.id, mediaId, position: 0 } });
+
+    return postagem.id;
+  }
 
   describe("acesso", () => {
     it("recusa quem não está logado", async () => {
@@ -295,6 +317,220 @@ describe("envio de mídia", () => {
 
     it("sem sessão, ninguém lê", async () => {
       expect((await api.request({ method: "GET", url: "/media" })).statusCode).toBe(401);
+    });
+
+    /*
+     * O `inUse` existe para a tela desligar a lixeira **antes** de a pessoa
+     * tentar (RF-B07). Postagem descartada não conta: é justamente o que a
+     * exclusão libera, e sem isso um rascunho jogado fora prenderia a imagem
+     * para sempre — `discard()` não apaga o vínculo.
+     */
+    it("diz quais imagens estão presas a uma postagem", async () => {
+      const token = await entrar();
+      const presa = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      const solta = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1350 }))).body[
+        "id"
+      ] as string;
+
+      await anexar(presa, "DRAFT");
+      await anexar(solta, "CANCELED");
+
+      const acervo = (await api.request({ method: "GET", url: "/media", token }))
+        .body as unknown as { id: string; inUse: boolean }[];
+
+      expect(acervo.find((item) => item.id === presa)?.inUse).toBe(true);
+      expect(acervo.find((item) => item.id === solta)?.inUse).toBe(false);
+
+      const storage = api.app.get(StorageService);
+      for (const id of [presa, solta]) await storage.removePublic(await objetoPublico(id));
+    });
+  });
+
+  /**
+   * Excluir do acervo (RF-B07) — a única exclusão física de conteúdo.
+   *
+   * Contra o MinIO de verdade: o que se quer provar é que o **arquivo** some, e
+   * isso não se prova com armazenamento falso. A prova é a URL pública passar a
+   * responder 404 — pedir o `removePublic` de novo não serve, porque o S3 trata
+   * apagar chave inexistente como sucesso.
+   */
+  describe("excluir do acervo", () => {
+    const excluir = (token: string, ids: readonly string[]) =>
+      api.request({ method: "POST", url: "/media/delete", token, payload: { ids } });
+
+    /** O endereço público de uma mídia, como a listagem o entrega. */
+    async function urlDe(token: string, id: string): Promise<string> {
+      const acervo = (await api.request({ method: "GET", url: "/media", token }))
+        .body as unknown as { id: string; url: string }[];
+      return acervo.find((item) => item.id === id)!.url;
+    }
+
+    it("uma imagem sem uso some do banco e do armazenamento", async () => {
+      const token = await entrar();
+      const id = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      const url = await urlDe(token, id);
+      expect((await fetch(url)).status).toBe(200);
+
+      const resposta = await excluir(token, [id]);
+
+      expect(resposta.statusCode).toBe(200);
+      expect(resposta.body).toMatchObject({ deleted: 1 });
+      expect(await api.db.media.count()).toBe(0);
+      expect((await fetch(url)).status).toBe(404);
+    });
+
+    it.each(["DRAFT", "PUBLISHED", "PROCESSING"] as const)(
+      "recusa enquanto a postagem está em %s, e o arquivo continua lá",
+      async (status) => {
+        const token = await entrar();
+        const id = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+          "id"
+        ] as string;
+        const url = await urlDe(token, id);
+        await anexar(id, status);
+
+        const resposta = await excluir(token, [id]);
+
+        expect(resposta.statusCode).toBe(409);
+        expect(resposta.body).toMatchObject({ code: "MEDIA_IN_USE" });
+        expect(await api.db.media.count()).toBe(1);
+        expect((await fetch(url)).status).toBe(200);
+
+        await api.app.get(StorageService).removePublic(await objetoPublico(id));
+      },
+    );
+
+    /*
+     * O beco que este requisito abre: `discard()` só marca CANCELADO e **não**
+     * apaga o vínculo. Sem isto, uma imagem anexada a um rascunho descartado
+     * ficaria refém do acervo para sempre.
+     */
+    it("postagem descartada solta a imagem, e o vínculo sai junto", async () => {
+      const token = await entrar();
+      const id = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      await anexar(id, "CANCELED");
+
+      expect((await excluir(token, [id])).statusCode).toBe(200);
+      expect(await api.db.media.count()).toBe(0);
+      expect(await api.db.postMedia.count()).toBe(0);
+    });
+
+    it("uma postagem viva segura, mesmo havendo outra descartada", async () => {
+      const token = await entrar();
+      const id = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      await anexar(id, "CANCELED");
+      await anexar(id, "SCHEDULED");
+
+      expect((await excluir(token, [id])).statusCode).toBe(409);
+      expect(await api.db.media.count()).toBe(1);
+
+      await api.app.get(StorageService).removePublic(await objetoPublico(id));
+    });
+
+    /*
+     * `Marcacao` aponta para `PostagemMidia` com RESTRICT, e **nada a grava
+     * hoje** — sem este caso escrito à mão, o 500 só apareceria na Fase 2.
+     */
+    it("marcação de postagem descartada não trava a exclusão", async () => {
+      const token = await entrar();
+      const id = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      await anexar(id, "CANCELED");
+
+      const vinculo = await api.db.postMedia.findFirstOrThrow({ where: { mediaId: id } });
+      await api.db.userTag.create({
+        data: { postMediaId: vinculo.id, username: "alguem", x: 0.5, y: 0.5 },
+      });
+
+      expect((await excluir(token, [id])).statusCode).toBe(200);
+      expect(await api.db.media.count()).toBe(0);
+      expect(await api.db.userTag.count()).toBe(0);
+    });
+
+    it("a capa de um Reels segura a imagem", async () => {
+      const token = await entrar();
+      const id = (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: 1080 }))).body[
+        "id"
+      ] as string;
+      const postId = await anexar(id, "CANCELED");
+      await api.db.post.update({ where: { id: postId }, data: { coverMediaId: id } });
+
+      expect((await excluir(token, [id])).statusCode).toBe(409);
+      expect(await api.db.media.count()).toBe(1);
+
+      await api.db.post.update({ where: { id: postId }, data: { coverMediaId: null } });
+      await api.app.get(StorageService).removePublic(await objetoPublico(id));
+    });
+
+    it("um lote sai inteiro", async () => {
+      const token = await entrar();
+      const ids: string[] = [];
+      for (const altura of [1080, 1350, 1080]) {
+        ids.push(
+          (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: altura }))).body["id"] as string,
+        );
+      }
+
+      expect((await excluir(token, ids)).body).toMatchObject({ deleted: 3 });
+      expect(await api.db.media.count()).toBe(0);
+    });
+
+    /** A prova do tudo-ou-nada: uma presa, e nenhuma sai. */
+    it("num lote com uma presa, nenhuma é excluída", async () => {
+      const token = await entrar();
+      const ids: string[] = [];
+      for (const altura of [1080, 1350, 1080]) {
+        ids.push(
+          (await enviarEConfirmar(token, jpegBytes({ width: 1080, height: altura }))).body["id"] as string,
+        );
+      }
+      await anexar(ids[1]!, "DRAFT");
+
+      expect((await excluir(token, ids)).statusCode).toBe(409);
+      expect(await api.db.media.count()).toBe(3);
+
+      const storage = api.app.get(StorageService);
+      for (const id of ids) await storage.removePublic(await objetoPublico(id));
+    });
+
+    it("id que já não existe é ignorado, sem erro", async () => {
+      const token = await entrar();
+
+      const resposta = await excluir(token, ["00000000-0000-4000-8000-000000000000"]);
+
+      expect(resposta.statusCode).toBe(200);
+      expect(resposta.body).toMatchObject({ deleted: 0 });
+    });
+
+    it("recusa quem não pode editar postagens", async () => {
+      expect((await excluir(await entrar([]), ["00000000-0000-4000-8000-000000000000"])).statusCode).toBe(403);
+    });
+
+    it("sem sessão, ninguém exclui", async () => {
+      const resposta = await api.request({
+        method: "POST",
+        url: "/media/delete",
+        payload: { ids: ["00000000-0000-4000-8000-000000000000"] },
+      });
+      expect(resposta.statusCode).toBe(401);
+    });
+
+    it("o schema recusa lista vazia, id inválido e lote acima do teto", async () => {
+      const token = await entrar();
+      const umId = "00000000-0000-4000-8000-000000000000";
+
+      expect((await excluir(token, [])).statusCode).toBe(400);
+      expect((await excluir(token, ["nao-e-uuid"])).statusCode).toBe(400);
+      expect((await excluir(token, Array.from({ length: 61 }, () => umId))).statusCode).toBe(400);
     });
   });
 

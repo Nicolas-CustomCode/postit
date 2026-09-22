@@ -228,6 +228,19 @@ export class MediaAlreadyConfirmedError extends AppError {
 }
 
 /**
+ * A imagem está presa a uma postagem viva ou publicada (RF-B07).
+ *
+ * **409 e não 422:** a requisição está perfeita, é o **estado** que conflita —
+ * mesma família de `MEDIA_ALREADY_CONFIRMED`, `POST_NOT_EDITABLE` e
+ * `LAST_SUPER_ADMIN`. O 422 deste arquivo é reservado a "o conteúdo não serve".
+ */
+export class MediaInUseError extends AppError {
+  constructor() {
+    super("MEDIA_IN_USE", 409);
+  }
+}
+
+/**
  * A postagem não existe **nesta conta**.
  *
  * ⚠️ **404, e não 403, também quando a postagem existe em outra conta.** Dizer

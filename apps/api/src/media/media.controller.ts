@@ -1,5 +1,11 @@
 import { Body, Controller, Get, HttpCode, Post } from "@nestjs/common";
-import { confirmUploadSchema, type MediaSummary, type UploadPermission } from "@repo/shared";
+import {
+  confirmUploadSchema,
+  deleteMediaSchema,
+  type DeleteMediaInput,
+  type MediaSummary,
+  type UploadPermission,
+} from "@repo/shared";
 import { AnyAuthenticated, RequirePermission } from "../authorization/policy.decorators";
 import { Auth } from "../auth/auth.decorators";
 import type { AuthContext } from "../auth/session.service";
@@ -8,11 +14,13 @@ import { MediaDomainService } from "./media.domain.service";
 import { MediaQueryService } from "./media.query.service";
 
 /**
- * O acervo: enviar e listar (RF-B01, RF-B02, RF-B04; ADR 0012).
+ * O acervo: enviar, listar e excluir (RF-B01, RF-B02, RF-B04, RF-B07; ADR 0012).
  *
- * As rotas de envio são **ação**, e exigem `POST_EDIT` — a permissão que o
- * docs/02 mapeia para RF-B01 a RF-B05. Listar é leitura, e leitura é
- * `@AnyAuthenticated` (AGENTS.md, regra 5).
+ * As rotas de envio e de exclusão são **ação**, e exigem `POST_EDIT` — a mesma
+ * permissão que o ADR 0015 já descreve como "enviar mídia" e "descartar
+ * rascunho". Excluir do acervo é o inverso da primeira e da mesma natureza da
+ * segunda: tirar conteúdo que a própria pessoa pôs. Listar é leitura, e leitura
+ * é `@AnyAuthenticated` (AGENTS.md, regra 5).
  *
  * Nenhuma delas recebe o arquivo: o navegador o envia direto ao MinIO, com a
  * permissão que a primeira devolve. É isso que deixa o limite de 1 MB por
@@ -49,5 +57,21 @@ export class MediaController {
     @Body(new ZodValidationPipe(confirmUploadSchema)) body: { ticket: string },
   ): Promise<MediaSummary> {
     return this.media.confirmUpload({ userId: auth.userId, ticket: body.ticket, now: new Date() });
+  }
+
+  /**
+   * Tira imagens do acervo (RF-B07).
+   *
+   * Uma lista sempre — a lixeira de um card manda um id só. E `POST`, não
+   * `DELETE`: o cliente do Next conhece GET e POST, e o projeto escreve por
+   * caminho-verbo (`/discard`, `/cancel`, `/confirm`).
+   */
+  @RequirePermission("POST_EDIT")
+  @Post("delete")
+  @HttpCode(200)
+  remove(
+    @Body(new ZodValidationPipe(deleteMediaSchema)) body: DeleteMediaInput,
+  ): Promise<{ deleted: number }> {
+    return this.media.deleteMedia(body.ids);
   }
 }

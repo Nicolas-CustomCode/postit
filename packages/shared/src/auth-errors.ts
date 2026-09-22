@@ -38,6 +38,7 @@ export const AUTH_ERROR_CODES = [
   "MEDIA_CORRUPT",
   "MEDIA_UPLOAD_INVALID",
   "MEDIA_ALREADY_CONFIRMED",
+  "MEDIA_IN_USE",
   // Composição da postagem (RF-C01, RF-C03, RF-C12; docs/05, máquina de estados).
   "POST_NOT_FOUND",
   "POST_VERSION_CONFLICT",
@@ -128,6 +129,11 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   MEDIA_CORRUPT: "Não consegui ler esta imagem. O arquivo pode estar corrompido",
   MEDIA_UPLOAD_INVALID: "Este envio não vale mais. Escolha o arquivo de novo",
   MEDIA_ALREADY_CONFIRMED: "Este arquivo já foi enviado",
+  // Sem dizer qual postagem nem de que conta: o acervo é compartilhado, e a
+  // tela não conhece — nem deve conhecer — o outro lado. Quem completa a frase
+  // com a saída é o Acervo, mesmo motivo de MEDIA_RATIO_UNSUPPORTED não citar
+  // a faixa.
+  MEDIA_IN_USE: "Esta imagem está em uso numa postagem e não pode ser excluída",
   POST_NOT_FOUND: "Esta postagem não existe nesta conta",
   // A tela completa com quem alterou e quando, que vêm em `conflict`.
   POST_VERSION_CONFLICT: "Esta postagem foi alterada enquanto você editava",
