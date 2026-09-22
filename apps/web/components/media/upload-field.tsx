@@ -3,6 +3,7 @@
 import { ImageUp, Loader2 } from "lucide-react";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import {
+  fitFrame,
   formatsFor,
   imageUploadPreProblem,
   targetRatioFor,
@@ -16,11 +17,11 @@ import {
   type UploadPermission,
 } from "@repo/shared";
 import { confirmUploadAction, requestUploadPermissionAction } from "@/lib/actions/media";
-import { CropPreview } from "@/components/media/crop-preview";
+import { ImageAdjust, type AdjustChoice } from "@/components/media/image-adjust";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { blobToFile, cropToJpeg, loadImage, type LoadedImage } from "@/lib/media/crop-image";
+import { blobToFile, cropToJpeg, fitToJpeg, loadImage, type LoadedImage } from "@/lib/media/crop-image";
 
 /**
  * Escolher uma imagem e enviá-la (RF-B01, RF-B02, RF-B03).
@@ -53,7 +54,7 @@ type Estado =
   | { fase: "parado" }
   /** `ratioAlvo: null` significa "já cabe": a tela só pede confirmação. */
   | { fase: "decidindo"; escolhida: Escolhida; ratioAlvo: number | null }
-  | { fase: "recortando"; escolhida: Escolhida; ratio: number }
+  | { fase: "ajustando"; escolhida: Escolhida; ratio: number }
   | { fase: "enviando"; porcento: number }
   | { fase: "conferindo" }
   | { fase: "pronto"; midia: MediaSummary };
@@ -152,16 +153,23 @@ export function UploadField({
     setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioAlvo });
   }
 
-  /** Recorta o que a pessoa escolheu e envia o resultado, não o original. */
-  async function enviarRecorte(position: number): Promise<void> {
-    if (estado.fase !== "recortando") return;
+  /** Aplica o ajuste escolhido e envia o resultado, nunca o original. */
+  async function enviarAjuste(escolha: AdjustChoice): Promise<void> {
+    if (estado.fase !== "ajustando") return;
     setErro(null);
 
     try {
-      const blob = await cropToJpeg(estado.escolhida.imagem, estado.ratio, position);
-      await enviar(blobToFile(blob, estado.escolhida.file.name));
+      const { imagem, file } = estado.escolhida;
+      const moldura = escolha.mode === "fit" ? fitFrame(imagem.width, imagem.height, alvo) : null;
+
+      const blob =
+        moldura === null
+          ? await cropToJpeg(imagem, estado.ratio, escolha.mode === "crop" ? escolha.position : 0.5)
+          : await fitToJpeg(imagem, moldura);
+
+      await enviar(blobToFile(blob, file.name));
     } catch {
-      setErro("Não consegui recortar a imagem. Tente outra.");
+      setErro("Não consegui ajustar a imagem. Tente outra.");
       setEstado({ fase: "parado" });
     }
   }
@@ -240,7 +248,7 @@ export function UploadField({
               ? () => void enviar(estado.escolhida.file)
               : undefined
           }
-          onCrop={(ratio) => setEstado({ fase: "recortando", escolhida: estado.escolhida, ratio })}
+          onCrop={(ratio) => setEstado({ fase: "ajustando", escolhida: estado.escolhida, ratio })}
           onChooseAnother={() => {
             setEstado({ fase: "parado" });
             input.current?.click();
@@ -248,13 +256,13 @@ export function UploadField({
         />
       )}
 
-      {estado.fase === "recortando" && (
-        <CropPreview
+      {estado.fase === "ajustando" && (
+        <ImageAdjust
           image={estado.escolhida.imagem}
           ratio={estado.ratio}
           spec={alvo}
           busy={false}
-          onConfirm={(posicao) => void enviarRecorte(posicao)}
+          onConfirm={(escolha) => void enviarAjuste(escolha)}
           onCancel={() =>
             setEstado({
               fase: "decidindo",
@@ -265,8 +273,8 @@ export function UploadField({
         />
       )}
 
-      {/* Enquanto se decide ou se recorta, os botões que valem são os de lá. */}
-      {withTrigger && estado.fase !== "decidindo" && estado.fase !== "recortando" && (
+      {/* Enquanto se decide ou se ajusta, os botões que valem são os de lá. */}
+      {withTrigger && estado.fase !== "decidindo" && estado.fase !== "ajustando" && (
         <Button
           type="button"
           variant="outline"
@@ -406,7 +414,7 @@ function ImageConfirm({
             className="h-11 md:h-10"
             onClick={() => onCrop(ratioAlvo)}
           >
-            Recortar para {spec.label}
+            Ajustar para {spec.label}
           </Button>
         )}
       </div>

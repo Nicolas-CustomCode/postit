@@ -84,7 +84,7 @@ test.describe("acervo — enviar imagem", () => {
     await expect(page.getByText(/não serve para Feed/i)).toBeVisible();
     await expect(page.getByText(/serve para Stories/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /recortar para feed/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /ajustar para feed/i })).toBeVisible();
     // A terceira saída: quem escolheu o arquivo errado não pode ficar preso aqui.
     await expect(page.getByRole("button", { name: /escolher outra/i })).toBeVisible();
 
@@ -92,20 +92,43 @@ test.describe("acervo — enviar imagem", () => {
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   });
 
-  test("quem escolhe recortar chega na prévia, com a faixa do feed", async ({ page }) => {
+  test("o ajuste oferece recortar e imagem inteira, com a faixa do feed", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
       name: "foto-em-pe.jpg",
       mimeType: "image/jpeg",
       buffer: imagemDe(1512, 2016),
     });
 
-    await page.getByRole("button", { name: /recortar para feed/i }).click();
+    await page.getByRole("button", { name: /ajustar para feed/i }).click();
 
-    await expect(page.getByText(/Recortar para Feed/i)).toBeVisible();
     await expect(page.getByText(/4:5 a 1\.91:1/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Recortar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Imagem inteira" })).toBeVisible();
+    // O recorte é o que abre, porque é o que preserva a resolução.
     await expect(page.getByRole("img", { name: /prévia do recorte/i })).toBeVisible();
     await expect(page.getByLabel(/do topo à base/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /usar este recorte/i })).toBeVisible();
+  });
+
+  /*
+   * O guarda-costas da decisão "zero grau de liberdade": sem zoom, a imagem
+   * inteira ocupa o eixo que não ganhou faixa e fica centrada no outro. Um
+   * controle de posição ali só permitiria faixa assimétrica, que é defeito.
+   */
+  test("no modo imagem inteira não há controle de posição", async ({ page }) => {
+    await page.setInputFiles('input[type="file"]', {
+      name: "foto-em-pe.jpg",
+      mimeType: "image/jpeg",
+      buffer: imagemDe(1512, 2016),
+    });
+
+    await page.getByRole("button", { name: /ajustar para feed/i }).click();
+    await page.getByRole("button", { name: "Imagem inteira" }).click();
+
+    await expect(page.getByLabel(/do topo à base/i)).toHaveCount(0);
+    await expect(page.getByRole("img", { name: /prévia do enquadramento/i })).toBeVisible();
+    await expect(page.getByText(/faixas brancas nas sobras/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /usar a imagem inteira/i })).toBeVisible();
   });
 
   test("dá para voltar do recorte e enviar como está", async ({ page }) => {
@@ -115,7 +138,7 @@ test.describe("acervo — enviar imagem", () => {
       buffer: imagemDe(1512, 2016),
     });
 
-    await page.getByRole("button", { name: /recortar para feed/i }).click();
+    await page.getByRole("button", { name: /ajustar para feed/i }).click();
     await page.getByRole("button", { name: "Voltar" }).click();
 
     await expect(page.getByRole("button", { name: /enviar como está/i })).toBeVisible();
@@ -139,7 +162,7 @@ test.describe("acervo — enviar imagem", () => {
 
     // Nada de recorte: não há o que recortar numa imagem que já serve.
     await expect(page.getByText(/não serve para Feed/i)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /recortar para feed/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /ajustar para feed/i })).toHaveCount(0);
   });
 
   test("um arquivo vazio é recusado", async ({ page }) => {

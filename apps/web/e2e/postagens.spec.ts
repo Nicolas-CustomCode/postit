@@ -242,7 +242,7 @@ test.describe("postagens", () => {
     });
 
     await expect(conteudo(page).getByRole("img", { name: /prévia da imagem escolhida/i })).toBeVisible();
-    await expect(conteudo(page).getByRole("button", { name: /recortar para feed/i })).toBeVisible();
+    await expect(conteudo(page).getByRole("button", { name: /ajustar para feed/i })).toBeVisible();
     await expect(conteudo(page).getByRole("button", { name: /escolher outra/i })).toBeVisible();
     await expect(conteudo(page).getByRole("button", { name: /enviar como está/i })).toHaveCount(0);
   });
