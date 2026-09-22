@@ -94,8 +94,15 @@ export function ComposeForm({
   /** O que a última reordenação fez, para quem navega por leitor de tela. */
   const [anuncio, setAnuncio] = useState("");
   const [acervoAberto, setAcervoAberto] = useState(false);
-  /** A imagem do acervo que não serve ao formato e está sendo ajustada. */
-  const [ajustando, setAjustando] = useState<MediaSummary | null>(null);
+  /**
+   * A imagem que não serve ao formato e está sendo ajustada.
+   *
+   * O `indice` diz de onde ela veio, e é o que decide o destino da ajustada:
+   * `null` é do acervo e **acrescenta**; um número é da faixa e **substitui**
+   * naquele lugar — quem trocou de formato quer a mesma imagem consertada, na
+   * mesma posição, não uma segunda cópia no fim.
+   */
+  const [ajustando, setAjustando] = useState<{ media: MediaSummary; indice: number | null } | null>(null);
   /** O seletor de arquivos, aberto pelo item "Enviar nova" do menu. */
   const envio = useRef<UploadHandle>(null);
 
@@ -367,6 +374,10 @@ export function ComposeForm({
               disabled={ocupado}
               onMover={moverMidia}
               onRemover={removerMidia}
+              onAjustar={(indice) => {
+                const alvo = midias[indice];
+                if (alvo !== undefined) setAjustando({ media: alvo, indice });
+              }}
               acrescentar={
                 cheia ? undefined : (
                   <AddMediaTile
@@ -400,7 +411,7 @@ export function ComposeForm({
               open={acervoAberto}
               onOpenChange={setAcervoAberto}
               onConfirm={(escolhidas) => setMidias((atual) => [...atual, ...escolhidas])}
-              onAdjust={setAjustando}
+              onAdjust={(incompativel) => setAjustando({ media: incompativel, indice: null })}
             />
 
             {/*
@@ -410,7 +421,7 @@ export function ComposeForm({
               arrancaria a folha no meio do próprio desmonte.
             */}
             <MediaAdjustSheet
-              media={ajustando}
+              media={ajustando?.media ?? null}
               format={format}
               onOpenChange={(aberta) => {
                 if (!aberta) setAjustando(null);
@@ -420,7 +431,14 @@ export function ComposeForm({
                * derivada e **não entra na lista do acervo**, então não há nada
                * novo para o servidor mandar.
                */
-              onDone={(ajustada) => setMidias((atual) => [...atual, ajustada])}
+              onDone={(ajustada) => {
+                const alvo = ajustando?.indice ?? null;
+                setMidias((atual) =>
+                  alvo === null
+                    ? [...atual, ajustada]
+                    : atual.map((item, indice) => (indice === alvo ? ajustada : item)),
+                );
+              }}
             />
 
             {/*
@@ -446,7 +464,9 @@ export function ComposeForm({
                 {incompativeis.length === 1
                   ? "Uma das imagens não serve para "
                   : `${incompativeis.length} imagens não servem para `}
-                {POST_FORMAT_LABELS[format]}. Remova ou troque de formato.
+                {/* A tarja vermelha de cada uma é o botão que resolve: a frase
+                    manda para lá em vez de oferecer só as saídas antigas. */}
+                {POST_FORMAT_LABELS[format]}. Toque na tarja para ajustar, ou remova.
               </p>
             )}
           </div>

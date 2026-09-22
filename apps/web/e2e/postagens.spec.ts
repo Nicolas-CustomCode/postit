@@ -379,6 +379,26 @@ test.describe("postagens", () => {
     await expect(page.getByRole("main").getByRole("button", { name: "Adicionar imagem" })).toHaveCount(0);
   });
 
+  /*
+   * O outro jeito de ficar com uma imagem que não serve: escolhê-la para
+   * Stories e então trocar para Feed. A imagem já está anexada, e até
+   * 22/09/2026 a única saída era removê-la e recomeçar.
+   */
+  test("trocar de formato oferece ajustar a imagem que deixou de servir", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1920 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await page.getByRole("button", { name: "Stories", exact: true }).click();
+    await escolherDoAcervo(page);
+    await page.getByRole("button", { name: "Feed", exact: true }).click();
+
+    const tarja = conteudo(page).getByRole("button", { name: /ajustar a imagem 1 para Feed/i });
+    await expect(tarja).toBeVisible();
+
+    await tarja.click();
+    await expect(page.getByRole("dialog", { name: "Ajustar imagem" })).toBeVisible();
+  });
+
   test("mudar para Stories com três imagens é recusado antes de chamar a API", async ({ page }) => {
     for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);

@@ -24,6 +24,7 @@ export function MediaStrip({
   disabled,
   onMover,
   onRemover,
+  onAjustar,
   acrescentar,
 }: {
   readonly midias: readonly MediaSummary[];
@@ -31,6 +32,13 @@ export function MediaStrip({
   readonly disabled: boolean;
   readonly onMover: (de: number, para: number) => void;
   readonly onRemover: (indice: number) => void;
+  /**
+   * Ajustar a que deixou de servir (RF-B03; ADR 0025).
+   *
+   * Acontece ao **trocar de formato** com a imagem já anexada: a foto escolhida
+   * para Stories não cabe no feed. Sem isto, a saída era remover e recomeçar.
+   */
+  readonly onAjustar?: (indice: number) => void;
   /**
    * O quadrado de adicionar, que fecha a faixa. Ausente quando a postagem já
    * chegou ao máximo do formato — a faixa é também **onde se acrescenta**, e
@@ -123,11 +131,31 @@ export function MediaStrip({
                 <X className="size-3.5" aria-hidden />
               </button>
 
-              {!serve && (
-                <span className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-destructive px-1.5 py-0.5 text-center text-[11px] font-medium text-white">
-                  Não serve para {IMAGE_SPECS[format].label}
-                </span>
-              )}
+              {/*
+                A tarja continua vermelha ao virar botão, e é o certo: a imagem
+                **bloqueia o salvamento** enquanto estiver assim. O que a cor diz
+                é o problema; o que o texto diz é a saída.
+
+                ⚠️ Botão dentro do item arrastável não é acidente — o arrasto
+                ignora o que nasce num `<button>` (`use-drag-reorder.ts`), que é
+                a mesma guarda que o X de remover já usava.
+              */}
+              {!serve &&
+                (onAjustar === undefined ? (
+                  <span className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-destructive px-1.5 py-0.5 text-center text-[11px] font-medium text-white">
+                    Não serve para {IMAGE_SPECS[format].label}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onAjustar(indice)}
+                    aria-label={`Ajustar a imagem ${indice + 1} para ${IMAGE_SPECS[format].label}`}
+                    className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-destructive px-1.5 py-0.5 text-center text-[11px] font-medium text-white transition-opacity hover:opacity-85 disabled:opacity-40"
+                  >
+                    Ajustar para {IMAGE_SPECS[format].label}
+                  </button>
+                ))}
             </div>
 
             {/* Some com uma imagem só: não há para onde mover. */}
