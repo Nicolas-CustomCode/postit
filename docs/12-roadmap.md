@@ -289,6 +289,28 @@ ponteiro em contexto com toque emulado, então o teste roda só no computador; o
 250 ms antes de arrastar, para não roubar a rolagem da faixa — precisa ser conferido no aparelho, pelo
 túnel.
 
+**22/09/2026 — apagar mídia, e a imagem que não cabe deixa de ser um beco.** Duas entregas no mesmo
+dia, as duas fora do plano original.
+
+O **RF-B07** não existia em requisito, fase nem ADR: excluir imagem do acervo simplesmente não havia
+sido pensado. O beco que forçou a mão: `PostagemMidia.midiaId` é `RESTRICT` e `discard()` não apaga o
+vínculo, então anexar uma imagem a um rascunho e descartá-lo a prendia no acervo **para sempre**.
+Postagem descartada passou a soltar a imagem; viva ou publicada continua segurando.
+
+O **[ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)** responde ao caso mais comum que existe: a foto
+de celular em pé é 3:4, o aplicativo do Instagram a aceita desde maio de 2025 e **a API não**
+([08](08-integracao-instagram.md#o-aplicativo-aceita-34-a-api-não--observado-em-22092026)). Em vez de
+barrar, a tela oferece recortar ou caber inteira com fundo — de três portas: o card do seletor, a
+tarja da miniatura e a confirmação do envio. A ajustada nasce marcada como derivada e não aparece no
+acervo, para uma foto não virar três. A pergunta do multi-rede foi respondida antes de construir: sem
+faixa de proporção publicada, o TikTok cairia no mesmo ramo de Stories, e **nenhum eixo de rede foi
+criado** ([ADR 0009](adr/0009-preparacao-multi-rede.md)).
+
+No mesmo dia, duas correções da casca: o botão "Nova postagem" da barra lateral entregava a **lista**
+— faltava `/nova` no endereço desde 17/09 —, e nas telas gerais o seletor dizia "Nenhuma conta" com os
+itens da conta apagados, obrigando a escolher a conta de novo para voltar
+([13](13-telas-e-navegacao.md#a-conta-na-casca-das-telas-gerais--desde-22092026)).
+
 **Falta desta fase:** o motor de publicação — despachante, publicador, as quatro camadas de
 idempotência, notificações (1d). Sem ele, uma postagem agendada fica esperando para sempre.
 
