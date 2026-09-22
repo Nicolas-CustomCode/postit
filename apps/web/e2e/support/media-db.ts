@@ -33,3 +33,42 @@ export async function criarMidia(medidas: {
     await client.end();
   }
 }
+
+/**
+ * Prende a mídia a uma postagem, para provar a recusa de excluir (RF-B07).
+ *
+ * O estado decide tudo: `CANCELADO` solta a imagem, qualquer outro a segura.
+ * Cria a postagem aqui mesmo porque o que importa é a **linha** em
+ * `PostagemMidia` — como ela nasceu é assunto de outro teste.
+ */
+export async function usarMidiaEmPostagem(
+  mediaId: string,
+  status: "RASCUNHO" | "PUBLICADO" | "CANCELADO",
+): Promise<void> {
+  const client = new Client({ connectionString: process.env["TEST_DATABASE_URL"] });
+  await client.connect();
+
+  try {
+    const { rows } = await client.query<{ id: string }>(
+      `INSERT INTO "Postagem" (id, "contaId", formato, status, "criadoPorId", versao, "criadoEm", "atualizadoEm")
+       VALUES (
+         gen_random_uuid(),
+         (SELECT id FROM "Conta" ORDER BY "criadoEm" LIMIT 1),
+         'FEED',
+         $1::"StatusPostagem",
+         (SELECT id FROM "Usuario" ORDER BY "criadoEm" LIMIT 1),
+         1, now(), now()
+       )
+       RETURNING id`,
+      [status],
+    );
+
+    await client.query(
+      `INSERT INTO "PostagemMidia" (id, "postagemId", "midiaId", ordem)
+       VALUES (gen_random_uuid(), $1, $2, 0)`,
+      [rows[0]?.id, mediaId],
+    );
+  } finally {
+    await client.end();
+  }
+}

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { ESTADO_SUPER_ADMIN } from "./support/estado";
 import { imagemDe } from "./support/imagem";
-import { resetAccounts } from "./support/accounts-db";
-import { criarMidia } from "./support/media-db";
+import { createAccount, resetAccounts } from "./support/accounts-db";
+import { criarMidia, usarMidiaEmPostagem } from "./support/media-db";
 
 /**
  * O envio de imagem pela tela (RF-B01, RF-B02).
@@ -204,5 +204,129 @@ test.describe("acervo — o que já foi enviado", () => {
     await expect(page.getByRole("heading", { name: /No acervo/i })).toBeVisible();
     await expect(page.getByText("1080 × 1350")).toBeVisible();
     await expect(page.getByText("Nenhuma imagem ainda")).toHaveCount(0);
+  });
+});
+
+/**
+ * Excluir do acervo (RF-B07).
+ *
+ * ⚠️ **O arquivo não some de verdade aqui.** A mídia é semeada no banco com uma
+ * chave que nunca existiu no MinIO, e apagar chave inexistente é sucesso no S3 —
+ * então o fluxo roda inteiro, mas quem prova que o **objeto** saiu é o teste de
+ * integração da API, que fala com o armazenamento de verdade.
+ */
+test.describe("acervo — excluir", () => {
+  test.use({ storageState: ESTADO_SUPER_ADMIN });
+
+  const lixeira = (page: import("@playwright/test").Page) =>
+    page.getByRole("button", { name: /^excluir a imagem de/i });
+
+  test.beforeEach(async () => {
+    await resetAccounts();
+  });
+
+  test("a lixeira do card apaga direto, sem perguntar", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto("/acervo");
+
+    await lixeira(page).first().click();
+
+    await expect(page.getByText("Nenhuma imagem ainda")).toBeVisible();
+    await expect(page.getByText("1080 × 1350")).toHaveCount(0);
+  });
+
+  /*
+   * ⚠️ `toHaveCSS`, e não `.click()`: o Playwright considera `opacity: 0`
+   * **visível** e clicaria de qualquer jeito — um teste com clique passaria sem
+   * provar nada sobre o hover.
+   */
+  test("no computador a lixeira só aparece com o cursor sobre o card", async ({ page, isMobile }) => {
+    test.skip(isMobile === true, "no toque não existe hover, e lá ela fica sempre visível");
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto("/acervo");
+
+    await expect(lixeira(page).first()).toHaveCSS("opacity", "0");
+
+    // Escopado em `main`: sem isso, o primeiro `listitem` da página é da
+    // navegação lateral, e o cursor iria parar no lugar errado.
+    await page.getByRole("main").getByRole("listitem").first().hover();
+
+    await expect(lixeira(page).first()).toHaveCSS("opacity", "1");
+  });
+
+  test("no celular a lixeira está sempre à mão", async ({ page, isMobile }) => {
+    test.skip(isMobile !== true, "é o caso do toque, onde hover não existe");
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto("/acervo");
+
+    await expect(lixeira(page).first()).toHaveCSS("opacity", "1");
+  });
+
+  test("imagem em uso mostra o motivo e não deixa excluir", async ({ page }) => {
+    const { id } = await criarMidia({ width: 1080, height: 1350 });
+    await createAccount({ username: "loja.aurora", name: "Loja Aurora" });
+    await usarMidiaEmPostagem(id, "RASCUNHO");
+    await page.goto("/acervo");
+
+    await expect(page.getByText("Em uso numa postagem")).toBeVisible();
+    await expect(lixeira(page).first()).toBeDisabled();
+  });
+
+  /*
+   * O beco que este requisito abre: descartar a postagem não apaga o vínculo, e
+   * sem isto a imagem ficaria presa no acervo para sempre.
+   */
+  test("postagem descartada solta a imagem", async ({ page }) => {
+    const { id } = await criarMidia({ width: 1080, height: 1350 });
+    await createAccount({ username: "loja.aurora", name: "Loja Aurora" });
+    await usarMidiaEmPostagem(id, "CANCELADO");
+    await page.goto("/acervo");
+
+    await expect(page.getByText("Em uso numa postagem")).toHaveCount(0);
+    await lixeira(page).first().click();
+
+    await expect(page.getByText("Nenhuma imagem ainda")).toBeVisible();
+  });
+
+  test("excluir várias pergunta antes, e dá para desistir", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1350 });
+    await criarMidia({ width: 1080, height: 1080 });
+    await page.goto("/acervo");
+
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    // A lixeira some no modo seleção: um gesto destrutivo por card.
+    await expect(lixeira(page)).toHaveCount(0);
+
+    await page.getByRole("checkbox").first().click();
+    await page.getByRole("checkbox").nth(1).click();
+    await expect(page.getByText("2 imagens selecionadas")).toBeVisible();
+
+    await page.getByRole("button", { name: "Excluir 2" }).click();
+    // `alertdialog`, e não `dialog`: a confirmação é destrutiva e declara esse
+    // papel — é o que a distingue da folha do acervo na composição.
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+
+    // Desistir não apaga nada.
+    await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar" }).click();
+    await expect(page.getByText("1080 × 1350")).toBeVisible();
+
+    await page.getByRole("button", { name: "Excluir 2" }).click();
+    await page.getByRole("button", { name: "Excluir 2 imagens" }).click();
+
+    await expect(page.getByText("Nenhuma imagem ainda")).toBeVisible();
+  });
+
+  test("sair do modo seleção limpa o que estava marcado", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto("/acervo");
+
+    await page.getByRole("button", { name: "Selecionar" }).click();
+    await page.getByRole("checkbox").first().click();
+    await expect(page.getByText("1 imagem selecionada")).toBeVisible();
+
+    await page.getByRole("button", { name: "Cancelar" }).click();
+    await page.getByRole("button", { name: "Selecionar" }).click();
+
+    await expect(page.getByText("0 imagens selecionadas")).toBeVisible();
   });
 });

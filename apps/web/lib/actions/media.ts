@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { MediaSummary, UploadPermission } from "@repo/shared";
 import { apiFetch } from "../api/client";
@@ -48,6 +49,37 @@ export async function confirmUploadAction(ticket: string): Promise<ActionResult<
       await apiFetch<MediaSummary>({ method: "POST", path: "/media/confirm", body: { ticket }, token }),
     );
   } catch (error) {
+    return failure(error);
+  }
+}
+
+/**
+ * Tirar imagens do acervo (RF-B07).
+ *
+ * Uma lista sempre — a lixeira de um card manda um id só, e a API tem uma rota
+ * só porque a regra de recusa é a mesma dos dois lados.
+ *
+ * ⚠️ **Revalida também no erro.** "Em uso" é quase sempre tela velha, e é o
+ * redesenho que faz o card que segurou aparecer marcado. Sem isto, a pessoa
+ * clica na mesma lixeira de novo e leva a mesma recusa.
+ */
+export async function deleteMediaAction(
+  ids: readonly string[],
+): Promise<ActionResult<{ deleted: number }>> {
+  await requireSession();
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
+  try {
+    const resultado = await apiFetch<{ deleted: number }>({
+      method: "POST",
+      path: "/media/delete",
+      body: { ids },
+      token,
+    });
+    revalidatePath("/acervo");
+    return success(resultado);
+  } catch (error) {
+    revalidatePath("/acervo");
     return failure(error);
   }
 }

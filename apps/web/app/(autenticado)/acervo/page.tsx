@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { can } from "@repo/shared";
 import { AcervoUpload } from "@/components/media/acervo-upload";
-import { MediaGrid } from "@/components/media/media-grid";
+import { AcervoGrid } from "@/components/media/acervo-grid";
 import { PageHeader } from "@/components/nav/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
@@ -55,11 +55,10 @@ export default async function AcervoPage(): Promise<ReactNode> {
         </CardContent>
       </Card>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-heading text-lg font-bold">
-          No acervo {media.length > 0 && <span className="text-muted-foreground">({media.length})</span>}
-        </h2>
-        <MediaGrid media={media} />
+      {/* O título vem com a grade: o botão de selecionar mora ao lado dele, e
+          quem sabe se há seleção em curso é o componente de cliente. */}
+      <section>
+        <AcervoGrid media={media} />
       </section>
     </main>
   );
