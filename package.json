@@ -1,6 +1,6 @@
 {
   "name": "postit",
-  "version": "0.1.77",
+  "version": "0.1.78",
   "//version": "Versão única do projeto. scripts/version.mjs propaga para os pacotes e para packages/shared/src/version.ts. O pre-commit sobe o patch; minor e major são manuais. Ver docs/15.",
   "private": true,
   "workspaces": [
@@ -55,7 +55,7 @@
   "overrides": {
     "deepmerge-ts": "8.0.2",
     "mysql2": "3.24.4",
-    "fastify": "5.12.4",
+    "fastify": "5.12.5",
     "browserslist": "4.29.0"
   },
   "//overrides": "Correções de segurança em dependências de dependências, sem trocar de versão principal do Prisma nem do NestJS (npm audit fix --force rebaixaria para o Prisma 6 e subiria para o Nest 12). deepmerge-ts 7.1.5 (GHSA-ggr8-5vv4-36mx) vem do @prisma/config; a 8.x exporta a mesma função deepmerge que ele usa. mysql2 3.15.3 (GHSA-3f6p-5ww8-9rcr, GHSA-rgwj-5xj2-c3m3) vem da CLI do Prisma, só para MySQL, que não usamos. fastify 5.11.3 (GHSA-w2qp-rph6-63g4, GHSA-3m5p-2c4r-xxw2) vem do @nestjs/platform-fastify 11. browserslist 4.28.6 (GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g) vem fixado pelo @serwist/turbopack 9.5.12; a 4.29 é da mesma versão principal. Retirar cada override quando a dependência de origem publicar versão corrigida."
