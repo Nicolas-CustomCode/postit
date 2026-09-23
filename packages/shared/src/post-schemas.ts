@@ -85,7 +85,7 @@ export const setPostMediaSchema = z.strictObject({
   media: z.array(postMediaItemSchema).max(POST_MEDIA_MAX),
 });
 
-/** Marcar como pronta e descartar não mudam conteúdo — só a versão viaja. */
+/** Enviar, aprovar, voltar para a composição e descartar não mudam conteúdo — só a versão viaja. */
 export const postVersionSchema = z.strictObject({ version });
 
 /**
@@ -104,6 +104,30 @@ export const schedulePostSchema = z.strictObject({
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
 });
 
+/** Teto do motivo da reprovação: um recado para quem vai corrigir, não um relatório. */
+export const REJECTION_REASON_MAX_LENGTH = 1000;
+/** Teto de um comentário interno. */
+export const COMMENT_MAX_LENGTH = 2000;
+
+/**
+ * Reprovar exige motivo (RF-E03): quem recebe a postagem de volta precisa saber o
+ * que ajustar. O `trim` vem antes do mínimo — um motivo só de espaços não diz nada.
+ */
+export const rejectPostSchema = z.strictObject({
+  version,
+  reason: z.string().trim().min(1).max(REJECTION_REASON_MAX_LENGTH),
+});
+
+/**
+ * Um comentário interno (RF-E04). **Sem `version`**: comentar não escreve em
+ * `Postagem` — não muda status nem conteúdo, e não pode disputar com quem edita.
+ */
+export const createCommentSchema = z.strictObject({
+  text: z.string().trim().min(1).max(COMMENT_MAX_LENGTH),
+});
+
+export type RejectPostInput = z.infer<typeof rejectPostSchema>;
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type SchedulePostInput = z.infer<typeof schedulePostSchema>;
 export type SetPostFormatInput = z.infer<typeof setPostFormatSchema>;
 

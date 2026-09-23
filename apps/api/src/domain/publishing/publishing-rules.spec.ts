@@ -4,6 +4,7 @@ import { containerPlan, isReusable, pollDecision, reconcile } from "./container"
 import { dispatchDecision, QUOTA_LIMIT, quotaAllows } from "./dispatch";
 import { dispatchHorizon, isPastCeiling, isTooLateToStart } from "./lateness";
 import { metricMomentsFor } from "./metrics-schedule";
+import { publishMilestones } from "./timeline";
 
 const at = (iso: string) => new Date(iso);
 const minutes = (base: Date, n: number) => new Date(base.getTime() + n * 60_000);
@@ -227,5 +228,72 @@ describe("regras de publicação", () => {
     for (const cause of PUBLISH_FAILURE_CAUSES) {
       expect(PUBLISH_FAILURES[cause].message.length).toBeGreaterThan(10);
     }
+  });
+});
+
+/**
+ * O diário do motor reduzido ao que a equipe precisa ler na Revisão (ADR 0026).
+ */
+describe("publishMilestones", () => {
+  const ev = (at: string, step: string, result: string) => ({ at, step, result }) as never;
+  const agendada = { status: "SCHEDULED", failureCause: null } as const;
+
+  it("despachar, criar container, conferir e métricas não aparecem; publicar sim", () => {
+    const marcos = publishMilestones(
+      [
+        ev("t1", "DISPATCH", "SUCCESS"),
+        ev("t2", "CREATE_CONTAINER", "SUCCESS"),
+        ev("t3", "CHECK_STATUS", "SUCCESS"),
+        ev("t4", "PUBLISH", "SUCCESS"),
+        ev("t5", "COLLECT_METRICS", "FATAL_ERROR"),
+      ],
+      { status: "PUBLISHED", failureCause: null },
+    );
+
+    expect(marcos).toEqual([{ at: "t4", outcome: "PUBLISHED", cause: null }]);
+  });
+
+  it("a reconciliação que confirma também é publicada", () => {
+    expect(publishMilestones([ev("t1", "RECONCILE", "SUCCESS")], agendada)).toEqual([
+      { at: "t1", outcome: "PUBLISHED", cause: null },
+    ]);
+  });
+
+  it("tentativas seguidas viram um marco só, na primeira", () => {
+    const marcos = publishMilestones(
+      [
+        ev("t1", "CREATE_CONTAINER", "RECOVERABLE_ERROR"),
+        ev("t2", "DISPATCH", "SUCCESS"),
+        ev("t3", "PUBLISH", "RECOVERABLE_ERROR"),
+        ev("t4", "PUBLISH", "SUCCESS"),
+      ],
+      agendada,
+    );
+
+    expect(marcos.map((m) => [m.at, m.outcome])).toEqual([
+      ["t1", "RETRYING"],
+      ["t4", "PUBLISHED"],
+    ]);
+  });
+
+  it("adiar pela cota é espera, não tentativa", () => {
+    expect(publishMilestones([ev("t1", "DISPATCH", "RECOVERABLE_ERROR")], agendada)).toEqual([]);
+  });
+
+  it("a causa vai só na última falha, e só com a postagem em FALHOU", () => {
+    const eventos = [
+      ev("t1", "CREATE_CONTAINER", "FATAL_ERROR"),
+      ev("t2", "PUBLISH", "RECOVERABLE_ERROR"),
+      ev("t3", "GIVE_UP", "FATAL_ERROR"),
+    ];
+
+    expect(publishMilestones(eventos, { status: "FAILED", failureCause: "LATE_CEILING" })).toEqual([
+      { at: "t1", outcome: "FAILED", cause: null },
+      { at: "t2", outcome: "RETRYING", cause: null },
+      { at: "t3", outcome: "FAILED", cause: "LATE_CEILING" },
+    ]);
+
+    // Reagendada depois da falha: a causa guardada não é mais "a atual".
+    expect(publishMilestones(eventos, { status: "SCHEDULED", failureCause: null }).at(-1)?.cause).toBeNull();
   });
 });

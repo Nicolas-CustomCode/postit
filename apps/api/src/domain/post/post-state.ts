@@ -29,7 +29,9 @@ const TRANSITIONS: Record<PostStatus, readonly PostStatus[]> = {
   IN_REVIEW: ["DRAFT", "APPROVED"],
   // I-1: é daqui, e só daqui, que se chega a AGENDADO.
   APPROVED: ["SCHEDULED", "DRAFT"],
-  SCHEDULED: ["DRAFT", "PROCESSING", "CANCELED", "FAILED"],
+  // → APROVADO é cancelar o agendamento: a aprovação continua, só o horário sai
+  // (ADR 0026). I-1 não muda — é de APROVADO que se chega aqui, não o contrário.
+  SCHEDULED: ["DRAFT", "APPROVED", "PROCESSING", "CANCELED", "FAILED"],
   // O laço PROCESSANDO → PROCESSANDO é a nova tentativa depois de erro
   // recuperável: o status não muda, então não é transição.
   PROCESSING: ["PUBLISHED", "FAILED"],
@@ -64,6 +66,54 @@ export function canMarkReady(from: PostStatus): boolean {
   }
 
   return true;
+}
+
+/**
+ * O caminho de "aprovar e agendar" (ADR 0026): uma decisão, duas transições
+ * legais, **uma transação**. Mesmo raciocínio de `READY_CHAIN` — nenhuma aresta
+ * `EM_REVISAO → AGENDADO` inventada; a I-1 continua dizendo que só se agenda o que
+ * foi aprovado, e aqui a aprovação acontece de fato, no mesmo instante.
+ */
+export const APPROVE_AND_SCHEDULE = ["APPROVED", "SCHEDULED"] as const satisfies readonly PostStatus[];
+
+/**
+ * Dá para aprovar e agendar a partir daqui?
+ *
+ * ⚠️ **Só de `EM_REVISAO`, e não "de onde o caminho for percorrível".** Com a
+ * aresta `AGENDADO → APROVADO`, o caminho também se percorre a partir de `AGENDADO`
+ * (→ APROVADO → AGENDADO) — e "aprovar" uma postagem que já estava aprovada
+ * gravaria uma aprovação que ninguém deu. O teste da matriz pegou isso.
+ */
+export function canApproveAndSchedule(from: PostStatus): boolean {
+  if (from !== "IN_REVIEW") return false;
+  let atual: PostStatus = from;
+
+  for (const passo of APPROVE_AND_SCHEDULE) {
+    if (!canTransition(atual, passo)) return false;
+    atual = passo;
+  }
+
+  return true;
+}
+
+/**
+ * "Voltar para a composição" (ADR 0026): a porta explícita para editar uma postagem
+ * que já saiu do rascunho.
+ *
+ * ⚠️ **Lista literal, e `FALHOU` fica de fora de propósito**, embora a aresta
+ * `FALHOU → RASCUNHO` exista. São duas portas para a mesma aresta com permissões
+ * diferentes — esta é `POSTAGEM_EDITAR`; decidir sobre falha é `POSTAGEM_AGENDAR`
+ * (ADR 0015) e tem rota própria. Mesmo raciocínio de `canCancel` × descartar.
+ */
+const REOPENABLE: readonly PostStatus[] = ["IN_REVIEW", "APPROVED", "SCHEDULED"];
+
+export function canReopen(status: PostStatus): boolean {
+  return REOPENABLE.includes(status);
+}
+
+/** Cancelar o agendamento sem perder a aprovação: só de `AGENDADO` (ADR 0026). */
+export function canUnschedule(status: PostStatus): boolean {
+  return status === "SCHEDULED";
 }
 
 /**

@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import type { Prisma, PostFormat, PostStatus } from "@repo/database";
-import { isImageFormat, type ComposableFormat, type ImageFormat, type PermissionHolder } from "@repo/shared";
+import {
+  isImageFormat,
+  selfApprovalRefused,
+  type ComposableFormat,
+  type ImageFormat,
+  type PermissionHolder,
+} from "@repo/shared";
 import {
   MediaUploadInvalidError,
   PostNotEditableError,
@@ -12,7 +18,6 @@ import {
   ScheduleTimeDoesNotExistError,
   SelfApprovalForbiddenError,
 } from "../common/errors";
-import { selfApprovalRefused } from "../domain/post/approval-rules";
 import { postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
 import {
   canMarkReady,

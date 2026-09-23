@@ -91,6 +91,47 @@ export interface PostHistoryEntry {
   readonly detail: unknown;
 }
 
+/**
+ * O que uma decisão humana de estado registrou em `Aprovacao` (ADR 0026). Os
+ * nomes são os do enum `AcaoAprovacao` do banco, traduzidos pelo ADR 0023.
+ */
+export type PostTrailAction =
+  | "SUBMITTED_FOR_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "INVALIDATED_BY_EDIT"
+  | "RETURNED_TO_DRAFT"
+  | "SCHEDULED"
+  | "UNSCHEDULED"
+  | "CANCELED";
+
+/**
+ * Uma linha da linha do tempo da Revisão: comentários e histórico juntos, em ordem,
+ * para cada comentário ter o seu contexto (ADR 0026, decisão 5).
+ *
+ * ⚠️ **Só nomes, nunca e-mail, e nada da resposta da Meta** (AGENTS.md, regra 3):
+ * quem só vê também lê esta lista. O detalhe técnico fica no histórico da falha.
+ */
+export type PostTimelineEntry =
+  | { readonly kind: "CREATED"; readonly id: string; readonly at: string; readonly byName: string }
+  | {
+      readonly kind: "DECISION";
+      readonly id: string;
+      readonly at: string;
+      readonly byName: string;
+      readonly action: PostTrailAction;
+      readonly reason: string | null;
+      readonly scheduledFor: string | null;
+    }
+  | { readonly kind: "COMMENT"; readonly id: string; readonly at: string; readonly byName: string; readonly text: string }
+  | {
+      readonly kind: "PUBLISHING";
+      readonly id: string;
+      readonly at: string;
+      readonly outcome: "PUBLISHED" | "FAILED" | "RETRYING";
+      readonly cause: PublishFailureCause | null;
+    };
+
 /** Quantos caracteres da legenda vão no `excerpt` da lista. */
 export const POST_EXCERPT_LENGTH = 140;
 

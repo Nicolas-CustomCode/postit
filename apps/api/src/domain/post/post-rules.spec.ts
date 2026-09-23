@@ -1,10 +1,14 @@
-import { IMAGE_MIME, POST_STATUSES, type PostStatus } from "@repo/shared";
-import { selfApprovalRefused } from "./approval-rules";
+import { IMAGE_MIME, POST_STATUSES, selfApprovalRefused, type PostStatus } from "@repo/shared";
 import { postReadinessProblem } from "./post-readiness";
+import { trailActionFor } from "./post-trail";
 import { canCancel, resolveSchedule, scheduleMoveFor } from "./schedule";
 import {
+  APPROVE_AND_SCHEDULE,
+  canApproveAndSchedule,
   canMarkReady,
+  canReopen,
   canTransition,
+  canUnschedule,
   holdsMedia,
   isEditable,
   keepsSchedule,
@@ -33,6 +37,8 @@ describe("máquina de estados da postagem", () => {
     ["APPROVED", "SCHEDULED"],
     ["APPROVED", "DRAFT"],
     ["SCHEDULED", "DRAFT"],
+    // Cancelar o agendamento sem perder a aprovação (ADR 0026).
+    ["SCHEDULED", "APPROVED"],
     ["SCHEDULED", "PROCESSING"],
     ["SCHEDULED", "CANCELED"],
     ["SCHEDULED", "FAILED"],
@@ -155,6 +161,52 @@ describe("máquina de estados da postagem", () => {
     });
   });
 
+  /*
+   * A 1e (ADR 0026) separa enviar de aprovar, e junta aprovar e agendar numa
+   * decisão só — de novo sem aresta inventada.
+   */
+  describe("APPROVE_AND_SCHEDULE — aprovar e agendar", () => {
+    it("o caminho é revisão → aprovado → agendado", () => {
+      expect(APPROVE_AND_SCHEDULE).toEqual(["APPROVED", "SCHEDULED"]);
+    });
+
+    it("não existe atalho de revisão direto para agendado", () => {
+      expect(canTransition("IN_REVIEW", "SCHEDULED")).toBe(false);
+    });
+
+    it("só o que está em revisão se aprova e agenda", () => {
+      expect(POST_STATUSES.filter((status) => canApproveAndSchedule(status))).toEqual(["IN_REVIEW"]);
+    });
+  });
+
+  describe("canReopen — voltar para a composição", () => {
+    it("vale em revisão, aprovada e agendada", () => {
+      expect(POST_STATUSES.filter((status) => canReopen(status))).toEqual(["IN_REVIEW", "APPROVED", "SCHEDULED"]);
+    });
+
+    it("cada uma tem a aresta para RASCUNHO", () => {
+      for (const status of ["IN_REVIEW", "APPROVED", "SCHEDULED"] as const) {
+        expect(canTransition(status, "DRAFT")).toBe(true);
+      }
+    });
+
+    /*
+     * A aresta FALHOU → RASCUNHO existe, mas é outra porta, com outra permissão:
+     * decidir sobre falha é POSTAGEM_AGENDAR (ADR 0015).
+     */
+    it("falhou não passa por esta porta, ainda que a aresta exista", () => {
+      expect(canReopen("FAILED")).toBe(false);
+      expect(canTransition("FAILED", "DRAFT")).toBe(true);
+    });
+  });
+
+  describe("canUnschedule — cancelar o agendamento", () => {
+    it("só de agendada, e volta para aprovada", () => {
+      expect(POST_STATUSES.filter((status) => canUnschedule(status))).toEqual(["SCHEDULED"]);
+      expect(canTransition("SCHEDULED", "APPROVED")).toBe(true);
+    });
+  });
+
   describe("isEditable", () => {
     it("os três estados que não aceitam edição de conteúdo", () => {
       expect(POST_STATUSES.filter((status) => !isEditable(status))).toEqual([
@@ -190,6 +242,55 @@ describe("máquina de estados da postagem", () => {
       expect(holdsMedia("PUBLISHED")).toBe(true);
       expect(holdsMedia("PROCESSING")).toBe(true);
     });
+  });
+});
+
+/**
+ * O rastro de cada decisão humana (ADR 0026, decisão 3): toda mudança de status
+ * feita por uma pessoa deixa uma linha em `Aprovacao`.
+ */
+describe("trailActionFor", () => {
+  it.each([
+    ["DRAFT", "IN_REVIEW", "SUBMITTED_FOR_REVIEW"],
+    ["IN_REVIEW", "APPROVED", "APPROVED"],
+    // Aprovar e agendar é uma decisão só: a linha é a aprovação, com o horário junto.
+    ["IN_REVIEW", "SCHEDULED", "APPROVED"],
+    ["APPROVED", "SCHEDULED", "SCHEDULED"],
+    ["FAILED", "SCHEDULED", "SCHEDULED"],
+    ["SCHEDULED", "SCHEDULED", "SCHEDULED"],
+    ["SCHEDULED", "APPROVED", "UNSCHEDULED"],
+    ["IN_REVIEW", "DRAFT", "RETURNED_TO_DRAFT"],
+    ["APPROVED", "DRAFT", "RETURNED_TO_DRAFT"],
+    ["SCHEDULED", "DRAFT", "RETURNED_TO_DRAFT"],
+    ["FAILED", "DRAFT", "RETURNED_TO_DRAFT"],
+    ["DRAFT", "CANCELED", "CANCELED"],
+    ["SCHEDULED", "CANCELED", "CANCELED"],
+  ] as const)("%s → %s grava %s", (de, para, acao) => {
+    expect(trailActionFor(de, para)).toBe(acao);
+  });
+
+  it("voltar da revisão com motivo é reprovar", () => {
+    expect(trailActionFor("IN_REVIEW", "DRAFT", { reason: "A foto 2 está escura" })).toBe("REJECTED");
+  });
+
+  it("o motivo só faz reprovação a partir da revisão", () => {
+    expect(trailActionFor("SCHEDULED", "DRAFT", { reason: "qualquer" })).toBe("RETURNED_TO_DRAFT");
+  });
+
+  it("o que o worker faz não é decisão humana", () => {
+    for (const para of ["PROCESSING", "PUBLISHED", "FAILED"] as const) {
+      expect(trailActionFor("SCHEDULED", para)).toBeNull();
+    }
+  });
+
+  it("toda transição humana da máquina tem ação", () => {
+    const doWorker: readonly PostStatus[] = ["PROCESSING", "PUBLISHED", "FAILED"];
+    for (const de of POST_STATUSES) {
+      for (const para of POST_STATUSES) {
+        if (!canTransition(de, para) || doWorker.includes(para)) continue;
+        expect({ de, para, temAcao: trailActionFor(de, para) !== null }).toEqual({ de, para, temAcao: true });
+      }
+    }
   });
 });
 
