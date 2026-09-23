@@ -172,4 +172,41 @@
   h3 {
     @apply font-heading;
   }
+
+  /*
+   * Barras de rolagem do sistema (docs/13, "Forma"): finas, sem trilho, com o
+   * polegar no cinza do texto secundário, transparente — nenhuma cor nova, e o
+   * tema escuro vem junto. Escurece sob o ponteiro, para mostrar que dá para
+   * arrastar.
+   *
+   * Duas formas porque os navegadores não concordam: Chrome e Firefox leem
+   * `scrollbar-color`/`scrollbar-width` — e, com elas definidas, o Chrome ignora
+   * as regras `::-webkit-scrollbar` —; o Safari só entende as `::-webkit-scrollbar`.
+   */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 40%, transparent) transparent;
+  }
+  *:hover {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    background-color: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }

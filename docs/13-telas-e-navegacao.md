@@ -327,6 +327,9 @@ Google Fonts seria bloqueado.
 - **Raio:** 10 px em botões e campos, 16 px em cartões e painéis, pílula em status, formatos e filtros
 - **Altura dos controles:** 40 px no computador, **44 px no celular**
 - **Ícones:** `lucide-react`, traço 2, 20 px no computador e 22 px na barra inferior do celular
+- **Barras de rolagem:** finas, sem trilho, com o polegar arredondado no cinza do texto secundário a 40% — 60% sob o
+  ponteiro. Nenhuma cor nova: o tema escuro vem junto. Definidas uma vez, em `globals.css`, para o sistema inteiro
+  (desde 23/09/2026)
 - **Telas de entrada:** página inteira, sem cartão — logo de 44 px, rótulo de etapa, título de 30 px, campos e
   botão de 52 px. O código de 6 dígitos aparece em **seis caixas de 60 px**, com um campo de texto só por baixo:
   são as caixas que são desenho, e não o campo, para o colar, o apagar e o leitor de tela continuarem funcionando
