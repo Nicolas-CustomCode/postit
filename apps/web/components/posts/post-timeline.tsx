@@ -135,27 +135,28 @@ function Comment({
         {accountInitials({ name: entry.byName, username: entry.byName })}
       </span>
       {/* `group`: o ícone de excluir só aparece com o ponteiro sobre o comentário. */}
-      <div className="group rounded-[4px_12px_12px_12px] bg-muted px-3 py-2">
+      <div className="group relative rounded-[4px_12px_12px_12px] bg-muted px-3 py-2">
+        {/*
+          Flutuando sobre o canto do balão, fora do fluxo: aparecer e sumir não empurra
+          a data nem nada do comentário. Surge com o ponteiro em cima ou com o foco do
+          teclado; em tela de toque, onde não há ponteiro, fica sempre à vista — senão
+          não haveria como excluir no celular.
+        */}
+        {podeExcluir && !confirmando && (
+          <button
+            type="button"
+            onClick={() => setConfirmando(true)}
+            aria-label="Excluir comentário"
+            title="Excluir comentário"
+            className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full border bg-card text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <Trash2 className="size-3.5" aria-hidden />
+          </button>
+        )}
         <div className="mb-0.5 flex flex-wrap items-baseline justify-between gap-x-2">
           <span className="text-[13px] font-semibold">{entry.byName}</span>
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             <LocalDate iso={entry.at} format="comHora" />
-            {/*
-              Discreto: aparece com o ponteiro em cima, ou com o foco do teclado. Em
-              tela de toque não há ponteiro — lá ele fica sempre à vista, senão não
-              haveria como excluir no celular.
-            */}
-            {podeExcluir && !confirmando && (
-              <button
-                type="button"
-                onClick={() => setConfirmando(true)}
-                aria-label="Excluir comentário"
-                title="Excluir comentário"
-                className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
-              >
-                <Trash2 className="size-3.5" aria-hidden />
-              </button>
-            )}
           </span>
         </div>
         <p className="text-sm break-words whitespace-pre-wrap">{entry.text}</p>
