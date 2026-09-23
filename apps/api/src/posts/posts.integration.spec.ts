@@ -188,6 +188,11 @@ describe("postagens", () => {
       { method: "GET" as const, caminho: (p: string) => `/${p}/history`, payload: undefined },
       { method: "GET" as const, caminho: (p: string) => `/${p}/timeline`, payload: undefined },
       { method: "POST" as const, caminho: (p: string) => `/${p}/comments`, payload: { text: "x" } },
+      {
+        method: "POST" as const,
+        caminho: (p: string) => `/${p}/comments/00000000-0000-7000-8000-000000000000/delete`,
+        payload: undefined,
+      },
     ];
 
     it.each(ROTAS)("$method $caminho responde 404 pela conta errada", async (rota) => {

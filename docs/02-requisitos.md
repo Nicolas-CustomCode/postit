@@ -377,7 +377,8 @@ corrigir. A regra de autoaprovação vale também aqui.
 **Aceite:** conversa por postagem, ordenada por data, com autor identificado, que sobrevive às
 mudanças de status. **Qualquer usuário logado comenta** ([ADR 0026](adr/0026-postagem-em-duas-etapas.md),
 que emenda o ADR 0015). As decisões — enviada, aprovada, reprovada, agendada — aparecem intercaladas aos
-comentários, cada um no seu contexto.
+comentários, cada um no seu contexto. Quem escreveu pode **excluir o próprio comentário nos primeiros 5
+minutos**; depois disso ele fica.
 
 ### RF-E05 — Invalidar aprovação ao editar **[MVP]**
 **Aceite:** alterar legenda, mídia, marcações ou formato de uma postagem `EM_REVISAO`, `APROVADO`,

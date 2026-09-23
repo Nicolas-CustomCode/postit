@@ -134,7 +134,7 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
    `@AnyAuthenticated`, `@RequirePermission(...)` ou `@SuperAdmin`. Rota sem declaração é recusada, e o teste
    de política de rotas falha. Leitura é `@AnyAuthenticated`; **toda ação** exige `@RequirePermission` do
    catálogo — exceto uma lista fechada, conferida por teste: as do próprio perfil (sessão, senha, códigos de
-   recuperação) e comentar postagem ([ADR 0026](docs/adr/0026-postagem-em-duas-etapas.md)). No Next, toda página e Server Action chama `requireSession()` — nunca confie só no `proxy.ts`.
+   recuperação), comentar postagem e excluir o próprio comentário nos primeiros 5 minutos ([ADR 0026](docs/adr/0026-postagem-em-duas-etapas.md)). No Next, toda página e Server Action chama `requireSession()` — nunca confie só no `proxy.ts`.
 6. **Contrato em `packages/shared`.** Entradas validadas com os schemas zod de lá; respostas tipadas
    com os tipos de lá, **nunca** com tipos gerados pelo Prisma.
 7. **Horário é sempre UTC** no domínio, no worker e no banco. Conversão só na borda da tela, usando o

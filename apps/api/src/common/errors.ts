@@ -315,6 +315,27 @@ export class PostNotReadyError extends AppError {
   }
 }
 
+/** O comentário não existe — ou é de uma postagem de outra conta (regra 24). */
+export class CommentNotFoundError extends AppError {
+  constructor() {
+    super("COMMENT_NOT_FOUND", 404);
+  }
+}
+
+/** Excluir comentário de outra pessoa (ADR 0026). */
+export class CommentNotYoursError extends AppError {
+  constructor() {
+    super("COMMENT_NOT_YOURS", 403);
+  }
+}
+
+/** Excluir depois dos 5 minutos (ADR 0026): o comentário já é parte da conversa. */
+export class CommentDeleteExpiredError extends AppError {
+  constructor() {
+    super("COMMENT_DELETE_EXPIRED", 409);
+  }
+}
+
 /** Aprovar a própria postagem sem `POSTAGEM_APROVAR_PROPRIA` (RF-I04). */
 export class SelfApprovalForbiddenError extends AppError {
   constructor() {

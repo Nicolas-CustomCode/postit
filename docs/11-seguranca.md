@@ -344,7 +344,7 @@ Toda rota da API declara uma política. Rota sem declaração é **recusada**.
 | Política | Quem passa |
 |---|---|
 | `@Public` | Qualquer um. Só as rotas de entrar, completar o desafio e usar links de cadastro e redefinição |
-| `@AnyAuthenticated` | Qualquer usuário com sessão. Leituras, o próprio perfil e comentar postagem ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)) |
+| `@AnyAuthenticated` | Qualquer usuário com sessão. Leituras, o próprio perfil, comentar postagem e excluir o próprio comentário nos primeiros 5 minutos ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)) |
 | `@RequirePermission(...)` | Usuário com aquela permissão, ou super admin |
 | `@SuperAdmin` | Só super admin. Toda a área de administração |
 | `@RecentConfirmation` | Somada a outra política: exige código do aplicativo digitado há menos de 15 minutos |
@@ -354,7 +354,7 @@ Dois testes automatizados, com as rotas **descobertas pelo Nest**, sem lista esc
 - **Política de rotas:** falha se alguma rota não declarar política
 - **Matriz de permissões:** falha se alguma rota com `@RequirePermission` aceitar usuário sem ela
 - **Escritas abertas:** falha se aparecer escrita `@AnyAuthenticated` fora da lista fechada — as do próprio
-  perfil e comentar postagem. Ação sobre dado compartilhado exige `@RequirePermission`
+  perfil, comentar postagem e excluir o próprio comentário. Ação sobre dado compartilhado exige `@RequirePermission`
 
 ### As permissões
 

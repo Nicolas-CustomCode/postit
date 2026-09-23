@@ -28,6 +28,7 @@ export function PostReview({
   history,
   can,
   suggestion,
+  viewerId,
 }: {
   readonly username: string;
   readonly post: PostDetail;
@@ -37,6 +38,8 @@ export function PostReview({
   readonly history: readonly PostHistoryEntry[];
   readonly can: ReviewAbilities;
   readonly suggestion: { readonly day: string; readonly time: string };
+  /** Quem está vendo: é quem exclui os próprios comentários. */
+  readonly viewerId: string;
 }): ReactNode {
   // Com ações fixas no rodapé do celular, o fim da página precisa de folga para elas.
   const temRodape = can.approve || can.schedule;
@@ -67,7 +70,13 @@ export function PostReview({
       </div>
 
       <div className="min-w-0 lg:col-start-2 lg:row-start-2">
-        <PostTimeline username={username} postId={post.id} entries={timeline} timeZone={account.timezone} />
+        <PostTimeline
+          username={username}
+          postId={post.id}
+          entries={timeline}
+          timeZone={account.timezone}
+          viewerId={viewerId}
+        />
       </div>
     </div>
   );

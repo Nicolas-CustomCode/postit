@@ -160,6 +160,11 @@ test.describe("publicação", () => {
       await campo.press("Enter");
 
       await expect(page.getByText(/O preço entra aqui\s+ou no story\?/)).toBeVisible();
+
+      // Nos primeiros 5 minutos, quem escreveu exclui — com confirmação (ADR 0026).
+      await page.getByRole("button", { name: "Excluir comentário" }).click();
+      await page.getByRole("button", { name: "Confirmar exclusão" }).click();
+      await expect(page.getByText(/O preço entra aqui/)).toHaveCount(0);
       await expect(page.getByLabel("Comentário")).toHaveValue("");
       await expect(page.getByRole("heading", { name: "Aguardando aprovação" })).toBeVisible();
     });

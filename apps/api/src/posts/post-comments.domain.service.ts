@@ -1,5 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { PostNotFoundError } from "../common/errors";
+import { canDeleteComment, COMMENT_DELETE_WINDOW_MS } from "@repo/shared";
+import {
+  CommentDeleteExpiredError,
+  CommentNotFoundError,
+  CommentNotYoursError,
+  PostNotFoundError,
+} from "../common/errors";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -28,5 +34,40 @@ export class PostCommentsDomainService {
       data: { postId: post.id, userId: input.userId, text: input.text },
       select: { id: true },
     });
+  }
+
+  /**
+   * Excluir o próprio comentário, nos primeiros 5 minutos (ADR 0026) — o "apagar
+   * para todos" de um chat, para o erro de digitação ou a postagem errada. Depois
+   * disso ele já foi lido e respondido, e fica.
+   *
+   * ⚠️ **O `deleteMany` repete as condições**, e não só o id: entre a leitura e a
+   * exclusão o prazo pode vencer. Nada apagado depois da leitura dizer que podia é
+   * o mesmo que não ter podido.
+   */
+  async remove(input: { accountId: string; postId: string; commentId: string; userId: string; now: Date }): Promise<void> {
+    // A postagem primeiro, pela conta — o mesmo 404 de toda rota da postagem (regra 24).
+    const post = await this.prisma.db.post.findFirst({
+      where: { id: input.postId, accountId: input.accountId },
+      select: { id: true },
+    });
+    if (post === null) throw new PostNotFoundError();
+
+    // E o comentário dentro dela: o de outra postagem não existe aqui.
+    const comentario = await this.prisma.db.internalComment.findFirst({
+      where: { id: input.commentId, postId: post.id },
+      select: { userId: true, createdAt: true },
+    });
+    if (comentario === null) throw new CommentNotFoundError();
+    if (comentario.userId !== input.userId) throw new CommentNotYoursError();
+    if (!canDeleteComment({ authorId: comentario.userId, at: comentario.createdAt }, input.userId, input.now)) {
+      throw new CommentDeleteExpiredError();
+    }
+
+    const limite = new Date(input.now.getTime() - COMMENT_DELETE_WINDOW_MS);
+    const { count } = await this.prisma.db.internalComment.deleteMany({
+      where: { id: input.commentId, userId: input.userId, createdAt: { gte: limite } },
+    });
+    if (count === 0) throw new CommentDeleteExpiredError();
   }
 }

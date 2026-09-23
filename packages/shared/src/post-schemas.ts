@@ -126,6 +126,26 @@ export const createCommentSchema = z.strictObject({
   text: z.string().trim().min(1).max(COMMENT_MAX_LENGTH),
 });
 
+/**
+ * Quanto tempo quem escreveu tem para excluir o próprio comentário — como o
+ * "apagar para todos" de um chat. Depois disso ele já foi lido e respondido, e
+ * sumir com ele reescreveria a conversa dos outros.
+ */
+export const COMMENT_DELETE_WINDOW_MS = 5 * 60_000;
+
+/**
+ * Dá para excluir este comentário agora? A tela pergunta para mostrar o botão; a
+ * API decide com a mesma função, e com o relógio dela.
+ */
+export function canDeleteComment(
+  comment: { readonly authorId: string; readonly at: string | Date },
+  userId: string,
+  now: Date,
+): boolean {
+  const escrito = new Date(comment.at).getTime();
+  return comment.authorId === userId && now.getTime() - escrito <= COMMENT_DELETE_WINDOW_MS;
+}
+
 export type RejectPostInput = z.infer<typeof rejectPostSchema>;
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type SchedulePostInput = z.infer<typeof schedulePostSchema>;

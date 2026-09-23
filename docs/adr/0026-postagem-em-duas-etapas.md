@@ -78,8 +78,13 @@ são decisões de poucos, mas a conversa sobre a postagem é de todo o time, e u
 não sobe `versao`, não muda status, não publica nada.
 
 A regra 5 do AGENTS.md ("toda ação exige `@RequirePermission`") ganha uma exceção **fechada**: as escritas
-`@AnyAuthenticated` são as do próprio perfil (sessão, senha, códigos de recuperação) e comentar postagem. Um teste
-de política de rotas confere a lista; escrita nova `@AnyAuthenticated` fora dela reprova.
+`@AnyAuthenticated` são as do próprio perfil (sessão, senha, códigos de recuperação), comentar postagem e excluir o
+próprio comentário. Um teste de política de rotas confere a lista; escrita nova `@AnyAuthenticated` fora dela reprova.
+
+**Excluir, só o próprio e só nos primeiros 5 minutos** (acrescentado em 23/09/2026, a pedido do usuário): o "apagar
+para todos" de um chat, para o erro de digitação ou a postagem errada. Depois disso o comentário já foi lido e
+respondido, e sumir com ele reescreveria a conversa dos outros — nem super admin exclui o de outra pessoa. A exclusão
+apaga a linha; a regra (`canDeleteComment`) mora em `@repo/shared`, e a API confere com o relógio dela.
 
 ### 5. Comentários e histórico na mesma linha do tempo
 

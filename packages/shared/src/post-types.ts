@@ -138,7 +138,15 @@ export type PostTimelineEntry =
       readonly reason: string | null;
       readonly scheduledFor: string | null;
     }
-  | { readonly kind: "COMMENT"; readonly id: string; readonly at: string; readonly byName: string; readonly text: string }
+  | {
+      readonly kind: "COMMENT";
+      readonly id: string;
+      readonly at: string;
+      readonly byName: string;
+      /** Quem escreveu: só ela exclui, e só nos primeiros 5 minutos. */
+      readonly authorId: string;
+      readonly text: string;
+    }
   | {
       readonly kind: "PUBLISHING";
       readonly id: string;

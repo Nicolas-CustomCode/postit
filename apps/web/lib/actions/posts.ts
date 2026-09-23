@@ -211,6 +211,21 @@ export async function addCommentAction(
 }
 
 /**
+ * Excluir o próprio comentário, nos primeiros 5 minutos (ADR 0026). A API confere
+ * de quem é e se ainda dá tempo — o relógio que vale é o dela.
+ */
+export async function deleteCommentAction(
+  username: string,
+  postId: string,
+  commentId: string,
+): Promise<ActionResult<undefined>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/comments/${commentId}/delete`,
+    body: undefined,
+  }));
+}
+
+/**
  * O caminho comum de toda escrita: sessão, token, chamada, revalidação.
  *
  * O `revalidatePath` do caminho da conta atualiza a lista e o detalhe de uma vez.

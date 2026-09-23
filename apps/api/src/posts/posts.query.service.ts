@@ -156,6 +156,7 @@ export class PostsQueryService {
         id: linha.id,
         at: linha.createdAt.toISOString(),
         byName: linha.user.name,
+        authorId: linha.userId,
         text: linha.text,
         sortAt: linha.createdAt,
       })),

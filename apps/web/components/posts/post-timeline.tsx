@@ -12,18 +12,26 @@ import {
   RefreshCw,
   RotateCcw,
   Send,
+  Trash2,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { COMMENT_MAX_LENGTH, PUBLISH_FAILURES, type PostTimelineEntry, type PostTrailAction } from "@repo/shared";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  canDeleteComment,
+  COMMENT_DELETE_WINDOW_MS,
+  COMMENT_MAX_LENGTH,
+  PUBLISH_FAILURES,
+  type PostTimelineEntry,
+  type PostTrailAction,
+} from "@repo/shared";
 import { AccountDateTime } from "@/components/account-time";
 import { LocalDate } from "@/components/local-date";
 import { ComposeSection } from "@/components/posts/compose-section";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { addCommentAction } from "@/lib/actions/posts";
+import { addCommentAction, deleteCommentAction } from "@/lib/actions/posts";
 import { accountInitials, avatarColor } from "@/lib/nav/avatar-colors";
 import { cn } from "@/lib/utils";
 
@@ -44,10 +52,13 @@ export function PostTimeline({
   postId,
   entries,
   timeZone,
+  viewerId,
 }: {
   readonly username: string;
   readonly postId: string;
   readonly entries: readonly PostTimelineEntry[];
+  /** Quem está vendo: o botão de excluir só aparece nos comentários dela. */
+  readonly viewerId: string;
   /** O horário que a decisão marcou é da conta; o momento de cada evento, de quem lê. */
   readonly timeZone: string;
 }): ReactNode {
@@ -68,7 +79,11 @@ export function PostTimeline({
               indice === entries.length - 1 && "before:bottom-[calc(100%-20px)]",
             )}
           >
-            {entry.kind === "COMMENT" ? <Comment entry={entry} /> : <Event entry={entry} timeZone={timeZone} />}
+            {entry.kind === "COMMENT" ? (
+              <Comment entry={entry} username={username} postId={postId} viewerId={viewerId} />
+            ) : (
+              <Event entry={entry} timeZone={timeZone} />
+            )}
           </li>
         ))}
       </ol>
@@ -78,9 +93,37 @@ export function PostTimeline({
   );
 }
 
-function Comment({ entry }: { readonly entry: Extract<PostTimelineEntry, { kind: "COMMENT" }> }): ReactNode {
+function Comment({
+  entry,
+  username,
+  postId,
+  viewerId,
+}: {
+  readonly entry: Extract<PostTimelineEntry, { kind: "COMMENT" }>;
+  readonly username: string;
+  readonly postId: string;
+  readonly viewerId: string;
+}): ReactNode {
   // As cores fechadas dos avatares (docs/13), escolhidas pelo nome: a mesma pessoa, a mesma cor.
   const cor = avatarColor(entry.byName);
+  const podeExcluir = useDeleteWindow(entry, viewerId);
+  const router = useRouter();
+  const [confirmando, setConfirmando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function excluir(): Promise<void> {
+    setExcluindo(true);
+    setErro(null);
+    try {
+      const resultado = await deleteCommentAction(username, postId, entry.id);
+      if (resultado.ok) router.refresh();
+      else setErro(resultado.message);
+    } finally {
+      setExcluindo(false);
+      setConfirmando(false);
+    }
+  }
 
   return (
     <>
@@ -99,9 +142,72 @@ function Comment({ entry }: { readonly entry: Extract<PostTimelineEntry, { kind:
           </span>
         </div>
         <p className="text-sm break-words whitespace-pre-wrap">{entry.text}</p>
+        {podeExcluir && (
+          <div className="mt-1 flex justify-end gap-1">
+            {confirmando ? (
+              <>
+                <button
+                  type="button"
+                  disabled={excluindo}
+                  onClick={() => void excluir()}
+                  className="rounded-md px-1.5 py-0.5 text-xs font-semibold text-destructive hover:underline disabled:opacity-50"
+                >
+                  Confirmar exclusão
+                </button>
+                <button
+                  type="button"
+                  disabled={excluindo}
+                  onClick={() => setConfirmando(false)}
+                  className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:underline"
+                >
+                  Manter
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmando(true)}
+                aria-label="Excluir comentário"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="size-3.5" aria-hidden />
+                Excluir
+              </button>
+            )}
+          </div>
+        )}
+        {erro !== null && (
+          <p role="alert" className="mt-1 text-xs text-destructive">
+            {erro}
+          </p>
+        )}
       </div>
     </>
   );
+}
+
+/**
+ * O comentário ainda se exclui? Só o de quem está vendo, e só nos primeiros 5
+ * minutos (ADR 0026) — e o botão some sozinho quando o prazo vence, sem recarregar.
+ *
+ * ⚠️ **Nada no primeiro desenho.** O servidor e o navegador têm relógios diferentes,
+ * e decidir o botão no servidor daria aviso de hidratação — ou um botão que some ao
+ * hidratar. A decisão é do navegador, depois de montar; a API confere de novo.
+ */
+function useDeleteWindow(entry: { readonly authorId: string; readonly at: string }, viewerId: string): boolean {
+  const [agora, setAgora] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (entry.authorId !== viewerId) return;
+    // Duas leituras do relógio: logo depois de montar, e no instante em que o prazo vence.
+    const falta = new Date(entry.at).getTime() + COMMENT_DELETE_WINDOW_MS - Date.now();
+    const leituras = [0, ...(falta > 0 ? [falta + 1] : [])].map((espera) =>
+      setTimeout(() => setAgora(new Date()), espera),
+    );
+    return () => leituras.forEach(clearTimeout);
+  }, [entry.authorId, entry.at, viewerId]);
+
+  return agora !== null && canDeleteComment(entry, viewerId, agora);
 }
 
 type Tone = "neutral" | "ok" | "danger" | "working";
@@ -267,7 +373,7 @@ function CommentForm({ username, postId }: { readonly username: string; readonly
         maxLength={COMMENT_MAX_LENGTH}
         rows={2}
         disabled={enviando}
-        placeholder="Escreva um comentário — Enter envia, Shift+Enter quebra a linha"
+        placeholder="Escreva um comentário"
         onChange={(evento) => setTexto(evento.target.value)}
         onKeyDown={(evento) => {
           /*

@@ -53,6 +53,10 @@ export const AUTH_ERROR_CODES = [
   "SELF_APPROVAL_FORBIDDEN",
   "SCHEDULE_TIME_DOES_NOT_EXIST",
   "SCHEDULE_IN_PAST",
+  // Comentários internos (RF-E04; ADR 0026).
+  "COMMENT_NOT_FOUND",
+  "COMMENT_NOT_YOURS",
+  "COMMENT_DELETE_EXPIRED",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -142,7 +146,7 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   POST_CAPTION_TOO_LONG: "A legenda passa de 2200 caracteres",
   POST_TOO_MANY_HASHTAGS: "A legenda passa de 30 hashtags",
   POST_TOO_MANY_MENTIONS: "A legenda passa de 20 menções",
-  POST_MEDIA_REQUIRED: "Escolha uma imagem antes de marcar a postagem como pronta",
+  POST_MEDIA_REQUIRED: "Escolha uma imagem antes de enviar a postagem para revisão",
   POST_TOO_MANY_MEDIA: "O Instagram aceita no máximo 10 imagens numa postagem",
   // Sem citar o formato: quem sabe qual está em jogo é a tela, e ela completa a
   // frase — mesmo motivo de MEDIA_RATIO_UNSUPPORTED não citar a faixa.
@@ -151,5 +155,8 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   // O relógio pula essa hora nesse dia, por causa do horário de verão (ADR 0006).
   SCHEDULE_TIME_DOES_NOT_EXIST: "Esse horário não existe nesse dia, por causa da mudança de horário de verão",
   SCHEDULE_IN_PAST: "Esse horário já passou. Escolha um horário futuro",
+  COMMENT_NOT_FOUND: "Este comentário não existe mais",
+  COMMENT_NOT_YOURS: "Só quem escreveu pode excluir este comentário",
+  COMMENT_DELETE_EXPIRED: "Passaram 5 minutos: este comentário já faz parte da conversa e não pode ser excluído",
   INTERNAL_ERROR: "Algo deu errado",
 };

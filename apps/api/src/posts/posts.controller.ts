@@ -348,6 +348,23 @@ export class PostsController {
     return this.comments.add({ accountId, postId, userId: auth.userId, text: body.text });
   }
 
+  /**
+   * Excluir o próprio comentário, até 5 minutos depois (ADR 0026). `@AnyAuthenticated`
+   * como comentar — está na mesma lista fechada —, e quem decide se é dela e se
+   * ainda dá tempo é o serviço.
+   */
+  @AnyAuthenticated()
+  @Post(":postId/comments/:commentId/delete")
+  @HttpCode(204)
+  async deleteComment(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Param("commentId") commentId: string,
+    @Auth() auth: AuthContext,
+  ): Promise<void> {
+    await this.comments.remove({ accountId, postId, commentId, userId: auth.userId, now: new Date() });
+  }
+
   @RequirePermission("POST_EDIT")
   @Post(":postId/discard")
   @HttpCode(200)

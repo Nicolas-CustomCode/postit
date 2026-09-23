@@ -1,5 +1,6 @@
 import type { Permission } from "@repo/shared";
 import { createTestAccount, createTestUser, TEST_PASSWORD, totpCodeFor } from "../common/testing/factories";
+import { ageColumn } from "../common/testing/reset-database";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
 
 /**
@@ -634,6 +635,83 @@ describe("revisão da postagem", () => {
         .body;
 
       expect(detalhe["lastDecision"]).toBeNull();
+    });
+  });
+
+  /*
+   * Excluir o próprio comentário, só nos primeiros 5 minutos (ADR 0026) — o
+   * "apagar para todos" de um chat.
+   */
+  describe("excluir comentário", () => {
+    async function comentado(): Promise<{ autor: Pessoa; accountId: string; postId: string; commentId: string }> {
+      const autor = await editor();
+      const accountId = await conta();
+      const postId = await rascunho(autor, accountId);
+      const criado = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/comments`,
+        payload: { text: "Escrevi na postagem errada" },
+        token: autor.token,
+      });
+      return { autor, accountId, postId, commentId: criado.body["id"] as string };
+    }
+
+    const excluir = (pessoa: Pessoa, accountId: string, postId: string, commentId: string) =>
+      api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/comments/${commentId}/delete`,
+        token: pessoa.token,
+      });
+
+    it("quem escreveu exclui nos primeiros 5 minutos", async () => {
+      const { autor, accountId, postId, commentId } = await comentado();
+
+      const resposta = await excluir(autor, accountId, postId, commentId);
+
+      expect(resposta.statusCode).toBe(204);
+      expect(await api.db.internalComment.count({ where: { id: commentId } })).toBe(0);
+    });
+
+    it("depois dos 5 minutos, o comentário fica", async () => {
+      const { autor, accountId, postId, commentId } = await comentado();
+      await ageColumn(api.db, "ComentarioInterno", "criadoEm", commentId, "5 minutes 1 second");
+
+      const resposta = await excluir(autor, accountId, postId, commentId);
+
+      expect(resposta.statusCode).toBe(409);
+      expect(resposta.body).toMatchObject({ code: "COMMENT_DELETE_EXPIRED" });
+      expect(await api.db.internalComment.count({ where: { id: commentId } })).toBe(1);
+    });
+
+    it("ninguém exclui o comentário de outra pessoa — nem super admin", async () => {
+      const { accountId, postId, commentId } = await comentado();
+      const outro = await entrar([], true);
+
+      const resposta = await excluir(outro, accountId, postId, commentId);
+
+      expect(resposta.statusCode).toBe(403);
+      expect(resposta.body).toMatchObject({ code: "COMMENT_NOT_YOURS" });
+      expect(await api.db.internalComment.count({ where: { id: commentId } })).toBe(1);
+    });
+
+    it("pelo endereço de outra postagem, o comentário não existe", async () => {
+      const { autor, accountId, commentId } = await comentado();
+      const outraPostagem = await rascunho(autor, accountId);
+
+      const resposta = await excluir(autor, accountId, outraPostagem, commentId);
+
+      expect(resposta.statusCode).toBe(404);
+      expect(resposta.body).toMatchObject({ code: "COMMENT_NOT_FOUND" });
+    });
+
+    it("a linha do tempo diz quem escreveu, para a tela saber de quem é o botão", async () => {
+      const { autor, accountId, postId } = await comentado();
+
+      const linhas = (
+        await api.request({ method: "GET", url: `/accounts/${accountId}/posts/${postId}/timeline`, token: autor.token })
+      ).body as unknown as Record<string, unknown>[];
+
+      expect(linhas.find((linha) => linha["kind"] === "COMMENT")).toMatchObject({ authorId: autor.userId });
     });
   });
 });

@@ -65,6 +65,7 @@ export default async function PostagemPage({
           timeline={timeline}
           history={history}
           suggestion={nextFullHour(account.timezone)}
+          viewerId={user.id}
           can={{
             approve: canApprovePost(user, post.createdById),
             ownPostBlocked: can(user, "POST_APPROVE") && !canApprovePost(user, post.createdById),

@@ -1,6 +1,6 @@
 import { POST_STATUSES, type Permission } from "./domain";
 import { canApprovePost, selfApprovalRefused } from "./permissions";
-import { createCommentSchema, rejectPostSchema } from "./post-schemas";
+import { canDeleteComment, createCommentSchema, rejectPostSchema } from "./post-schemas";
 import { pageStepFor, postSteps } from "./post-steps";
 
 const pessoa = (permissions: readonly Permission[], superAdmin = false, id = "eu") => ({ id, permissions, superAdmin });
@@ -83,5 +83,24 @@ describe("os schemas da revisão", () => {
     expect(createCommentSchema.safeParse({ text: "a".repeat(2001) }).success).toBe(false);
     expect(createCommentSchema.safeParse({ text: "ok", version: 1 }).success).toBe(false);
     expect(createCommentSchema.safeParse({ text: "Fica para o story" }).success).toBe(true);
+  });
+});
+
+describe("canDeleteComment — 5 minutos, e só de quem escreveu", () => {
+  const escrito = new Date("2026-09-23T12:00:00Z");
+  const depois = (ms: number) => new Date(escrito.getTime() + ms);
+  const comentario = { authorId: "eu", at: escrito.toISOString() };
+
+  it("quem escreveu exclui até 5 minutos depois, inclusive", () => {
+    expect(canDeleteComment(comentario, "eu", depois(0))).toBe(true);
+    expect(canDeleteComment(comentario, "eu", depois(5 * 60_000))).toBe(true);
+  });
+
+  it("um instante depois dos 5 minutos, não", () => {
+    expect(canDeleteComment(comentario, "eu", depois(5 * 60_000 + 1))).toBe(false);
+  });
+
+  it("outra pessoa nunca exclui", () => {
+    expect(canDeleteComment(comentario, "outra", depois(0))).toBe(false);
   });
 });

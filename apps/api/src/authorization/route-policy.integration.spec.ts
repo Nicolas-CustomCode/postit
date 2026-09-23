@@ -91,8 +91,9 @@ describe("política das rotas", () => {
         "AuthController.revokeOthers",
         "AuthController.changePassword",
         "AuthController.recoveryCodes",
-        // Comentar postagem (ADR 0026).
+        // Comentar postagem, e excluir o próprio comentário nos primeiros 5 minutos (ADR 0026).
         "PostsController.addComment",
+        "PostsController.deleteComment",
       ].sort(),
     );
   });
