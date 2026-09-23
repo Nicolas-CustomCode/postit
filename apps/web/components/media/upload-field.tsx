@@ -1,7 +1,7 @@
 "use client";
 
 import { ImageUp, Loader2 } from "lucide-react";
-import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from "react";
 import {
   fitFrame,
   formatsFor,
@@ -340,11 +340,23 @@ function ImageConfirm({
   /*
    * ⚠️ O endereço precisa ser devolvido. Sem o `revoke`, o arquivo fica preso à
    * vida da página inteira: quem experimenta cinco fotos segura cinco arquivos
-   * de 8 MB na memória. A ida e volta para o recorte desmonta este componente e
-   * cria um endereço novo, o que está certo — o anterior já foi devolvido.
+   * de 8 MB na memória.
+   *
+   * ⚠️ **Criar e devolver no mesmo efeito, e entregar pelo `ref`.** Até
+   * 23/09/2026 o endereço vinha de um `useMemo` e só a devolução ficava no
+   * efeito. O `StrictMode` do desenvolvimento monta, desmonta e remonta os
+   * efeitos: a desmontagem devolvia o endereço, e a remontagem reaproveitava o
+   * mesmo `useMemo` — a prévia apontava para um endereço morto e aparecia vazia,
+   * às vezes, conforme o navegador lia antes ou depois. Aqui cada montagem cria o
+   * seu. O `ref`, e não estado, porque `setState` no corpo do efeito é o que o lint
+   * do projeto recusa.
    */
-  const src = useMemo(() => URL.createObjectURL(file), [file]);
-  useEffect(() => () => URL.revokeObjectURL(src), [src]);
+  const preview = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const src = URL.createObjectURL(file);
+    if (preview.current !== null) preview.current.src = src;
+    return () => URL.revokeObjectURL(src);
+  }, [file]);
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
@@ -354,7 +366,7 @@ function ImageConfirm({
       */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        ref={preview}
         alt="Prévia da imagem escolhida"
         width={image.width}
         height={image.height}
