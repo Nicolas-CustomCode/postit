@@ -77,6 +77,23 @@ describe("postagens", () => {
     return resposta.body["id"] as string;
   }
 
+  /**
+   * Envia para revisão e aprova, pela API — o caminho que "Marcar como pronta"
+   * encadeava até a 1e (ADR 0026). Devolve a versão nova: duas escritas, +2.
+   */
+  async function aprovar(token: string, accountId: string, postId: string, version: number): Promise<number> {
+    for (const [verbo, v] of [["submit", version], ["approve", version + 1]] as const) {
+      const resposta = await api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/${verbo}`,
+        payload: { version: v },
+        token,
+      });
+      expect(resposta.statusCode).toBe(200);
+    }
+    return version + 2;
+  }
+
   describe("criar e ler", () => {
     it("a postagem nasce em RASCUNHO, sem nenhuma chamada à Meta", async () => {
       const { token, userId } = await entrar();
@@ -150,7 +167,6 @@ describe("postagens", () => {
       { method: "POST" as const, caminho: (p: string) => `/${p}/caption`, payload: { version: 1, caption: "x" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/media`, payload: { version: 1, media: [] } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/format`, payload: { version: 1, format: "STORIES" } },
-      { method: "POST" as const, caminho: (p: string) => `/${p}/ready`, payload: { version: 1 } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/submit`, payload: { version: 1 } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/approve`, payload: { version: 1 } },
       {
@@ -297,13 +313,7 @@ describe("postagens", () => {
         payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
-      const pronta = await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 2 },
-        token,
-      });
-      expect(pronta.statusCode).toBe(200);
+      await aprovar(token, accountId, postId, 2);
 
       return { token, accountId, postId };
     }
@@ -314,7 +324,7 @@ describe("postagens", () => {
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/caption`,
-        payload: { version: 3, caption: "Outra coisa" },
+        payload: { version: 4, caption: "Outra coisa" },
         token,
       });
 
@@ -328,7 +338,7 @@ describe("postagens", () => {
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/caption`,
-        payload: { version: 3, caption: "Outra coisa" },
+        payload: { version: 4, caption: "Outra coisa" },
         token,
       });
 
@@ -346,7 +356,7 @@ describe("postagens", () => {
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 3, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] },
+        payload: { version: 4, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] },
         token,
       });
 
@@ -357,49 +367,12 @@ describe("postagens", () => {
     });
   });
 
-  describe("marcar como pronta", () => {
-    it("percorre revisão e aprovação, gravando as duas linhas", async () => {
-      const { token, userId } = await entrar();
-      const accountId = await conta();
-      const postId = await criar(token, accountId, "Pronta para ir");
-
-      await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
-        token,
-      });
-      await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 2 },
-        token,
-      });
-
-      expect((await api.db.post.findUniqueOrThrow({ where: { id: postId } })).status).toBe("APPROVED");
-
-      const registros = await api.db.approval.findMany({ where: { postId }, orderBy: { createdAt: "asc" } });
-      expect(registros.map((linha) => linha.action)).toEqual(["SUBMITTED_FOR_REVIEW", "APPROVED"]);
-      expect(registros.every((linha) => linha.userId === userId)).toBe(true);
-    });
-
-    it("sem imagem não fica pronta", async () => {
-      const { token } = await entrar();
-      const accountId = await conta();
-      const postId = await criar(token, accountId, "Só texto");
-
-      const resposta = await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 1 },
-        token,
-      });
-
-      expect(resposta.statusCode).toBe(422);
-      expect(resposta.body).toMatchObject({ code: "POST_MEDIA_REQUIRED" });
-    });
-
-    it("legenda acima de 2200 caracteres salva como rascunho, mas não fica pronta", async () => {
+  /*
+   * Enviar para revisão confere a prontidão (RF-E01; ADR 0026). O resto da revisão
+   * — aprovar, reprovar, autoaprovação — está em approval.integration.spec.ts.
+   */
+  describe("enviar para revisão exige a postagem pronta", () => {
+    it("legenda acima de 2200 caracteres salva como rascunho, mas não vai para revisão", async () => {
       const { token } = await entrar();
       const accountId = await conta();
       const postId = await criar(token, accountId);
@@ -422,7 +395,7 @@ describe("postagens", () => {
       });
       const pronta = await api.request({
         method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
+        url: `/accounts/${accountId}/posts/${postId}/submit`,
         payload: { version: 3 },
         token,
       });
@@ -466,50 +439,6 @@ describe("postagens", () => {
       });
 
       expect(resposta.statusCode).toBe(200);
-    });
-  });
-
-  /*
-   * RF-E02 e RF-I04: aprovar a própria postagem exige a permissão extra. O
-   * decorator não dá conta — ele roda antes de a postagem ser carregada.
-   */
-  describe("autoaprovação", () => {
-    it("quem criou e não tem POSTAGEM_APROVAR_PROPRIA é recusado", async () => {
-      const { token } = await entrar(["POST_EDIT", "POST_APPROVE"]);
-      const accountId = await conta();
-      const postId = await criar(token, accountId);
-
-      await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
-        token,
-      });
-      const resposta = await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 2 },
-        token,
-      });
-
-      expect(resposta.statusCode).toBe(403);
-      expect(resposta.body).toMatchObject({ code: "SELF_APPROVAL_FORBIDDEN" });
-    });
-
-    it("sem POSTAGEM_APROVAR nenhuma, a rota nem é alcançada", async () => {
-      const { token } = await entrar(["POST_EDIT"]);
-      const accountId = await conta();
-      const postId = await criar(token, accountId);
-
-      const resposta = await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 1 },
-        token,
-      });
-
-      expect(resposta.statusCode).toBe(403);
-      expect(resposta.body).toMatchObject({ code: "FORBIDDEN" });
     });
   });
 
@@ -617,23 +546,18 @@ describe("postagens", () => {
         payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1080 }) }] },
         token,
       });
-      await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 2 },
-        token,
-      });
+      await aprovar(token, accountId, postId, 2);
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/schedule`,
-        payload: { version: 3, day: "2030-10-15", time: "10:00" },
+        payload: { version: 4, day: "2030-10-15", time: "10:00" },
         token,
       });
 
       const resposta = await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/format`,
-        payload: { version: 4, format: "STORIES" },
+        payload: { version: 5, format: "STORIES" },
         token,
       });
 
@@ -776,7 +700,7 @@ describe("postagens", () => {
 
       const pronta = await api.request({
         method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
+        url: `/accounts/${accountId}/posts/${postId}/submit`,
         payload: { version: 3 },
         token,
       });
@@ -875,18 +799,12 @@ describe("postagens", () => {
       const accountId = await conta();
       const { postId, ids } = await comTres(token, accountId);
 
-      const pronta = await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 2 },
-        token,
-      });
-      expect(pronta.statusCode).toBe(200);
+      const aprovada = await aprovar(token, accountId, postId, 2);
 
       await api.request({
         method: "POST",
         url: `/accounts/${accountId}/posts/${postId}/media`,
-        payload: { version: 3, media: [...ids].reverse().map((mediaId) => ({ mediaId })) },
+        payload: { version: aprovada, media: [...ids].reverse().map((mediaId) => ({ mediaId })) },
         token,
       });
 
@@ -912,14 +830,9 @@ describe("postagens", () => {
         payload: { version: 1, media: [{ mediaId: await midia({ width: 1080, height: 1350 }) }] },
         token,
       });
-      await api.request({
-        method: "POST",
-        url: `/accounts/${accountId}/posts/${postId}/ready`,
-        payload: { version: 2 },
-        token,
-      });
+      const version = await aprovar(token, accountId, postId, 2);
 
-      return { id: postId, version: 3 };
+      return { id: postId, version };
     }
 
     it("o relógio da conta vira instante em UTC no banco", async () => {

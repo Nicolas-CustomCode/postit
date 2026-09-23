@@ -5,14 +5,12 @@ import { canCancel, resolveSchedule, scheduleMoveFor } from "./schedule";
 import {
   APPROVE_AND_SCHEDULE,
   canApproveAndSchedule,
-  canMarkReady,
   canReopen,
   canTransition,
   canUnschedule,
   holdsMedia,
   isEditable,
   keepsSchedule,
-  READY_CHAIN,
   statusAfterContentEdit,
 } from "./post-state";
 
@@ -138,31 +136,6 @@ describe("máquina de estados da postagem", () => {
         const depois = statusAfterContentEdit(status);
         expect(depois === status || depois === "DRAFT").toBe(true);
       }
-    });
-  });
-
-  /*
-   * A autoaprovação da Fase 1b: duas transições legais encadeadas, e NENHUMA
-   * aresta nova. É o que permite marcar a própria postagem como pronta sem
-   * mexer no diagrama do docs/05 nem abrir uma aresta que a Fase 4 teria de
-   * fechar depois.
-   */
-  describe("READY_CHAIN — marcar como pronta", () => {
-    it("o caminho é rascunho → revisão → aprovado", () => {
-      expect(READY_CHAIN).toEqual(["IN_REVIEW", "APPROVED"]);
-    });
-
-    it("cada passo do caminho é uma transição que o diagrama já tem", () => {
-      expect(canTransition("DRAFT", "IN_REVIEW")).toBe(true);
-      expect(canTransition("IN_REVIEW", "APPROVED")).toBe(true);
-    });
-
-    it("não existe atalho de rascunho direto para aprovado", () => {
-      expect(canTransition("DRAFT", "APPROVED")).toBe(false);
-    });
-
-    it("só rascunho pode ser marcado como pronto", () => {
-      expect(POST_STATUSES.filter((status) => canMarkReady(status))).toEqual(["DRAFT"]);
     });
   });
 

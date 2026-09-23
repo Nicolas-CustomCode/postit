@@ -8,16 +8,10 @@ import { isPostEditable, type PostStatus } from "@repo/shared";
  * custa uma publicação duplicada ou uma postagem que some — e é o tipo de erro
  * que só aparece em produção, de madrugada.
  *
- * ⚠️ **Nenhuma aresta nova foi inventada para a autoaprovação.** Marcar como
- * pronta percorre `RASCUNHO → EM_REVISAO → APROVADO` — as duas transições que o
- * diagrama já tem —, **na mesma transação**, gravando as duas linhas de
- * `Aprovacao`. Nenhuma postagem *persiste* em `EM_REVISAO`, então não existe
- * fila de revisão nesta fase; mas a máquina continua igual ao desenho, a
- * invariante I-1 vale sem asterisco, e a trilha conta a verdade: "Fulano enviou
- * e aprovou às 14h32".
- *
- * Na Fase 4, quando a revisão por terceiro chegar, a mudança é **parar de
- * encadear**. Nenhuma aresta some, nenhum diagrama muda.
+ * Na Fase 1, "Marcar como pronta" encadeava `RASCUNHO → EM_REVISAO → APROVADO`
+ * numa transação. Desde a 1e (ADR 0026) enviar e aprovar são decisões
+ * separadas, e a única cadeia que sobrou é "aprovar e agendar" — de novo com as
+ * transições que o diagrama já tem, sem aresta inventada.
  */
 
 /**
@@ -47,30 +41,8 @@ export function canTransition(from: PostStatus, to: PostStatus): boolean {
 }
 
 /**
- * O caminho que "marcar como pronta" percorre, em uma transação só.
- *
- * Duas transições legais encadeadas, em vez de uma aresta inventada de
- * `RASCUNHO` direto para `APROVADO`. Cada passo vira uma linha de `Aprovacao`,
- * e é por isso que a lista está aqui e não escondida no serviço: o domínio é
- * quem sabe qual é o caminho.
- */
-export const READY_CHAIN = ["IN_REVIEW", "APPROVED"] as const satisfies readonly PostStatus[];
-
-/** O caminho de `READY_CHAIN` é percorrível a partir daqui? */
-export function canMarkReady(from: PostStatus): boolean {
-  let atual = from;
-
-  for (const passo of READY_CHAIN) {
-    if (!canTransition(atual, passo)) return false;
-    atual = passo;
-  }
-
-  return true;
-}
-
-/**
  * O caminho de "aprovar e agendar" (ADR 0026): uma decisão, duas transições
- * legais, **uma transação**. Mesmo raciocínio de `READY_CHAIN` — nenhuma aresta
+ * legais, **uma transação** — nenhuma aresta
  * `EM_REVISAO → AGENDADO` inventada; a I-1 continua dizendo que só se agenda o que
  * foi aprovado, e aqui a aprovação acontece de fato, no mesmo instante.
  */

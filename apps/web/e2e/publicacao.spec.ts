@@ -25,8 +25,9 @@ test.describe("publicação", () => {
 
   /*
    * O caminho inteiro, pelo worker (docs/15, cenário 8; RF-F01 a RF-F03): compor,
-   * marcar como pronta, agendar para o minuto corrente — e esperar o motor. O
-   * despachante varre a cada 2 s neste ambiente (`DISPATCH_TICK_SECONDS`).
+   * continuar para a revisão, aprovar e agendar para o minuto corrente — e esperar
+   * o motor. O despachante varre a cada 2 s neste ambiente (`DISPATCH_TICK_SECONDS`).
+   * O super admin aprova a própria postagem (ADR 0015).
    */
   test("agendada pela tela, sai publicada pelo worker, com o link", async ({ page }) => {
     await criarMidia({ width: 1080, height: 1350 });
@@ -37,16 +38,16 @@ test.describe("publicação", () => {
     await page.getByRole("button", { name: /salvar rascunho/i }).click();
     await expect(page).toHaveURL(/\/postagens\/[0-9a-f-]+$/);
 
-    await page.getByRole("button", { name: "Marcar como pronta" }).click();
-    // Pronta: o botão some, porque a postagem já não precisa dele.
-    await expect(page.getByRole("button", { name: "Marcar como pronta" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Continuar para revisão" }).click();
+    // A etapa 2: a mesma postagem, agora em revisão, com a decisão no cartão.
+    await expect(etapaAtual(page)).toContainText("Revisão");
 
-    // O botão de agendar só acende com data e hora preenchidas.
+    // O botão só acende com data e hora preenchidas.
     const agora = await minutoCorrenteEmBrasilia();
     await page.getByLabel("Data").fill(agora.day);
     await page.getByLabel("Hora").fill(agora.time);
-    await expect(page.getByRole("button", { name: "Agendar", exact: true })).toBeEnabled();
-    await page.getByRole("button", { name: "Agendar", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Aprovar e agendar" })).toBeEnabled();
+    await page.getByRole("button", { name: "Aprovar e agendar" }).click();
 
     // A tela não se atualiza sozinha: recarrega até o motor terminar.
     await expect(async () => {
@@ -78,7 +79,7 @@ test.describe("publicação", () => {
 
       // O que confundia (pedido de 23/09/2026): nada de editar numa publicada.
       await expect(page.getByLabel("Legenda")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Marcar como pronta" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /revisão/i })).toHaveCount(0);
       await expect(page.getByRole("button", { name: /reagendar|agendar/i })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "Adicionar imagem" })).toHaveCount(0);
     });
@@ -129,6 +130,8 @@ test.describe("publicação", () => {
       await page.goto(url(id));
       await expect(etapaAtual(page)).toContainText("Revisão");
       await expect(page.getByRole("heading", { name: "Aguardando aprovação" })).toBeVisible();
+      // O fuso escrito é o da conta, pelo Intl — numa conta de Lisboa diria outro (ADR 0006).
+      await expect(page.getByText(/Brasília — o fuso da conta/i)).toBeVisible();
 
       // O botão só acende com data e hora.
       const aprovar = page.getByRole("button", { name: "Aprovar e agendar" });
@@ -206,7 +209,8 @@ test.describe("publicação", () => {
 
       await expect(etapaAtual(page)).toContainText("Composição");
       await expect(page.getByLabel("Legenda")).toBeVisible();
-      await expect(page.getByLabel("Data")).toHaveValue("");
+      // Sem horário: a Composição nem tem o campo, e o horário novo sai da revisão (ADR 0026).
+    await expect(page.getByLabel("Data")).toHaveCount(0);
     });
 
     test("reagendar volta a Agendada, com o horário sugerido", async ({ page }) => {

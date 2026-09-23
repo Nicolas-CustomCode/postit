@@ -106,8 +106,8 @@ test.describe("postagens", () => {
     await page.getByRole("button", { name: /salvar rascunho/i }).click();
 
     await expect(page).toHaveURL(new RegExp(`/c/${CONTA}/postagens/[0-9a-f-]+$`));
-    // A postagem existe com a imagem: o botão de ficar pronta libera.
-    await expect(page.getByRole("button", { name: /marcar como pronta/i })).toBeEnabled();
+    // A postagem existe com a imagem: o botão de ir para a revisão libera.
+    await expect(page.getByRole("button", { name: /continuar para revisão/i })).toBeEnabled();
   });
 
   /*
@@ -415,15 +415,6 @@ test.describe("postagens", () => {
    * O outro defeito: bastava digitar uma data numa postagem nunca agendada para
    * a tela dizer que o horário tinha sido desmarcado.
    */
-  test("digitar a data numa postagem nunca agendada não mostra aviso", async ({ page }) => {
-    await criarRascunho(page, "Rascunho comum");
-
-    await page.getByLabel("Data").fill("2030-10-15");
-    await page.getByLabel("Hora").fill("10:00");
-
-    await expect(page.getByText(/desmarcou o horário/i)).toHaveCount(0);
-  });
-
   test("o formato muda o que a tela cobra", async ({ page }) => {
     await page.goto(`/c/${CONTA}/postagens/nova`);
 
@@ -480,10 +471,23 @@ test.describe("postagens", () => {
     await expect(page.getByText("0 / 20 menções")).toBeVisible();
   });
 
-  test("sem imagem, não dá para marcar como pronta", async ({ page }) => {
+  test("sem imagem, não dá para ir para a revisão", async ({ page }) => {
     await criarRascunho(page, "Só texto por enquanto");
 
-    await expect(page.getByRole("button", { name: /marcar como pronta/i })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /continuar para revisão/i })).toBeDisabled();
+  });
+
+  // ADR 0026: a Composição só monta; o horário é decisão da Revisão.
+  test("a Composição não tem horário, e marcações e colaboradores esperam a Fase 2", async ({ page }) => {
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+
+    await expect(page.getByLabel("Data")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Quando publicar" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Marcar pessoas" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Colaboradores" })).toBeVisible();
+    await expect(
+      page.locator('ol[aria-label="Etapas da postagem"]:visible li[aria-current="step"]'),
+    ).toContainText("Composição");
   });
 
   /*
@@ -522,34 +526,6 @@ test.describe("postagens", () => {
     await page.getByRole("button", { name: /descartar minhas alterações/i }).click();
 
     await expect(page.getByLabel("Legenda")).toHaveValue("Mexida por outra pessoa");
-  });
-
-  /*
-   * Agendar (RF-D01; ADR 0006). O que só a tela prova: que o fuso mostrado é o
-   * da CONTA, e que o aviso aparece quando o horário sai do banco.
-   */
-  test("a seção de horário diz o fuso da conta, e não o do aparelho", async ({ page }) => {
-    await page.goto(`/c/${CONTA}/postagens/nova`);
-
-    await expect(page.getByRole("heading", { name: "Quando publicar" })).toBeVisible();
-    // O nome sai do Intl, não de texto fixo: numa conta de Lisboa diria outro.
-    await expect(page.getByText(/Brasília, o fuso da conta/i)).toBeVisible();
-    await expect(page.getByText(/Salve o rascunho e marque como pronta/i)).toBeVisible();
-  });
-
-  /*
-   * Os campos aceitam o horário desde o rascunho — é natural escolher a data
-   * enquanto se escreve. Quem espera é o botão: agendar exige a postagem
-   * pronta (invariante I-1), e a API recusaria de qualquer forma.
-   */
-  test("dá para escolher o horário no rascunho, mas agendar espera a postagem ficar pronta", async ({ page }) => {
-    await criarRascunho(page, "Ainda rascunho");
-
-    await expect(page.getByLabel("Data")).toBeEnabled();
-    await page.getByLabel("Data").fill("2030-10-15");
-    await page.getByLabel("Hora").fill("10:00");
-
-    await expect(page.getByRole("button", { name: "Agendar", exact: true })).toBeDisabled();
   });
 
   test("descartar o rascunho volta para a lista", async ({ page }) => {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { can } from "@repo/shared";
+import { can, canApprovePost } from "@repo/shared";
 import { PageHeader } from "@/components/nav/page-header";
 import { ComposeForm } from "@/components/posts/compose-form";
 import { PostStepper } from "@/components/posts/post-stepper";
@@ -39,7 +39,15 @@ export default async function NovaPostagemPage({
       <PageHeader trail={[`@${username}`, "Postagens", "Nova postagem"]} title="Nova postagem" />
       {/* A etapa 1, como na postagem salva (ADR 0026): nasce rascunho. */}
       <PostStepper post={null} timeZone={account.timezone} />
-      <ComposeForm username={username} account={account} timeZone={account.timezone} media={media} post={null} />
+      {/* Quem cria é o autor: "continua" para a revisão só quem pode aprovar a própria. */}
+      <ComposeForm
+        username={username}
+        account={account}
+        timeZone={account.timezone}
+        media={media}
+        post={null}
+        canApprove={canApprovePost(user, user.id)}
+      />
     </main>
   );
 }

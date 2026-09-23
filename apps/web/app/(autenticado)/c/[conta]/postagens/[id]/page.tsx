@@ -49,7 +49,14 @@ export default async function PostagemPage({
       <PostStepper post={post} timeZone={account.timezone} />
 
       {compondo ? (
-        <ComposeForm username={username} account={account} timeZone={account.timezone} media={media} post={post} />
+        <ComposeForm
+          username={username}
+          account={account}
+          timeZone={account.timezone}
+          media={media}
+          post={post}
+          canApprove={canApprovePost(user, post.createdById)}
+        />
       ) : (
         <PostReview
           username={username}

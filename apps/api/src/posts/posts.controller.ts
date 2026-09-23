@@ -142,31 +142,6 @@ export class PostsController {
     });
   }
 
-  /**
-   * ⚠️ **`POST_APPROVE` sozinho no decorator, de propósito.** O guard usa
-   * `every()`: declarar `POST_APPROVE_OWN` junto passaria a exigi-la também de
-   * quem aprova postagem alheia. E o guard roda antes de a postagem ser
-   * carregada — não tem como saber quem é o autor. Quem cobra a segunda
-   * permissão é o serviço (AGENTS.md, regra 17).
-   */
-  @RequirePermission("POST_APPROVE")
-  @Post(":postId/ready")
-  @HttpCode(200)
-  markReady(
-    @Param("accountId") accountId: string,
-    @Param("postId") postId: string,
-    @Auth() auth: AuthContext,
-    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
-  ): Promise<{ version: number }> {
-    return this.composition.markReady({
-      accountId,
-      postId,
-      userId: auth.userId,
-      version: body.version,
-      approver: approverOf(auth),
-    });
-  }
-
   /** Enviar para revisão (RF-E01). É de quem edita: quem escreveu pede o olhar de outro. */
   @RequirePermission("POST_EDIT")
   @Post(":postId/submit")
@@ -185,8 +160,11 @@ export class PostsController {
    * alguém com `POST_SCHEDULE` escolher o horário. É a rota de quem aprova e não
    * agenda.
    *
-   * ⚠️ **`POST_APPROVE` sozinho no decorator, de propósito** — o mesmo motivo de
-   * `ready`: a autoaprovação depende do autor, e quem cobra é o serviço.
+   * ⚠️ **`POST_APPROVE` sozinho no decorator, de propósito.** O guard usa
+   * `every()`: declarar `POST_APPROVE_OWN` junto passaria a exigi-la também de
+   * quem aprova postagem alheia. E o guard roda antes de a postagem ser
+   * carregada — não tem como saber quem é o autor. Quem cobra a segunda
+   * permissão é o serviço (AGENTS.md, regra 17).
    */
   @RequirePermission("POST_APPROVE")
   @Post(":postId/approve")

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Check, Info, Loader2, Trash2 } from "lucide-react";
+import { ArrowRight, Info, Loader2, Send, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
 import {
@@ -21,10 +21,10 @@ import {
   type MediaSummary,
   type PostDetail,
 } from "@repo/shared";
-import { AccountDateTime, accountZoneName, civilFieldsFor, todayIn } from "@/components/account-time";
 import { MediaAdjustSheet } from "@/components/media/media-adjust-sheet";
 import { MediaPicker } from "@/components/media/media-picker";
 import { UploadField, type UploadHandle } from "@/components/media/upload-field";
+import { LocalDate } from "@/components/local-date";
 import { ComposeSection } from "@/components/posts/compose-section";
 import { AddMediaTile } from "@/components/posts/add-media-tile";
 import { FeedPreview } from "@/components/posts/feed-preview";
@@ -32,14 +32,12 @@ import { MediaStrip } from "@/components/posts/media-strip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
-  cancelPostAction,
   createPostAction,
   discardPostAction,
-  markPostReadyAction,
-  schedulePostAction,
   setCaptionAction,
   setPostFormatAction,
   setPostMediaAction,
+  submitPostAction,
 } from "@/lib/actions/posts";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +50,11 @@ import { cn } from "@/lib/utils";
  * alguém salvar. Escolher uma imagem não cria nada: a `Midia` já existe no
  * acervo, e a `Postagem` só nasce no salvamento.
  *
+ * **É a etapa 1 · Composição** (ADR 0026): só monta a postagem. O horário não
+ * mora aqui — é decisão de quem revisa, na etapa 2. O rodapé leva adiante:
+ * "Continuar para revisão" para quem pode aprovar, "Enviar para revisão" para
+ * quem só edita; os dois salvam antes e mandam para a revisão.
+ *
  * ⚠️ **O conflito de edição não pode custar o texto de ninguém.** Quando a API
  * recusa com `POST_VERSION_CONFLICT`, o que está no campo **continua lá** — a
  * tela mostra quem salvou antes e oferece as duas saídas do RF-C12.
@@ -62,16 +65,22 @@ export function ComposeForm({
   timeZone,
   media,
   post,
+  canApprove,
 }: {
   readonly username: string;
   /** A conta, para a prévia mostrar a foto real dela. */
   readonly account: Pick<AccountSummary, "name" | "username" | "photoUrl">;
-  /** O fuso da conta: é nele que o horário escolhido é interpretado (ADR 0006). */
+  /** O fuso da conta: a prévia mostra os horários nele (ADR 0006). */
   readonly timeZone: string;
   /** O acervo, para escolher sem sair da tela (RF-B04). */
   readonly media: readonly MediaSummary[];
   /** Em branco na tela de nova postagem: ela ainda não existe no banco. */
   readonly post: PostDetail | null;
+  /**
+   * Quem pode aprovar esta postagem "continua" para a revisão, onde vai decidir;
+   * quem não pode "envia" para outra pessoa. Só muda o rótulo — a API decide.
+   */
+  readonly canApprove: boolean;
 }): ReactNode {
   const router = useRouter();
   const [caption, setCaption] = useState(post?.caption ?? "");
@@ -116,23 +125,6 @@ export function ComposeForm({
   /** O seletor de arquivos, aberto pelo item "Enviar nova" do menu. */
   const envio = useRef<UploadHandle>(null);
 
-  /*
-   * O horário também vive aqui: quando a edição derruba a postagem para
-   * rascunho, a API apaga o `publicarEm`, mas o que a pessoa escolheu continua
-   * na tela para reagendar num clique.
-   */
-  const gravado = civilFieldsFor(post?.scheduledAt ?? null, timeZone);
-  const [day, setDay] = useState(gravado.day);
-  const [time, setTime] = useState(gravado.time);
-
-  /**
-   * ⚠️ **Fato observado, não deduzido do banco.** A versão anterior mostrava o
-   * aviso sempre que havia data digitada e nada agendado — o que acontece
-   * também numa postagem que nunca foi agendada. Agora só é verdade depois de
-   * uma escrita ter mesmo derrubado uma postagem que estava agendada.
-   */
-  const [horarioCaiu, setHorarioCaiu] = useState(false);
-
   const contagem = captionCounts(caption);
   const legendaMudou = caption !== (post?.caption ?? "");
   const formatoMudou = post !== null && format !== post.format;
@@ -168,11 +160,6 @@ export function ComposeForm({
     setAnuncio(`Imagem ${indice + 1} removida.`);
   }
 
-  const status = post?.status ?? "DRAFT";
-  // Só APROVADO e AGENDADO aceitam horário — a invariante I-1 e o RF-D04. A API
-  // confere de novo: esconder o botão é conveniência, não proteção (regra 17).
-  const podeAgendar = status === "APPROVED" || status === "SCHEDULED";
-
   /** Executa uma escrita e devolve a versão nova, ou `null` se falhou. */
   async function escrever(
     acao: (versaoAtual: number) => Promise<Awaited<ReturnType<typeof setCaptionAction>>>,
@@ -185,9 +172,6 @@ export function ComposeForm({
 
     if (resultado.ok) {
       setVersion(resultado.data.version);
-      // Se a postagem estava agendada, esta escrita de conteúdo a derrubou — e
-      // o horário saiu junto (invariante I-2).
-      if (post?.status === "SCHEDULED") setHorarioCaiu(true);
       return resultado.data.version;
     }
 
@@ -214,8 +198,11 @@ export function ComposeForm({
    * Na tela nova, o `create` já leva formato e legenda — uma escrita, não três.
    * A imagem vem depois, porque a rota de mídia valida contra o formato que
    * acabou de ser gravado.
+   *
+   * Devolve a postagem e a versão em que ficou: enviar para revisão logo depois
+   * precisa da versão **nova**, e o estado do React só a teria no próximo render.
    */
-  async function salvar(): Promise<string | null> {
+  async function salvar(): Promise<{ id: string; version: number } | null> {
     if (post === null) {
       const criada = await createPostAction(username, {
         format,
@@ -238,7 +225,7 @@ export function ComposeForm({
         v = comMidia;
       }
 
-      return criada.data.id;
+      return { id: criada.data.id, version: v };
     }
 
     let v = version;
@@ -269,14 +256,46 @@ export function ComposeForm({
         v,
       );
       if (depois === null) return null;
+      v = depois;
     }
 
-    return post.id;
+    return { id: post.id, version: v };
   }
+
+  /**
+   * Salva e manda para a revisão (RF-E01). Na tela nova a postagem nasce aqui e já
+   * sai em revisão; o endereço passa a ser o dela, que abre na etapa 2.
+   */
+  async function enviarParaRevisao(): Promise<void> {
+    const salvo = await salvar();
+    if (salvo === null) return;
+
+    const enviada = await escrever((v) => submitPostAction(username, salvo.id, { version: v }), salvo.version);
+    if (post === null) router.replace(`/c/${username}/postagens/${salvo.id}`);
+    else if (enviada !== null) router.refresh();
+  }
+
+  const reprovacao = post?.lastDecision?.action === "REJECTED" ? post.lastDecision : null;
 
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-7">
       <div className="flex min-w-0 flex-1 flex-col gap-4">
+        {/* Voltou da revisão: o motivo no topo, que é o que a pessoa veio corrigir (RF-E03). */}
+        {reprovacao !== null && (
+          <div
+            role="status"
+            className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-2xl bg-[var(--status-falhou-bg)] px-4 py-3.5 text-[var(--status-falhou)]"
+          >
+            <X className="mt-0.5 size-4.5" aria-hidden />
+            <p className="text-sm font-bold">
+              Reprovada por {reprovacao.byName} · <LocalDate iso={reprovacao.at} format="comHora" />
+            </p>
+            <p className="col-start-2 text-sm break-words whitespace-pre-wrap text-foreground">
+              “{reprovacao.reason}” Ajuste e envie de novo — a conversa da revisão continua lá.
+            </p>
+          </div>
+        )}
+
         {conflito !== null && (
           <Alert role="alert">
             <AlertDescription className="flex flex-col gap-3">
@@ -552,82 +571,13 @@ export function ComposeForm({
           </ComposeSection>
         )}
 
-        <ComposeSection
-          title="Quando publicar"
-          aside={<span className="text-[13px] text-muted-foreground">{accountZoneName(timeZone)}, o fuso da conta</span>}
-        >
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="dia" className="text-sm font-semibold">
-                Data
-              </label>
-              <input
-                id="dia"
-                type="date"
-                value={day}
-                min={todayIn(timeZone)}
-                disabled={ocupado || post === null}
-                onChange={(evento) => setDay(evento.target.value)}
-                className="h-11 w-45 rounded-[10px] border bg-transparent px-3 text-sm tabular-nums focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="hora" className="text-sm font-semibold">
-                Hora
-              </label>
-              <input
-                id="hora"
-                type="time"
-                value={time}
-                disabled={ocupado || post === null}
-                onChange={(evento) => setTime(evento.target.value)}
-                className="h-11 w-28 rounded-[10px] border bg-transparent px-3 text-sm tabular-nums focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
-              />
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 md:h-10"
-              disabled={ocupado || post === null || day === "" || time === "" || !podeAgendar}
-              onClick={() =>
-                void comBloqueio(async () => {
-                  if (post === null) return;
-                  const nova = await escrever(
-                    (v) => schedulePostAction(username, post.id, { version: v, day, time }),
-                    version,
-                  );
-                  if (nova !== null) {
-                    setHorarioCaiu(false);
-                    router.refresh();
-                  }
-                })
-              }
-            >
-              <CalendarClock className="size-4" aria-hidden />
-              {status === "SCHEDULED" ? "Reagendar" : "Agendar"}
-            </Button>
-          </div>
-
-          {horarioCaiu && (
-            <p className="text-[13px] text-warning">
-              A edição derrubou esta postagem para rascunho e desmarcou o horário. Marque como pronta e
-              agende de novo.
-            </p>
-          )}
-
-          {post !== null && post.scheduledAt !== null && (
-            <p className="text-[13px] text-muted-foreground">
-              Vai ao ar em <AccountDateTime iso={post.scheduledAt} timeZone={timeZone} />.
-            </p>
-          )}
-
-          {post === null && (
-            <p className="text-[13px] text-muted-foreground">
-              Salve o rascunho e marque como pronta para poder agendar.
-            </p>
-          )}
+        {/* Marcações e colaboradores chegam na Fase 2: aparecem apagados, dizendo quando,
+            em vez de sumirem (docs/12). */}
+        <ComposeSection title="Marcar pessoas" aside={<FaseDois />}>
+          <p className="text-[13px] text-muted-foreground">Marcação por foto chega com os vídeos e o Reels.</p>
+        </ComposeSection>
+        <ComposeSection title="Colaboradores" aside={<FaseDois />}>
+          <p className="text-[13px] text-muted-foreground">Contas convidadas para dividir a postagem.</p>
         </ComposeSection>
 
         {erro !== null && (
@@ -644,14 +594,15 @@ export function ComposeForm({
         <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:mx-0 md:flex-row md:border-0 md:bg-transparent md:p-0">
           <Button
             type="button"
+            variant="outline"
             className="h-11 md:h-10"
             disabled={ocupado || !temMudanca}
             onClick={() =>
               void comBloqueio(async () => {
-                const id = await salvar();
-                if (id === null) return;
+                const salvo = await salvar();
+                if (salvo === null) return;
                 // Só agora a tela deixa de ser "Nova postagem".
-                if (post === null) router.replace(`/c/${username}/postagens/${id}`);
+                if (post === null) router.replace(`/c/${username}/postagens/${salvo.id}`);
                 else router.refresh();
               })
             }
@@ -661,63 +612,20 @@ export function ComposeForm({
           </Button>
 
           {/*
-            Só onde ainda falta aprovar. Em "Pronta" e "Agendada" o selo já diz o
-            estado; um botão "Pronta" apagado ali só fazia perguntar se dava para
-            clicar.
+            Salvar antes de enviar: mandar para a revisão algo que só existe na tela
+            aprovaria uma coisa e publicaria outra.
           */}
-          {(status === "DRAFT" || status === "IN_REVIEW") && (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 md:h-10"
-              disabled={ocupado || midias.length === 0 || midias.length > maximo || incompativeis.length > 0}
-              onClick={() =>
-                void comBloqueio(async () => {
-                  // Salvar antes: marcar como pronta algo que só existe na tela
-                  // aprovaria uma coisa e publicaria outra.
-                  const id = await salvar();
-                  if (id === null) return;
+          <Button
+            type="button"
+            className="h-11 md:h-10"
+            disabled={ocupado || midias.length === 0 || midias.length > maximo || incompativeis.length > 0}
+            onClick={() => void comBloqueio(enviarParaRevisao)}
+          >
+            {canApprove ? "Continuar para revisão" : "Enviar para revisão"}
+            {canApprove ? <ArrowRight className="size-4" aria-hidden /> : <Send className="size-4" aria-hidden />}
+          </Button>
 
-                  if (post === null) {
-                    router.replace(`/c/${username}/postagens/${id}`);
-                    return;
-                  }
-
-                  const pronta = await escrever(
-                    (v) => markPostReadyAction(username, post.id, { version: v }),
-                    version,
-                  );
-                  if (pronta !== null) router.refresh();
-                })
-              }
-            >
-              <Check className="size-4" aria-hidden />
-              Marcar como pronta
-            </Button>
-          )}
-
-          {post !== null && status === "SCHEDULED" && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 text-muted-foreground md:ml-auto md:h-10"
-              disabled={ocupado}
-              onClick={() =>
-                void comBloqueio(async () => {
-                  const cancelou = await escrever(
-                    (v) => cancelPostAction(username, post.id, { version: v }),
-                    version,
-                  );
-                  if (cancelou !== null) router.push(`/c/${username}/postagens`);
-                })
-              }
-            >
-              <Trash2 className="size-4" aria-hidden />
-              Cancelar agendamento
-            </Button>
-          )}
-
-          {post !== null && status === "DRAFT" && (
+          {post !== null && (
             <Button
               type="button"
               variant="ghost"
@@ -825,4 +733,9 @@ function Contador({ atual, limite, nome }: { readonly atual: number; readonly li
       / {limite.toLocaleString("pt-BR")} {nome}
     </span>
   );
+}
+
+/** O rótulo das seções que ainda não existem: dizem quando chegam. */
+function FaseDois(): ReactNode {
+  return <span className="text-[11px] font-semibold text-muted-foreground">Fase 2</span>;
 }

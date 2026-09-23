@@ -22,7 +22,6 @@ import {
 import { postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
 import {
   canApproveAndSchedule,
-  canMarkReady,
   canReopen,
   canTransition,
   canUnschedule,
@@ -185,33 +184,6 @@ export class PostsDomainService {
     if (problema !== null && problema !== "POST_MEDIA_REQUIRED") throw readinessError(problema);
 
     return this.applyContentChange(input, { format: input.format });
-  }
-
-  /**
-   * Marcar como pronta: `RASCUNHO → EM_REVISAO → APROVADO`, numa transação.
-   *
-   * ⚠️ **Duas transições legais encadeadas, não uma aresta inventada.** Nenhuma
-   * postagem persiste em `EM_REVISAO` — não há fila de revisão nesta fase —, mas
-   * a máquina de estados continua a do `docs/05` e a invariante I-1 vale sem
-   * asterisco. As duas linhas de `Aprovacao` contam a verdade: "Fulano enviou e
-   * aprovou às 14h32".
-   *
-   * ⚠️ **De saída** (ADR 0026): a 1e parou de encadear — `submit()` e `approve()`.
-   * Fica até a Composição deixar de chamá-la, e sai junto com a rota `ready`.
-   */
-  async markReady(input: Scope & { approver: Approver }): Promise<Saved> {
-    const post = await this.load(input);
-
-    if (!canMarkReady(post.status)) throw new PostTransitionInvalidError();
-    if (selfApprovalRefused(input.approver, post.createdById)) throw new SelfApprovalForbiddenError();
-
-    assertReady(post);
-
-    // O envio vai no `extra`, antes da linha da aprovação: a ordem conta a história.
-    return this.applyUserWrite(input, post.status, { status: "APPROVED" }, {
-      trail: { action: "APPROVED" },
-      extra: (tx) => this.record(tx, input, { action: "SUBMITTED_FOR_REVIEW" }),
-    });
   }
 
   /**

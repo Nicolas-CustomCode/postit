@@ -70,13 +70,17 @@ export async function setPostFormatAction(
   }));
 }
 
-export async function markPostReadyAction(
+/**
+ * Enviar para revisão (RF-E01; ADR 0026). A API confere a prontidão: sem imagem,
+ * ou com uma que não serve ao formato, a postagem não chega a quem revisa.
+ */
+export async function submitPostAction(
   username: string,
   postId: string,
   input: { version: number },
 ): Promise<ActionResult<{ version: number }>> {
   return write(username, (accountId) => ({
-    path: `/accounts/${accountId}/posts/${postId}/ready`,
+    path: `/accounts/${accountId}/posts/${postId}/submit`,
     body: input,
   }));
 }
@@ -122,7 +126,7 @@ export async function discardPostAction(
 
 /**
  * `FALHOU → RASCUNHO`: voltar para corrigir antes de agendar de novo (ADR 0007).
- * O horário some, e a postagem precisa ser marcada como pronta outra vez.
+ * O horário some, e a postagem precisa passar pela revisão outra vez.
  */
 export async function revertPostToDraftAction(
   username: string,
