@@ -29,6 +29,11 @@ import { cn } from "@/lib/utils";
  * numa foto em pé, a largura já está inteira e o que se escolhe é a faixa
  * vertical. Um `range` funciona igual no computador e no celular, não depende de
  * gesto e é operável por teclado.
+ *
+ * **Também casa uma foto com a primeira do carrossel** (`toFirstPhoto`): o quadro do
+ * carrossel é o da primeira, e a foto de proporção diferente sai com faixas pretas
+ * (docs/08, observado em 23/09/2026). Aí só existe recortar — "imagem inteira"
+ * recriaria as faixas que a pessoa quer tirar.
  */
 export type AdjustChoice =
   | { readonly mode: "crop"; readonly position: CropPosition }
@@ -41,6 +46,7 @@ export function ImageAdjust({
   onConfirm,
   onCancel,
   busy,
+  toFirstPhoto = false,
 }: {
   readonly image: LoadedImage;
   /** A proporção alvo do recorte — a mais próxima da original. */
@@ -50,13 +56,19 @@ export function ImageAdjust({
   readonly onConfirm: (escolha: AdjustChoice) => void;
   readonly onCancel: () => void;
   readonly busy: boolean;
+  /** Recortar na proporção da primeira foto do carrossel, em vez de ajustar ao formato. */
+  readonly toFirstPhoto?: boolean;
 }): ReactNode {
   const [modo, setModo] = useState<AdjustChoice["mode"]>("crop");
   const [position, setPosition] = useState(0.5);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   const eixo = useMemo(() => cropAxis(image.width, image.height, ratio), [image.width, image.height, ratio]);
-  const moldura = useMemo(() => fitFrame(image.width, image.height, spec), [image.width, image.height, spec]);
+  // Casando com a primeira foto não há moldura: ela recriaria as faixas.
+  const moldura = useMemo(
+    () => (toFirstPhoto ? null : fitFrame(image.width, image.height, spec)),
+    [image.width, image.height, spec, toFirstPhoto],
+  );
 
   useEffect(() => {
     const elemento = canvas.current;
@@ -112,17 +124,27 @@ export function ImageAdjust({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <p className="text-sm font-medium">Ajustar para {spec.label}</p>
-        <p className="text-sm text-muted-foreground">
-          {/* Condicional: um formato sem faixa não chega aqui hoje, mas a frase
-              sairia dizendo "de null" se chegasse. */}
-          {spec.ratioLabel !== null && <>O {spec.label} aceita de {spec.ratioLabel}. </>}
-          {modo === "crop"
-            ? "Escolha a parte que fica."
-            : "A imagem inteira cabe, com faixas brancas nas sobras."}
-        </p>
-      </div>
+      {toFirstPhoto ? (
+        <div>
+          <p className="text-sm font-medium">Ajustar ao formato da foto 1</p>
+          <p className="text-sm text-muted-foreground">
+            O carrossel usa o formato da primeira foto, e as outras entram inteiras, com faixas pretas. Escolha a
+            parte que fica.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm font-medium">Ajustar para {spec.label}</p>
+          <p className="text-sm text-muted-foreground">
+            {/* Condicional: um formato sem faixa não chega aqui hoje, mas a frase
+                sairia dizendo "de null" se chegasse. */}
+            {spec.ratioLabel !== null && <>O {spec.label} aceita de {spec.ratioLabel}. </>}
+            {modo === "crop"
+              ? "Escolha a parte que fica."
+              : "A imagem inteira cabe, com faixas brancas nas sobras."}
+          </p>
+        </div>
+      )}
 
       {moldura !== null && (
         <div className="flex gap-2" role="group" aria-label="Como ajustar">

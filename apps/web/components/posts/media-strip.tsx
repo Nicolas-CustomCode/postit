@@ -2,16 +2,17 @@
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { ReactNode } from "react";
-import { formatsFor, IMAGE_SPECS, type ImageFormat, type MediaSummary } from "@repo/shared";
+import { formatsFor, IMAGE_SPECS, letterboxedInCarousel, type ImageFormat, type MediaSummary } from "@repo/shared";
 import { useDragReorder } from "@/components/posts/use-drag-reorder";
 import { cn } from "@/lib/utils";
 
 /**
  * As imagens da postagem, na ordem em que vão para a Meta (RF-C04).
  *
- * ⚠️ **A primeira manda.** A Meta recorta todas as imagens do carrossel pelo
- * recorte da primeira (docs/08), então "quem é a primeira" precisa ser
- * inequívoco — daí o selo com o número em cada miniatura.
+ * ⚠️ **A primeira manda.** O quadro do carrossel é o da primeira foto, e as outras
+ * entram inteiras, com faixas pretas onde a proporção difere (docs/08, observado em
+ * 23/09/2026) — então "quem é a primeira" precisa ser inequívoco, daí o selo com o
+ * número em cada miniatura.
  *
  * **Duas formas de reordenar, e as duas chamam o mesmo `onMover`:** arrastar,
  * que é o caminho natural, e as setas `◀ ▶`. As setas não são redundância — são
@@ -25,6 +26,7 @@ export function MediaStrip({
   onMover,
   onRemover,
   onAjustar,
+  onAjustarAoQuadro,
   acrescentar,
 }: {
   readonly midias: readonly MediaSummary[];
@@ -39,6 +41,11 @@ export function MediaStrip({
    * para Stories não cabe no feed. Sem isto, a saída era remover e recomeçar.
    */
   readonly onAjustar?: (indice: number) => void;
+  /**
+   * Recortar a foto na proporção da primeira, para ela não sair com faixas pretas
+   * no carrossel. Só vem no Feed com duas ou mais fotos — é quando existe carrossel.
+   */
+  readonly onAjustarAoQuadro?: (indice: number) => void;
   /**
    * O quadrado de adicionar, que fecha a faixa. Ausente quando a postagem já
    * chegou ao máximo do formato — a faixa é também **onde se acrescenta**, e
@@ -57,6 +64,14 @@ export function MediaStrip({
       {midias.map((item, indice) => {
         const serve = formatsFor(item.width, item.height).includes(format);
         const primeira = indice === 0;
+        // Só avisa das faixas quem já serve ao formato: a tarja vermelha tem precedência.
+        const quadro = midias[0];
+        const comFaixas =
+          serve &&
+          !primeira &&
+          onAjustarAoQuadro !== undefined &&
+          quadro !== undefined &&
+          letterboxedInCarousel(quadro, item);
         const ultima = indice === midias.length - 1;
         const naMao = drag?.indice === indice;
         // Quem fica entre a origem e o destino abre passagem: é o que mostra
@@ -156,6 +171,23 @@ export function MediaStrip({
                     Ajustar para {IMAGE_SPECS[format].label}
                   </button>
                 ))}
+
+              {/*
+                Âmbar, e não vermelho: faixa preta **não impede** salvar nem publicar — é
+                o que vai aparecer, e pode ser o que a pessoa quer. A tarja avisa e
+                oferece o recorte; decidir é dela (ADR 0025).
+              */}
+              {comFaixas && (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onAjustarAoQuadro(indice)}
+                  aria-label={`A imagem ${indice + 1} vai sair com faixas pretas. Ajustar ao formato da foto 1`}
+                  className="absolute inset-x-1.5 bottom-1.5 rounded-md bg-[var(--status-revisao-bg)] px-1.5 py-0.5 text-center text-[11px] font-semibold text-[var(--status-revisao)] transition-opacity hover:opacity-85 disabled:opacity-40"
+                >
+                  Faixas pretas · Ajustar
+                </button>
+              )}
             </div>
 
             {/* Some com uma imagem só: não há para onde mover. */}

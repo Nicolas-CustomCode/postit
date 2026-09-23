@@ -2,7 +2,15 @@
 
 import { Loader2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { fitFrame, targetRatioFor, IMAGE_SPECS, type ImageFormat, type ImageSpec, type MediaSummary } from "@repo/shared";
+import {
+  fitFrame,
+  letterboxedInCarousel,
+  targetRatioFor,
+  IMAGE_SPECS,
+  type ImageFormat,
+  type ImageSpec,
+  type MediaSummary,
+} from "@repo/shared";
 import { ImageAdjust, type AdjustChoice } from "@/components/media/image-adjust";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -29,6 +37,9 @@ import { cn } from "@/lib/utils";
  * formatos. A original continua intacta: quem usa a mesma foto no feed e no
  * Stories precisa das duas versões.
  *
+ * **Com `target`, o ajuste é outro**: recortar a foto na proporção da primeira do
+ * carrossel, para ela não sair com faixas pretas (docs/08, observado em 23/09/2026).
+ *
  * ⚠️ **Irmã do seletor, nunca filha.** Duas folhas do Radix aninhadas brigam
  * pelo foco: fechar a de fora arranca o foco da de dentro, e o `Escape` não
  * chega em nenhuma. O mesmo defeito que o menu do quadrado de adicionar já
@@ -37,12 +48,15 @@ import { cn } from "@/lib/utils";
 export function MediaAdjustSheet({
   media,
   format,
+  target,
   onOpenChange,
   onDone,
 }: {
   /** `null` fecha. Quem abre é o seletor, ao clicar numa incompatível. */
   readonly media: MediaSummary | null;
   readonly format: ImageFormat;
+  /** A primeira foto do carrossel: recortar na proporção dela, e não ajustar ao formato. */
+  readonly target?: { readonly width: number; readonly height: number } | undefined;
   readonly onOpenChange: (open: boolean) => void;
   /** A imagem ajustada, pronta para entrar na postagem. */
   readonly onDone: (media: MediaSummary) => void;
@@ -89,6 +103,7 @@ export function MediaAdjustSheet({
             key={media.id}
             media={media}
             spec={IMAGE_SPECS[format]}
+            target={target}
             envio={envio}
             onEnvio={setEnvio}
             onClose={() => onOpenChange(false)}
@@ -103,6 +118,7 @@ export function MediaAdjustSheet({
 function Ajuste({
   media,
   spec,
+  target,
   envio,
   onEnvio,
   onClose,
@@ -110,6 +126,7 @@ function Ajuste({
 }: {
   readonly media: MediaSummary;
   readonly spec: ImageSpec;
+  readonly target: { readonly width: number; readonly height: number } | undefined;
   readonly envio: UploadStep | null;
   readonly onEnvio: (passo: UploadStep | null) => void;
   readonly onClose: () => void;
@@ -145,7 +162,15 @@ function Ajuste({
     };
   }, [media.url]);
 
-  const ratio = imagem === null ? null : targetRatioFor(imagem.width, imagem.height, spec);
+  const ratio =
+    imagem === null
+      ? null
+      : target !== undefined
+        ? // Já na proporção da primeira, não há o que recortar — a mesma saída de "já serve".
+          letterboxedInCarousel(target, imagem)
+          ? target.width / target.height
+          : null
+        : targetRatioFor(imagem.width, imagem.height, spec);
 
   async function ajustarEEnviar(escolha: AdjustChoice): Promise<void> {
     if (imagem === null || ratio === null) return;
@@ -186,6 +211,7 @@ function Ajuste({
           image={imagem}
           ratio={ratio}
           spec={spec}
+          toFirstPhoto={target !== undefined}
           busy={ocupado}
           onConfirm={(escolha) => void ajustarEEnviar(escolha)}
           onCancel={onClose}
@@ -206,7 +232,9 @@ function Ajuste({
       */}
       {imagem !== null && ratio === null && (
         <p className="text-sm text-muted-foreground">
-          Esta imagem já serve para {spec.label}. Feche e escolha-a direto.
+          {target !== undefined
+            ? "Esta imagem já tem o formato da foto 1. Feche e siga."
+            : `Esta imagem já serve para ${spec.label}. Feche e escolha-a direto.`}
         </p>
       )}
 

@@ -12,6 +12,7 @@ import {
   COMPOSABLE_FORMATS,
   formatsFor,
   IMAGE_SPECS,
+  letterboxedInCarousel,
   POST_FORMAT_LABELS,
   POST_FORMATS,
   POST_MEDIA_COUNT,
@@ -99,7 +100,7 @@ export function ComposeForm({
    *
    * ⚠️ **Uma lista, e não uma imagem.** Carrossel não é formato, é quantidade
    * (ADR 0024): duas ou mais no Feed e a Meta monta o carrossel sozinha. A ordem
-   * é conteúdo de verdade — a primeira define o recorte de todas.
+   * é conteúdo de verdade — a primeira define o quadro de todas.
    */
   const [midias, setMidias] = useState<readonly MediaSummary[]>(midiasIniciais(post, media));
   /**
@@ -122,7 +123,12 @@ export function ComposeForm({
    * naquele lugar — quem trocou de formato quer a mesma imagem consertada, na
    * mesma posição, não uma segunda cópia no fim.
    */
-  const [ajustando, setAjustando] = useState<{ media: MediaSummary; indice: number | null } | null>(null);
+  const [ajustando, setAjustando] = useState<{
+    media: MediaSummary;
+    indice: number | null;
+    /** A primeira foto do carrossel, quando o ajuste é tirar as faixas pretas. */
+    quadro?: { width: number; height: number };
+  } | null>(null);
   /** O seletor de arquivos, aberto pelo item "Enviar nova" do menu. */
   const envio = useRef<UploadHandle>(null);
 
@@ -147,6 +153,20 @@ export function ComposeForm({
    * apontar **qual** imagem não serve — coisa que o erro da API não carrega.
    */
   const incompativeis = midias.filter((item) => !formatsFor(item.width, item.height).includes(format));
+  /*
+   * As que vão sair com faixas pretas: no carrossel, o quadro é o da primeira foto e as
+   * outras entram inteiras (docs/08, observado em 23/09/2026). Carrossel é Feed com duas
+   * ou mais. Não bloqueia nada — é aviso, com o recorte oferecido.
+   */
+  const quadro = format === "FEED" && midias.length > 1 ? midias[0] : undefined;
+  const comFaixas =
+    quadro === undefined
+      ? []
+      : midias.flatMap((item, indice) =>
+          indice > 0 && formatsFor(item.width, item.height).includes(format) && letterboxedInCarousel(quadro, item)
+            ? [indice + 1]
+            : [],
+        );
 
   function moverMidia(de: number, para: number): void {
     setMidias((atual) => mover(atual, de, para));
@@ -409,6 +429,16 @@ export function ComposeForm({
                 const alvo = midias[indice];
                 if (alvo !== undefined) setAjustando({ media: alvo, indice });
               }}
+              {...(quadro === undefined
+                ? {}
+                : {
+                    onAjustarAoQuadro: (indice: number) => {
+                      const alvo = midias[indice];
+                      if (alvo !== undefined) {
+                        setAjustando({ media: alvo, indice, quadro: { width: quadro.width, height: quadro.height } });
+                      }
+                    },
+                  })}
               acrescentar={
                 cheia ? undefined : (
                   <AddMediaTile
@@ -454,6 +484,7 @@ export function ComposeForm({
             <MediaAdjustSheet
               media={ajustando?.media ?? null}
               format={format}
+              target={ajustando?.quadro}
               onOpenChange={(aberta) => {
                 if (!aberta) setAjustando(null);
               }}
@@ -498,6 +529,15 @@ export function ComposeForm({
                 {/* A tarja vermelha de cada uma é o botão que resolve: a frase
                     manda para lá em vez de oferecer só as saídas antigas. */}
                 {POST_FORMAT_LABELS[format]}. Toque na tarja para ajustar, ou remova.
+              </p>
+            )}
+
+            {comFaixas.length > 0 && (
+              <p className="text-[13px] text-warning">
+                {comFaixas.length === 1
+                  ? `A foto ${comFaixas[0]} vai sair com faixas pretas nas bordas`
+                  : `As fotos ${comFaixas.slice(0, -1).join(", ")} e ${comFaixas.at(-1)} vão sair com faixas pretas nas bordas`}
+                : o carrossel usa o formato da primeira. Toque na tarja para recortar, ou mude a ordem.
               </p>
             )}
           </div>
@@ -667,7 +707,7 @@ function formatoInicial(post: PostDetail | null): ComposableFormat {
  * As imagens já anexadas, buscadas no acervo para ter as medidas e o endereço.
  *
  * A API entrega ordenado por `ordem`, e a ordem é preservada aqui: ela é o que
- * decide qual imagem manda no recorte do carrossel.
+ * decide qual imagem define o quadro do carrossel.
  */
 function midiasIniciais(post: PostDetail | null, acervo: readonly MediaSummary[]): readonly MediaSummary[] {
   return (post?.media ?? []).map(

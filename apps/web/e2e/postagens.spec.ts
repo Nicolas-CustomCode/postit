@@ -288,7 +288,7 @@ test.describe("postagens", () => {
 
   /*
    * Carrossel (RF-C04; ADR 0024). Não é formato, é quantidade: a segunda imagem
-   * é que o cria, e a ordem decide qual delas recorta todas as outras.
+   * é que o cria, e a ordem decide qual delas define o quadro de todas.
    */
   test("dá para escolher três imagens de uma vez, e elas ficam na ordem", async ({ page }) => {
     for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
@@ -297,12 +297,51 @@ test.describe("postagens", () => {
     await escolherDoAcervo(page, 3);
 
     await expect(page.getByText("3 de 10")).toBeVisible();
-    // A prévia virou carrossel: contador, pontinhos e o aviso do recorte.
+    // A prévia virou carrossel: contador, pontinhos e o aviso do quadro.
     await expect(page.getByText("1/3")).toBeVisible();
-    await expect(page.getByText(/a primeira imagem define o recorte de todas/i)).toBeVisible();
+    await expect(page.getByText(/o carrossel usa o formato da primeira foto/i)).toBeVisible();
   });
 
-  test("mover a primeira imagem para depois troca quem manda no recorte", async ({ page }) => {
+  /*
+   * O carrossel de 23/09/2026 (docs/08): o quadro é o da primeira foto, e a segunda,
+   * de outra proporção, entra inteira com faixas pretas — não recortada, como a
+   * prévia mostrava. A prévia agora mostra as faixas, e a composição avisa e oferece
+   * recortar na proporção da primeira.
+   */
+  test("foto de outra proporção no carrossel avisa das faixas pretas e oferece o recorte", async ({ page }) => {
+    // A mais nova vem primeiro na grade: a em pé (4:5) será a foto 1, a quadrada a 2.
+    await criarMidia({ width: 1080, height: 1080 });
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 2);
+
+    const faixas = page.getByRole("button", { name: /imagem 2 vai sair com faixas pretas/i });
+    await expect(faixas).toBeVisible();
+    await expect(page.getByText(/a foto 2 vai sair com faixas pretas nas bordas/i)).toBeVisible();
+
+    // Na prévia, a segunda entra inteira no quadro da primeira.
+    await page.getByRole("button", { name: "Próxima imagem" }).click();
+    await expect(page.getByText("2/2")).toBeVisible();
+    await expect(conteudo(page).locator('img[class*="object-contain"]')).toHaveCount(1);
+
+    // A tarja abre o ajuste. O recorte em si precisa dos pixels, que a mídia só de
+    // banco não tem — como o ajuste do formato, ele é roteiro manual (docs/12).
+    await faixas.click();
+    await expect(page.getByRole("dialog", { name: "Ajustar imagem" })).toBeVisible();
+  });
+
+  test("com a mesma proporção, nenhum aviso de faixa", async ({ page }) => {
+    await criarMidia({ width: 1080, height: 1350 });
+    await criarMidia({ width: 2160, height: 2700 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 2);
+
+    await expect(page.getByText("2 de 10")).toBeVisible();
+    await expect(page.getByRole("button", { name: /faixas pretas/i })).toHaveCount(0);
+    await expect(page.getByText(/vai sair com faixas pretas/i)).toHaveCount(0);
+  });
+
+  test("mover a primeira imagem para depois troca quem define o quadro", async ({ page }) => {
     for (let i = 0; i < 3; i += 1) await criarMidia({ width: 1080, height: 1080 });
     await page.goto(`/c/${CONTA}/postagens/nova`);
     await escolherDoAcervo(page, 3);
