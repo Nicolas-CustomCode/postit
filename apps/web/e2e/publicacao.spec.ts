@@ -151,10 +151,15 @@ test.describe("publicação", () => {
       const id = await semearPostagem({ status: "EM_REVISAO", media: [{ id: midia.id }] });
 
       await page.goto(url(id));
-      await page.getByLabel("Comentário").fill("O preço entra aqui ou no story?");
-      await page.getByRole("button", { name: "Comentar" }).click();
+      // Shift+Enter quebra a linha; Enter envia, como num chat.
+      const campo = page.getByLabel("Comentário");
+      await campo.fill("O preço entra aqui");
+      await campo.press("Shift+Enter");
+      await campo.pressSequentially("ou no story?");
+      await expect(campo).toHaveValue("O preço entra aqui\nou no story?");
+      await campo.press("Enter");
 
-      await expect(page.getByText("O preço entra aqui ou no story?")).toBeVisible();
+      await expect(page.getByText(/O preço entra aqui\s+ou no story\?/)).toBeVisible();
       await expect(page.getByLabel("Comentário")).toHaveValue("");
       await expect(page.getByRole("heading", { name: "Aguardando aprovação" })).toBeVisible();
     });

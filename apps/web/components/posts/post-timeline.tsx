@@ -267,8 +267,18 @@ function CommentForm({ username, postId }: { readonly username: string; readonly
         maxLength={COMMENT_MAX_LENGTH}
         rows={2}
         disabled={enviando}
-        placeholder="Escreva um comentário para a equipe"
+        placeholder="Escreva um comentário — Enter envia, Shift+Enter quebra a linha"
         onChange={(evento) => setTexto(evento.target.value)}
+        onKeyDown={(evento) => {
+          /*
+           * Enter envia, Shift+Enter quebra a linha — como num chat. Fora da
+           * composição de caracteres (`isComposing`): no teclado japonês, ou no
+           * acento morto, o Enter confirma a letra e não pode mandar a mensagem.
+           */
+          if (evento.key !== "Enter" || evento.shiftKey || evento.nativeEvent.isComposing) return;
+          evento.preventDefault();
+          evento.currentTarget.form?.requestSubmit();
+        }}
         className="w-full resize-y rounded-[10px] border bg-card px-3 py-2.5 text-sm leading-relaxed focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
       />
       {erro !== null && (
