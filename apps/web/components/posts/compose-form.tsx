@@ -27,6 +27,7 @@ import { UploadField, type UploadHandle } from "@/components/media/upload-field"
 import { LocalDate } from "@/components/local-date";
 import { ComposeSection } from "@/components/posts/compose-section";
 import { AddMediaTile } from "@/components/posts/add-media-tile";
+import { CaptionField } from "@/components/posts/caption-field";
 import { FeedPreview } from "@/components/posts/feed-preview";
 import { MediaStrip } from "@/components/posts/media-strip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -506,15 +507,7 @@ export function ComposeForm({
           <label htmlFor="legenda" className="sr-only">
             Legenda
           </label>
-          <textarea
-            id="legenda"
-            value={caption}
-            disabled={ocupado}
-            onChange={(evento) => setCaption(evento.target.value)}
-            rows={7}
-            className="min-h-33 w-full rounded-[10px] border bg-transparent px-3.5 py-3 text-[15px]/relaxed focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none"
-            placeholder="O que vai junto com a imagem"
-          />
+          <CaptionField id="legenda" value={caption} disabled={ocupado} onChange={setCaption} />
 
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground tabular-nums">
             <Contador atual={contagem.length} limite={CAPTION_MAX_LENGTH} nome="caracteres" />

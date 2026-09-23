@@ -44,7 +44,12 @@ export function Sidebar({
   const gerais = itens.filter((item) => item.scope === "general");
 
   return (
-    <aside className="hidden w-[248px] shrink-0 flex-col gap-5 border-r bg-card px-3.5 py-5 md:flex">
+    /*
+     * Presa à altura da tela, e não à da página: esticada junto com uma página
+     * longa, ela empurrava o cartão de quem está usando — e o "Sair" — para o fim
+     * da rolagem. O menu rola por dentro se a tela for baixa demais.
+     */
+    <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col gap-5 border-r bg-card px-3.5 py-5 md:flex">
       <div className="flex items-center gap-2.5 px-1.5">
         <BrandSvg className="size-8" />
         <span className="font-heading text-[22px] font-extrabold tracking-[-0.02em]">PostIt</span>

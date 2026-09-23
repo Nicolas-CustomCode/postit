@@ -54,6 +54,39 @@ export function captionCounts(caption: string): CaptionCounts {
   };
 }
 
+/** Um pedaço da legenda: texto comum, hashtag ou menção. */
+export interface CaptionToken {
+  readonly kind: "text" | "hashtag" | "mention";
+  readonly text: string;
+}
+
+/**
+ * A legenda em pedaços, para a tela destacar hashtags e menções enquanto se digita.
+ *
+ * ⚠️ **As mesmas expressões da contagem**, de propósito: um destaque que
+ * discordasse do contador — pintando `contato@empresa.com` como menção, por
+ * exemplo — ensinaria a regra errada. Juntar os pedaços devolve a legenda exata.
+ */
+export function captionTokens(caption: string): CaptionToken[] {
+  const achados = [
+    ...[...caption.matchAll(HASHTAG)].map((m) => ({ kind: "hashtag" as const, start: m.index, text: m[0] })),
+    ...[...caption.matchAll(MENTION)].map((m) => ({ kind: "mention" as const, start: m.index, text: m[0] })),
+  ].sort((a, b) => a.start - b.start);
+
+  const pedacos: CaptionToken[] = [];
+  let cursor = 0;
+  for (const achado of achados) {
+    // As duas expressões não se sobrepõem (`#` e `@` não cabem uma na outra), mas a guarda custa uma linha.
+    if (achado.start < cursor) continue;
+    if (achado.start > cursor) pedacos.push({ kind: "text", text: caption.slice(cursor, achado.start) });
+    pedacos.push({ kind: achado.kind, text: achado.text });
+    cursor = achado.start + achado.text.length;
+  }
+  if (cursor < caption.length) pedacos.push({ kind: "text", text: caption.slice(cursor) });
+
+  return pedacos;
+}
+
 export type CaptionProblem = "POST_CAPTION_TOO_LONG" | "POST_TOO_MANY_HASHTAGS" | "POST_TOO_MANY_MENTIONS";
 
 /** O que impede esta legenda de virar postagem. `null` quando nada impede. */

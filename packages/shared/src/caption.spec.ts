@@ -1,4 +1,5 @@
 import {
+  captionTokens,
   captionCounts,
   captionProblem,
   CAPTION_MAX_HASHTAGS,
@@ -92,5 +93,36 @@ describe("legenda", () => {
       const gigante = `${"a".repeat(CAPTION_MAX_LENGTH + 1)} ${Array.from({ length: 40 }, (_, i) => `#t${i}`).join(" ")}`;
       expect(captionProblem(gigante)).toBe("POST_CAPTION_TOO_LONG");
     });
+  });
+});
+
+/** O destaque da composição: os mesmos pedaços que a contagem conta. */
+describe("captionTokens", () => {
+  it("separa hashtags e menções do texto, na ordem", () => {
+    expect(captionTokens("Chegou #coldbrew com @loja.aurora!")).toEqual([
+      { kind: "text", text: "Chegou " },
+      { kind: "hashtag", text: "#coldbrew" },
+      { kind: "text", text: " com " },
+      { kind: "mention", text: "@loja.aurora" },
+      { kind: "text", text: "!" },
+    ]);
+  });
+
+  it("e-mail não vira menção, como na contagem", () => {
+    expect(captionTokens("Fale com contato@empresa.com")).toEqual([
+      { kind: "text", text: "Fale com contato@empresa.com" },
+    ]);
+  });
+
+  it("juntar os pedaços devolve a legenda exata, com as quebras de linha", () => {
+    const legenda = "#um\n\nlinha @dois #tres#quatro fim ";
+    expect(captionTokens(legenda).map((t) => t.text).join("")).toBe(legenda);
+  });
+
+  it("destaca exatamente o que a contagem conta", () => {
+    const legenda = "#a #b @c x@d #e#f";
+    const pedacos = captionTokens(legenda);
+    expect(pedacos.filter((t) => t.kind === "hashtag")).toHaveLength(captionCounts(legenda).hashtags);
+    expect(pedacos.filter((t) => t.kind === "mention")).toHaveLength(captionCounts(legenda).mentions);
   });
 });
