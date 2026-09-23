@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import type { AccountSummary, PostDetail, PostHistoryEntry, PostSummary } from "@repo/shared";
+import type { AccountSummary, PostDetail, PostHistoryEntry, PostSummary, PostTimelineEntry } from "@repo/shared";
 import { ApiError, apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 import { listAccounts } from "./accounts";
@@ -43,6 +43,12 @@ export const getPost = cache(async (username: string, postId: string): Promise<P
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
   }
+});
+
+/** A linha do tempo da Revisão: comentários e histórico juntos, em ordem (ADR 0026). */
+export const getPostTimeline = cache(async (username: string, postId: string): Promise<PostTimelineEntry[]> => {
+  const accountId = await accountIdFor(username);
+  return call<PostTimelineEntry[]>(`/accounts/${accountId}/posts/${postId}/timeline`);
 });
 
 /** O que o motor fez com a postagem, tentativa a tentativa (RF-F09). */

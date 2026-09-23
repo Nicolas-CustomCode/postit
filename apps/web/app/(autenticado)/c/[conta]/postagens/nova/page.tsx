@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { can } from "@repo/shared";
 import { PageHeader } from "@/components/nav/page-header";
 import { ComposeForm } from "@/components/posts/compose-form";
-import { PostStatusBadge } from "@/components/posts/post-status-badge";
+import { PostStepper } from "@/components/posts/post-stepper";
 import { requireSession } from "@/lib/auth/session";
 import { listMedia } from "@/lib/data/media";
 import { accountFor } from "@/lib/data/posts";
@@ -35,12 +35,10 @@ export default async function NovaPostagemPage({
   const [account, media] = await Promise.all([accountFor(username), listMedia()]);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
-      <PageHeader
-        trail={[`@${username}`, "Postagens", "Nova postagem"]}
-        title="Nova postagem"
-        besideTitle={<PostStatusBadge status="DRAFT" />}
-      />
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pb-8 md:px-10 md:py-7">
+      <PageHeader trail={[`@${username}`, "Postagens", "Nova postagem"]} title="Nova postagem" />
+      {/* A etapa 1, como na postagem salva (ADR 0026): nasce rascunho. */}
+      <PostStepper post={null} timeZone={account.timezone} />
       <ComposeForm username={username} account={account} timeZone={account.timezone} media={media} post={null} />
     </main>
   );

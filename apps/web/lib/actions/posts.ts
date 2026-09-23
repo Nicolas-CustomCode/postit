@@ -136,6 +136,77 @@ export async function revertPostToDraftAction(
 }
 
 /**
+ * Aprovar (RF-E02) — e, com `schedule`, aprovar **e agendar** numa decisão só
+ * (ADR 0026). São duas rotas na API, com políticas diferentes; quem escolhe a rota
+ * é o que a pessoa pediu, e a API confere as permissões de cada uma.
+ */
+export async function approvePostAction(
+  username: string,
+  postId: string,
+  input: { version: number; schedule?: { day: string; time: string } },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) =>
+    input.schedule === undefined
+      ? { path: `/accounts/${accountId}/posts/${postId}/approve`, body: { version: input.version } }
+      : {
+          path: `/accounts/${accountId}/posts/${postId}/approve-and-schedule`,
+          body: { version: input.version, day: input.schedule.day, time: input.schedule.time },
+        },
+  );
+}
+
+/** Reprovar com motivo (RF-E03): volta para rascunho, e o motivo aparece para quem corrige. */
+export async function rejectPostAction(
+  username: string,
+  postId: string,
+  input: { version: number; reason: string },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/reject`,
+    body: input,
+  }));
+}
+
+/** "Voltar para a composição" (ADR 0026): em revisão, aprovada ou agendada → rascunho. */
+export async function reopenPostAction(
+  username: string,
+  postId: string,
+  input: { version: number },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/reopen`,
+    body: input,
+  }));
+}
+
+/** Cancelar o agendamento sem perder a aprovação (ADR 0026): agendada → aprovada. */
+export async function unschedulePostAction(
+  username: string,
+  postId: string,
+  input: { version: number },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/unschedule`,
+    body: input,
+  }));
+}
+
+/**
+ * Comentar (RF-E04). Sem versão: comentar não mexe na postagem, e não disputa com
+ * quem está editando. De qualquer logado — a API decide (ADR 0026).
+ */
+export async function addCommentAction(
+  username: string,
+  postId: string,
+  input: { text: string },
+): Promise<ActionResult<{ id: string }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/comments`,
+    body: input,
+  }));
+}
+
+/**
  * O caminho comum de toda escrita: sessão, token, chamada, revalidação.
  *
  * O `revalidatePath` do caminho da conta atualiza a lista e o detalhe de uma vez.

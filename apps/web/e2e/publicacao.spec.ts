@@ -116,6 +116,47 @@ test.describe("publicação", () => {
     });
   });
 
+  /*
+   * A Revisão (ADR 0026): o cartão de decisão, e a linha do tempo com os
+   * comentários. O caminho inteiro de aprovar com outro usuário fica no
+   * aprovacao.spec; aqui, o que o super admin vê.
+   */
+  test.describe("a Revisão", () => {
+    test("em revisão, aprovar e agendar deixa a postagem agendada", async ({ page }) => {
+      const midia = await criarMidia({ width: 1080, height: 1350 });
+      const id = await semearPostagem({ status: "EM_REVISAO", media: [{ id: midia.id }] });
+
+      await page.goto(url(id));
+      await expect(etapaAtual(page)).toContainText("Revisão");
+      await expect(page.getByRole("heading", { name: "Aguardando aprovação" })).toBeVisible();
+
+      // O botão só acende com data e hora.
+      const aprovar = page.getByRole("button", { name: "Aprovar e agendar" });
+      await expect(aprovar).toBeDisabled();
+      await page.getByLabel("Data").fill("2030-10-15");
+      await page.getByLabel("Hora").fill("10:00");
+      await aprovar.click();
+
+      await expect(page.getByText("Sai em", { exact: true })).toBeVisible();
+      await expect(page.getByText("15/10/2030 às 10:00").first()).toBeVisible();
+      // E a decisão entrou na linha do tempo, com o horário.
+      await expect(page.getByText(/Aprovada e agendada/)).toBeVisible();
+    });
+
+    test("comentar entra na linha do tempo, sem mexer na postagem", async ({ page }) => {
+      const midia = await criarMidia({ width: 1080, height: 1350 });
+      const id = await semearPostagem({ status: "EM_REVISAO", media: [{ id: midia.id }] });
+
+      await page.goto(url(id));
+      await page.getByLabel("Comentário").fill("O preço entra aqui ou no story?");
+      await page.getByRole("button", { name: "Comentar" }).click();
+
+      await expect(page.getByText("O preço entra aqui ou no story?")).toBeVisible();
+      await expect(page.getByLabel("Comentário")).toHaveValue("");
+      await expect(page.getByRole("heading", { name: "Aguardando aprovação" })).toBeVisible();
+    });
+  });
+
   test.describe("a que falhou", () => {
     async function falhada(): Promise<string> {
       const midia = await criarMidia({ width: 1080, height: 1350 });
@@ -135,13 +176,17 @@ test.describe("publicação", () => {
       await page.goto(url(await falhada()));
 
       await expect(page.getByRole("heading", { name: "A publicação não saiu" })).toBeVisible();
-      await expect(page.getByText(/A conexão com o Instagram expirou ou foi revogada/)).toBeVisible();
+      // No cartão: a mesma causa aparece também na linha do tempo, no marco da falha.
+      const cartao = page.getByRole("region", { name: "Situação da postagem" });
+      await expect(cartao.getByText(/A conexão com o Instagram expirou ou foi revogada/)).toBeVisible();
       await expect(page.getByRole("link", { name: `Reconectar @${CONTA}` })).toHaveAttribute("href", "/contas/conectar");
 
       await expect(page.getByRole("button", { name: "Reagendar" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Voltar para rascunho" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Cancelar postagem" })).toBeVisible();
 
+      // O passo a passo técnico vem recolhido: a linha do tempo já conta que não saiu.
+      await page.getByText("Ver o que o sistema tentou, passo a passo").click();
       await expect(page.getByText(/Enviada ao Instagram:/)).toBeVisible();
       await page.getByText("detalhe técnico").first().click();
       await expect(page.getByText(/"code": 190/)).toBeVisible();
@@ -159,7 +204,7 @@ test.describe("publicação", () => {
 
       await page.getByRole("button", { name: "Voltar para rascunho" }).click();
 
-      await expect(page.getByRole("heading", { name: "Compor", exact: true })).toBeVisible();
+      await expect(etapaAtual(page)).toContainText("Composição");
       await expect(page.getByLabel("Legenda")).toBeVisible();
       await expect(page.getByLabel("Data")).toHaveValue("");
     });
@@ -171,8 +216,10 @@ test.describe("publicação", () => {
       await expect(page.getByLabel("Hora")).toHaveValue(/^\d{2}:00$/);
       await page.getByRole("button", { name: "Reagendar" }).click();
 
+      // Agendada é estado, não etapa: as duas etapas concluídas, e o horário no cartão.
       await expect(page.getByText("Agendada", { exact: true }).first()).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Compor", exact: true })).toBeVisible();
+      await expect(page.getByText("Sai em", { exact: true })).toBeVisible();
+      await expect(etapaAtual(page)).toHaveCount(0);
     });
 
     test("cancelar pede confirmação antes", async ({ page }) => {
@@ -210,7 +257,9 @@ test.describe("quem só vê", () => {
     if (isMobile !== true) await expect(page.getByRole("navigation", { name: "Menu principal" })).toBeVisible();
     else await expect(page.getByRole("navigation", { name: "Menu principal" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Postagem", exact: true })).toBeVisible();
-    await expect(page.getByText("Você pode ver esta postagem, mas não editar.")).toBeVisible();
+    await expect(page.getByText("Você pode ver e comentar, mas não editar nem decidir.")).toBeVisible();
+    // Rascunho de outra pessoa, visto por quem não edita: na Revisão, e na etapa 1.
+    await expect(etapaAtual(page)).toContainText("Composição");
     await expect(page.getByLabel("Legenda")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /salvar rascunho/i })).toHaveCount(0);
   });
@@ -226,6 +275,14 @@ test.describe("quem só vê", () => {
     await expect(page.getByRole("button", { name: "Voltar para rascunho" })).toHaveCount(0);
   });
 });
+
+/**
+ * A etapa marcada como atual no indicador do topo (ADR 0026). São duas listas, uma
+ * por tamanho de tela, e só a visível conta.
+ */
+function etapaAtual(page: Page) {
+  return page.locator('ol[aria-label="Etapas da postagem"]:visible li[aria-current="step"]');
+}
 
 /** Escolhe a primeira imagem do acervo pela folha do quadrado de adicionar. */
 async function escolherDoAcervo(page: Page): Promise<void> {

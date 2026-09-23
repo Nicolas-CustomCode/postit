@@ -53,7 +53,7 @@ export function MediaStrip({
   });
 
   return (
-    <ul ref={containerRef} className="flex snap-x gap-2 overflow-x-auto pb-1">
+    <ul ref={containerRef} aria-label="Imagens da postagem" className="flex snap-x gap-2 overflow-x-auto pb-1">
       {midias.map((item, indice) => {
         const serve = formatsFor(item.width, item.height).includes(format);
         const primeira = indice === 0;

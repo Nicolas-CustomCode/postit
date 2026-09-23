@@ -323,7 +323,7 @@ test.describe("postagens", () => {
     await page.goto(`/c/${CONTA}/postagens/nova`);
     await escolherDoAcervo(page, 3);
 
-    const faixa = conteudo(page).getByRole("listitem");
+    const faixa = conteudo(page).getByRole("list", { name: "Imagens da postagem" }).getByRole("listitem");
     // O endereço da imagem é a única identidade visível de cada miniatura: as
     // setas e os selos dizem a posição, e continuariam iguais sem arrasto nenhum.
     const antes = await faixa.first().locator("img").getAttribute("src");

@@ -38,7 +38,7 @@ export async function salvarComoOutraPessoa(postId: string, caption: string): Pr
 
 export interface PostagemSemeada {
   /** O status no banco, em português: `FALHOU`, `PUBLICADO`, `PROCESSANDO`… */
-  readonly status: "RASCUNHO" | "AGENDADO" | "PROCESSANDO" | "PUBLICADO" | "FALHOU" | "CANCELADO";
+  readonly status: "RASCUNHO" | "EM_REVISAO" | "APROVADO" | "AGENDADO" | "PROCESSANDO" | "PUBLICADO" | "FALHOU" | "CANCELADO";
   readonly caption?: string;
   readonly scheduledAt?: Date;
   readonly attempts?: number;
@@ -88,7 +88,9 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
       [
         postagem.status,
         postagem.caption ?? "Legenda semeada",
-        postagem.scheduledAt ?? new Date(Date.now() - 30 * 60_000),
+        // Antes de agendar não há horário (keepsSchedule, na API): sem isso a tela mostraria um que não vale.
+        postagem.scheduledAt ??
+          (["RASCUNHO", "EM_REVISAO", "APROVADO"].includes(postagem.status) ? null : new Date(Date.now() - 30 * 60_000)),
         postagem.attempts ?? 0,
         postagem.failureCause ?? null,
         postagem.leased === true,
