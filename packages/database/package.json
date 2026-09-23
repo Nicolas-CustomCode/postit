@@ -30,6 +30,6 @@
   "//dependencies": "A CLI do prisma fica em dependencies, e não em devDependencies: a imagem Docker de produção descarta as de desenvolvimento, e a API roda prisma migrate deploy ao iniciar (docs/10, lição do openreply).",
   "devDependencies": {
     "@types/pg": "8.23.1",
-    "tsx": "4.23.13"
+    "tsx": "4.23.15"
   }
 }
