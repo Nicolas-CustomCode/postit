@@ -121,6 +121,21 @@ export async function discardPostAction(
 }
 
 /**
+ * `FALHOU → RASCUNHO`: voltar para corrigir antes de agendar de novo (ADR 0007).
+ * O horário some, e a postagem precisa ser marcada como pronta outra vez.
+ */
+export async function revertPostToDraftAction(
+  username: string,
+  postId: string,
+  input: { version: number },
+): Promise<ActionResult<{ version: number }>> {
+  return write(username, (accountId) => ({
+    path: `/accounts/${accountId}/posts/${postId}/to-draft`,
+    body: input,
+  }));
+}
+
+/**
  * O caminho comum de toda escrita: sessão, token, chamada, revalidação.
  *
  * O `revalidatePath` do caminho da conta atualiza a lista e o detalhe de uma vez.

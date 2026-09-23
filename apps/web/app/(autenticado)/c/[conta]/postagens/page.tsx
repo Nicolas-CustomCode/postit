@@ -2,7 +2,7 @@ import { ImageOff, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { can, POST_FORMAT_LABELS } from "@repo/shared";
+import { can, POST_FORMAT_LABELS, PUBLISH_FAILURES } from "@repo/shared";
 import { AccountDateTime } from "@/components/account-time";
 import { LocalDate } from "@/components/local-date";
 import { PageHeader } from "@/components/nav/page-header";
@@ -95,10 +95,18 @@ export default async function PostagensPage({
                       <LocalDate iso={post.updatedAt} format="comHora" />
                     ) : (
                       <>
-                        vai ao ar em <AccountDateTime iso={post.scheduledAt} timeZone={account.timezone} />
+                        {/* Publicada e falhada guardam o horário, mas ele já passou. */}
+                        {post.status === "SCHEDULED" || post.status === "PROCESSING" ? "vai ao ar em" : "marcada para"}{" "}
+                        <AccountDateTime iso={post.scheduledAt} timeZone={account.timezone} />
                       </>
                     )}
                   </span>
+                  {/* ADR 0007: a que falhou aparece destacada, com a causa, até alguém decidir. */}
+                  {post.status === "FAILED" && post.failureCause !== null && (
+                    <span className="line-clamp-1 text-xs text-destructive">
+                      {PUBLISH_FAILURES[post.failureCause].message}
+                    </span>
+                  )}
                 </span>
 
                 <PostStatusBadge status={post.status} />

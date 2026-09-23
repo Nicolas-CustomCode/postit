@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import type { AccountSummary, PostDetail, PostSummary } from "@repo/shared";
+import type { AccountSummary, PostDetail, PostHistoryEntry, PostSummary } from "@repo/shared";
 import { ApiError, apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 import { listAccounts } from "./accounts";
@@ -43,6 +43,12 @@ export const getPost = cache(async (username: string, postId: string): Promise<P
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
   }
+});
+
+/** O que o motor fez com a postagem, tentativa a tentativa (RF-F09). */
+export const getPostHistory = cache(async (username: string, postId: string): Promise<PostHistoryEntry[]> => {
+  const accountId = await accountIdFor(username);
+  return call<PostHistoryEntry[]>(`/accounts/${accountId}/posts/${postId}/history`);
 });
 
 async function call<T>(path: string): Promise<T> {

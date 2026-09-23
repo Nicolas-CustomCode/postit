@@ -4,6 +4,7 @@ import { CalendarClock, Check, Info, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ReactNode } from "react";
 import {
+  ALT_TEXT_MAX_LENGTH,
   captionCounts,
   CAPTION_MAX_HASHTAGS,
   CAPTION_MAX_LENGTH,
@@ -91,6 +92,15 @@ export function ComposeForm({
    * é conteúdo de verdade — a primeira define o recorte de todas.
    */
   const [midias, setMidias] = useState<readonly MediaSummary[]>(midiasIniciais(post, media));
+  /**
+   * O texto alternativo de cada foto, **na mesma ordem** de `midias` (RF-B05).
+   *
+   * Paralelo, e não dentro de `MediaSummary`: aquele tipo é o do acervo, e a mesma
+   * imagem pode ter um texto em cada postagem. Imagem acrescentada não precisa de
+   * entrada aqui — posição sem texto é texto vazio. Só mover e remover mexem nos
+   * dois juntos.
+   */
+  const [alts, setAlts] = useState<readonly string[]>((post?.media ?? []).map((item) => item.altText ?? ""));
   /** O que a última reordenação fez, para quem navega por leitor de tela. */
   const [anuncio, setAnuncio] = useState("");
   const [acervoAberto, setAcervoAberto] = useState(false);
@@ -131,7 +141,10 @@ export function ComposeForm({
    * propósito, e trocar a ordem é mudança de conteúdo como qualquer outra.
    */
   const midiaMudou =
-    midias.length !== (post?.media.length ?? 0) || midias.some((item, i) => item.id !== post?.media[i]?.mediaId);
+    midias.length !== (post?.media.length ?? 0) ||
+    midias.some((item, i) => item.id !== post?.media[i]?.mediaId) ||
+    // Mudar só o texto de uma foto também é mudança de conteúdo (RF-E05).
+    midias.some((_, i) => (alts[i] ?? "") !== (post?.media[i]?.altText ?? ""));
   const temMudanca = post === null || legendaMudou || formatoMudou || midiaMudou;
 
   const maximo = POST_MEDIA_COUNT[format].max;
@@ -143,17 +156,15 @@ export function ComposeForm({
   const incompativeis = midias.filter((item) => !formatsFor(item.width, item.height).includes(format));
 
   function moverMidia(de: number, para: number): void {
-    setMidias((atual) => {
-      const copia = [...atual];
-      const [item] = copia.splice(de, 1);
-      if (item !== undefined) copia.splice(para, 0, item);
-      return copia;
-    });
+    setMidias((atual) => mover(atual, de, para));
+    // O texto acompanha a foto: ele descreve aquela imagem, não aquela posição.
+    setAlts((atual) => mover(completar(atual, midias.length), de, para));
     setAnuncio(`Imagem ${de + 1} movida para a posição ${para + 1}.`);
   }
 
   function removerMidia(indice: number): void {
     setMidias((atual) => atual.filter((_, i) => i !== indice));
+    setAlts((atual) => atual.filter((_, i) => i !== indice));
     setAnuncio(`Imagem ${indice + 1} removida.`);
   }
 
@@ -220,7 +231,7 @@ export function ComposeForm({
 
       if (midias.length > 0) {
         const comMidia = await escrever(
-          (atual) => setPostMediaAction(username, criada.data.id, { version: atual, media: paraEnvio(midias) }),
+          (atual) => setPostMediaAction(username, criada.data.id, { version: atual, media: paraEnvio(midias, alts) }),
           v,
         );
         if (comMidia === null) return null;
@@ -254,7 +265,7 @@ export function ComposeForm({
      */
     if (midiaMudou) {
       const depois = await escrever(
-        (atual) => setPostMediaAction(username, post.id, { version: atual, media: paraEnvio(midias) }),
+        (atual) => setPostMediaAction(username, post.id, { version: atual, media: paraEnvio(midias, alts) }),
         v,
       );
       if (depois === null) return null;
@@ -493,6 +504,54 @@ export function ComposeForm({
           </p>
         </ComposeSection>
 
+        {/*
+          RF-B05: um texto por foto — num carrossel, cada imagem tem o seu (docs/07).
+          Some em Stories, que a Meta não aceita com texto alternativo (docs/08); o
+          que foi digitado continua guardado se o formato voltar.
+        */}
+        {format !== "STORIES" && midias.length > 0 && (
+          <ComposeSection
+            title="Texto alternativo"
+            aside={<span className="text-[13px] text-muted-foreground">Descreve a foto para quem usa leitor de tela</span>}
+          >
+            <ol className="flex flex-col gap-4">
+              {midias.map((item, indice) => (
+                <li key={indice} className="flex items-start gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.url}
+                    alt=""
+                    width={item.width}
+                    height={item.height}
+                    className="size-16 shrink-0 rounded-xl object-cover"
+                  />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <label htmlFor={`alt-${indice}`} className="text-sm font-semibold">
+                      Foto {indice + 1}
+                    </label>
+                    <textarea
+                      id={`alt-${indice}`}
+                      value={alts[indice] ?? ""}
+                      maxLength={ALT_TEXT_MAX_LENGTH}
+                      disabled={ocupado}
+                      rows={2}
+                      onChange={(evento) => {
+                        const texto = evento.target.value;
+                        setAlts((atual) => completar(atual, midias.length).map((v, i) => (i === indice ? texto : v)));
+                      }}
+                      className="w-full rounded-[10px] border bg-transparent px-3 py-2 text-sm focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
+                      placeholder="Ex.: três copos de café gelado sobre uma mesa de madeira"
+                    />
+                    <span className="text-[13px] text-muted-foreground tabular-nums">
+                      <Contador atual={(alts[indice] ?? "").length} limite={ALT_TEXT_MAX_LENGTH} nome="caracteres" />
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </ComposeSection>
+        )}
+
         <ComposeSection
           title="Quando publicar"
           aside={<span className="text-[13px] text-muted-foreground">{accountZoneName(timeZone)}, o fuso da conta</span>}
@@ -601,36 +660,41 @@ export function ComposeForm({
             Salvar rascunho
           </Button>
 
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 md:h-10"
-            disabled={
-              ocupado || midias.length === 0 || midias.length > maximo || incompativeis.length > 0 || status === "APPROVED"
-            }
-            onClick={() =>
-              void comBloqueio(async () => {
-                // Salvar antes: marcar como pronta algo que só existe na tela
-                // aprovaria uma coisa e publicaria outra.
-                const id = await salvar();
-                if (id === null) return;
+          {/*
+            Só onde ainda falta aprovar. Em "Pronta" e "Agendada" o selo já diz o
+            estado; um botão "Pronta" apagado ali só fazia perguntar se dava para
+            clicar.
+          */}
+          {(status === "DRAFT" || status === "IN_REVIEW") && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 md:h-10"
+              disabled={ocupado || midias.length === 0 || midias.length > maximo || incompativeis.length > 0}
+              onClick={() =>
+                void comBloqueio(async () => {
+                  // Salvar antes: marcar como pronta algo que só existe na tela
+                  // aprovaria uma coisa e publicaria outra.
+                  const id = await salvar();
+                  if (id === null) return;
 
-                if (post === null) {
-                  router.replace(`/c/${username}/postagens/${id}`);
-                  return;
-                }
+                  if (post === null) {
+                    router.replace(`/c/${username}/postagens/${id}`);
+                    return;
+                  }
 
-                const pronta = await escrever(
-                  (v) => markPostReadyAction(username, post.id, { version: v }),
-                  version,
-                );
-                if (pronta !== null) router.refresh();
-              })
-            }
-          >
-            <Check className="size-4" aria-hidden />
-            {status === "APPROVED" ? "Pronta" : "Marcar como pronta"}
-          </Button>
+                  const pronta = await escrever(
+                    (v) => markPostReadyAction(username, post.id, { version: v }),
+                    version,
+                  );
+                  if (pronta !== null) router.refresh();
+                })
+              }
+            >
+              <Check className="size-4" aria-hidden />
+              Marcar como pronta
+            </Button>
+          )}
 
           {post !== null && status === "SCHEDULED" && (
             <Button
@@ -720,9 +784,30 @@ function midiasIniciais(post: PostDetail | null, acervo: readonly MediaSummary[]
   );
 }
 
-/** A lista como a rota de mídia a espera. O texto alternativo é da Fase 2. */
-function paraEnvio(midias: readonly MediaSummary[]): { mediaId: string; altText: string | null }[] {
-  return midias.map((item) => ({ mediaId: item.id, altText: null }));
+/**
+ * A lista como a rota de mídia a espera, com o texto de cada foto (RF-B05).
+ *
+ * Vai também em Stories, onde a seção some: trocar de formato não apaga o que foi
+ * digitado, e o publicador simplesmente não o manda à Meta, que não aceita
+ * `alt_text` ali (docs/08, matriz).
+ */
+function paraEnvio(
+  midias: readonly MediaSummary[],
+  alts: readonly string[],
+): { mediaId: string; altText: string | null }[] {
+  return midias.map((item, i) => ({ mediaId: item.id, altText: (alts[i] ?? "").trim() || null }));
+}
+
+/** A lista com uma entrada por posição, para mover sem perder o alinhamento. */
+function completar(alts: readonly string[], tamanho: number): readonly string[] {
+  return Array.from({ length: tamanho }, (_, i) => alts[i] ?? "");
+}
+
+function mover<T>(lista: readonly T[], de: number, para: number): T[] {
+  const copia = [...lista];
+  const [item] = copia.splice(de, 1);
+  if (item !== undefined) copia.splice(para, 0, item);
+  return copia;
 }
 
 /**

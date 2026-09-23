@@ -32,6 +32,7 @@ export function FeedPreview({
   media,
   caption,
   scheduledAt,
+  publishedAt = null,
   timeZone,
 }: {
   /** A conta: a prévia mostra a **foto real** dela, como o feed mostraria. */
@@ -41,6 +42,8 @@ export function FeedPreview({
   readonly media: readonly MediaSummary[];
   readonly caption: string;
   readonly scheduledAt: string | null;
+  /** Já publicada: o rodapé diz quando saiu, e não quando vai sair. */
+  readonly publishedAt?: string | null;
   /** O horário sai no fuso da conta, não no do aparelho (ADR 0006). */
   readonly timeZone: string;
 }): ReactNode {
@@ -180,7 +183,11 @@ export function FeedPreview({
 
       {/* Fora do cartão: é informação do PostIt, não do Instagram. */}
       <p className="flex flex-wrap gap-x-2 px-0.5 text-[13px] text-muted-foreground">
-        {scheduledAt === null ? (
+        {publishedAt !== null ? (
+          <span>
+            Publicada em <AccountDateTime iso={publishedAt} timeZone={timeZone} />.
+          </span>
+        ) : scheduledAt === null ? (
           <span>Ainda não agendada.</span>
         ) : (
           <span>
@@ -188,7 +195,10 @@ export function FeedPreview({
           </span>
         )}
         {stories && <span>Some 24 horas depois de publicada.</span>}
-        {carrossel && <span>A primeira imagem define o recorte de todas — mude a ordem para escolher qual manda.</span>}
+        {/* Depois de publicada não há ordem a mudar: a dica viraria instrução impossível. */}
+        {carrossel && publishedAt === null && (
+          <span>A primeira imagem define o recorte de todas — mude a ordem para escolher qual manda.</span>
+        )}
       </p>
 
       <p className="px-0.5 text-xs/relaxed text-muted-foreground">

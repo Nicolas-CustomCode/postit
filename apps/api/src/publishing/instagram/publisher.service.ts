@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Prisma, PublishContainer } from "@repo/database";
-import { isPublishFailureCause, postMediaCountProblem, type PostFormat, type PublishFailureCause } from "@repo/shared";
+import {
+  isPublishFailureCause,
+  postMediaCountProblem,
+  PUBLISH_MAX_ATTEMPTS,
+  type PostFormat,
+  type PublishFailureCause,
+} from "@repo/shared";
 import { fromPrisma } from "pg-boss";
 import { InstagramUnavailableError } from "../../common/errors";
 import { decryptSecret } from "../../common/crypto";
@@ -33,9 +39,10 @@ import { PUBLISHING_CONFIG, type PublishingConfig } from "./publishing.config";
 /**
  * 5 execuções no total: a original e as 4 repetições da fila (queue-definitions).
  * A conta é nossa, em `tentativas`, porque o despachante pode recolher uma
- * postagem órfã e criar execução que o pg-boss não conta.
+ * postagem órfã e criar execução que o pg-boss não conta. O número mora no shared
+ * porque a tela mostra "tentativa N de 5".
  */
-export const MAX_PUBLISH_ATTEMPTS = 5;
+export const MAX_PUBLISH_ATTEMPTS = PUBLISH_MAX_ATTEMPTS;
 
 /**
  * Erro recuperável: o pg-boss agenda nova tentativa (docs/09, "a regra do jogo").

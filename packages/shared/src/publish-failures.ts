@@ -45,6 +45,13 @@ export const PUBLISH_FAILURE_CAUSES = [
 export type PublishFailureCause = (typeof PUBLISH_FAILURE_CAUSES)[number];
 
 /**
+ * Quantas execuções o publicador faz antes de desistir: a original e as 4
+ * repetições da fila (docs/09, "Retentativa"). A tela mostra "tentativa N de 5";
+ * o publicador para na sexta.
+ */
+export const PUBLISH_MAX_ATTEMPTS = 5;
+
+/**
  * O que a tela oferece como próximo passo (ADR 0007: reagendar, corrigir ou
  * cancelar — cancelar vale sempre, por isso não aparece aqui).
  */

@@ -60,7 +60,7 @@ export default async function ContasPage({
         <ul className="flex flex-col gap-3">
           {contas.map((conta) => (
             <li key={conta.id}>
-              <LinhaDaConta conta={conta} />
+              <LinhaDaConta conta={conta} podeGerenciar={podeGerenciar} />
             </li>
           ))}
         </ul>
@@ -89,7 +89,13 @@ function EstadoVazio({ podeGerenciar }: { readonly podeGerenciar: boolean }): Re
   );
 }
 
-function LinhaDaConta({ conta }: { readonly conta: AccountSummary }): ReactNode {
+function LinhaDaConta({
+  conta,
+  podeGerenciar,
+}: {
+  readonly conta: AccountSummary;
+  readonly podeGerenciar: boolean;
+}): ReactNode {
   return (
     <Card>
       <CardContent className="flex flex-wrap items-center gap-3">
@@ -115,6 +121,16 @@ function LinhaDaConta({ conta }: { readonly conta: AccountSummary }): ReactNode 
                 ? "Acesso expirado"
                 : "Acesso vence em breve"}
           </Badge>
+        )}
+
+        {/*
+          Reconectar é conectar de novo a mesma conta: a API troca o token na mesma
+          linha quando a conta precisa (sem acesso, vencida ou a vencer).
+        */}
+        {conta.warning !== null && podeGerenciar && (
+          <Button asChild variant="outline" className="h-11 md:h-10">
+            <Link href="/contas/conectar">Reconectar</Link>
+          </Button>
         )}
       </CardContent>
     </Card>
