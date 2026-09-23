@@ -1,7 +1,7 @@
 "use client";
 
 import { Bookmark, ChevronLeft, ChevronRight, Heart, ImageIcon, MessageCircle, Send } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { AccountSummary, ComposableFormat, MediaSummary } from "@repo/shared";
 import { AccountDateTime } from "@/components/account-time";
 import { AccountAvatar } from "@/components/nav/account-avatar";
@@ -97,18 +97,15 @@ export function FeedPreview({
               <ImageIcon className="size-7" aria-hidden />
               Sem imagem ainda
             </div>
+          ) : carrossel ? (
+            <FaixaDoCarrossel media={media} indice={indice} recorte={recorte} onIr={setEscolhido} />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={atual.url}
               alt=""
-              // Da segunda em diante, a foto entra inteira no quadro da primeira, com as
-              // faixas que o Instagram desenha; a primeira preenche o próprio quadro.
-              className={cn("w-full", carrossel && indice > 0 ? "object-contain" : "object-cover")}
-              style={{
-                aspectRatio: stories ? "9 / 16" : recorte,
-                ...(carrossel && indice > 0 ? { background: "var(--ig-letterbox)" } : {}),
-              }}
+              className="w-full object-cover"
+              style={{ aspectRatio: stories ? "9 / 16" : recorte }}
             />
           )}
 
@@ -219,6 +216,101 @@ export function FeedPreview({
 }
 
 /** A seta redonda sobre a imagem, como o aplicativo desenha. */
+/**
+ * As fotos do carrossel lado a lado, arrastáveis como no aplicativo: a foto acompanha o
+ * dedo — ou o mouse —, e ao soltar vai para a próxima ou volta, conforme o quanto andou
+ * ou a velocidade do gesto.
+ *
+ * - **A página continua rolando na vertical** (`touch-action: pan-y`): só o arrasto
+ *   horizontal é do carrossel.
+ * - **Nas pontas, resiste**: o arrasto anda um terço, como o Instagram, dizendo que
+ *   não há mais foto sem se mexer como se houvesse.
+ * - **As setas continuam**, por cima: são o caminho de quem usa teclado ou leitor de tela.
+ * - **Sem animação para quem pediu menos movimento** (`motion-reduce`).
+ *
+ * Da segunda em diante, cada foto entra inteira no quadro da primeira, com as faixas
+ * pretas que o Instagram desenha (docs/08, observado em 23/09/2026).
+ */
+function FaixaDoCarrossel({
+  media,
+  indice,
+  recorte,
+  onIr,
+}: {
+  readonly media: readonly MediaSummary[];
+  readonly indice: number;
+  readonly recorte: string;
+  readonly onIr: (indice: number) => void;
+}): ReactNode {
+  const quadro = useRef<HTMLDivElement>(null);
+  const [arrasto, setArrasto] = useState<{ inicioX: number; inicioEm: number; dx: number } | null>(null);
+
+  const ultima = media.length - 1;
+
+  function comecar(evento: ReactPointerEvent<HTMLDivElement>): void {
+    // As setas são botões: clicar nelas não é arrastar.
+    if ((evento.target as HTMLElement).closest("button") !== null) return;
+    if (evento.pointerType === "mouse" && evento.button !== 0) return;
+    evento.currentTarget.setPointerCapture(evento.pointerId);
+    setArrasto({ inicioX: evento.clientX, inicioEm: performance.now(), dx: 0 });
+  }
+
+  function mover(evento: ReactPointerEvent<HTMLDivElement>): void {
+    if (arrasto === null) return;
+    const bruto = evento.clientX - arrasto.inicioX;
+    // Resistência nas pontas: um terço do caminho, e nada além.
+    const naPonta = (indice === 0 && bruto > 0) || (indice === ultima && bruto < 0);
+    setArrasto({ ...arrasto, dx: naPonta ? bruto / 3 : bruto });
+  }
+
+  function soltar(): void {
+    if (arrasto === null) return;
+    const largura = quadro.current?.clientWidth ?? 1;
+    const duracao = performance.now() - arrasto.inicioEm;
+    // Andou um quinto do quadro, ou foi um gesto rápido: troca de foto.
+    const decidiu = Math.abs(arrasto.dx) > largura * 0.2 || (Math.abs(arrasto.dx) > 30 && duracao < 250);
+    if (decidiu && arrasto.dx < 0 && indice < ultima) onIr(indice + 1);
+    if (decidiu && arrasto.dx > 0 && indice > 0) onIr(indice - 1);
+    setArrasto(null);
+  }
+
+  return (
+    <div
+      ref={quadro}
+      className={cn(
+        "relative w-full touch-pan-y overflow-hidden select-none",
+        arrasto === null ? "cursor-grab" : "cursor-grabbing",
+      )}
+      style={{ aspectRatio: recorte }}
+      onPointerDown={comecar}
+      onPointerMove={mover}
+      onPointerUp={soltar}
+      onPointerCancel={soltar}
+    >
+      <div
+        className={cn(
+          "flex h-full",
+          // Acompanha o dedo sem atraso; ao soltar, desliza até o lugar.
+          arrasto === null && "transition-transform duration-300 ease-out motion-reduce:transition-none",
+        )}
+        style={{ transform: `translateX(calc(${-indice * 100}% + ${arrasto?.dx ?? 0}px))` }}
+      >
+        {media.map((foto, posicao) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={posicao}
+            src={foto.url}
+            alt=""
+            draggable={false}
+            className={cn("h-full w-full shrink-0", posicao > 0 ? "object-contain" : "object-cover")}
+            style={posicao > 0 ? { background: "var(--ig-letterbox)" } : undefined}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SetaDaPrevia({
   direcao,
   onClick,

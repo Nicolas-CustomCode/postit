@@ -330,6 +330,38 @@ test.describe("postagens", () => {
     await expect(page.getByRole("dialog", { name: "Ajustar imagem" })).toBeVisible();
   });
 
+  /*
+   * Como no aplicativo: arrastar a foto para o lado passa para a próxima, e soltar no
+   * meio do caminho volta. No computador, o mouse faz o papel do dedo.
+   */
+  test("arrastar a prévia do carrossel troca de foto, e um arrasto curto volta", async ({ page, isMobile }) => {
+    test.skip(isMobile === true, "O Playwright não emula arrasto por toque; o mouse prova a mesma lógica.");
+    await criarMidia({ width: 1080, height: 1350 });
+    await criarMidia({ width: 1080, height: 1350 });
+    await page.goto(`/c/${CONTA}/postagens/nova`);
+    await escolherDoAcervo(page, 2);
+    await expect(page.getByText("1/2")).toBeVisible();
+
+    const quadro = conteudo(page).locator("div.touch-pan-y");
+    const caixa = (await quadro.boundingBox())!;
+    const meioY = caixa.y + caixa.height / 2;
+
+    // Um arrasto curto e lento não passa de foto.
+    await page.mouse.move(caixa.x + caixa.width * 0.6, meioY);
+    await page.mouse.down();
+    await page.mouse.move(caixa.x + caixa.width * 0.55, meioY, { steps: 5 });
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+    await expect(page.getByText("1/2")).toBeVisible();
+
+    // Arrastar mais de um quinto do quadro para a esquerda leva à próxima.
+    await page.mouse.move(caixa.x + caixa.width * 0.8, meioY);
+    await page.mouse.down();
+    await page.mouse.move(caixa.x + caixa.width * 0.3, meioY, { steps: 8 });
+    await page.mouse.up();
+    await expect(page.getByText("2/2")).toBeVisible();
+  });
+
   test("com a mesma proporção, nenhum aviso de faixa", async ({ page }) => {
     await criarMidia({ width: 1080, height: 1350 });
     await criarMidia({ width: 2160, height: 2700 });
