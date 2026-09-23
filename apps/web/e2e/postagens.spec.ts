@@ -62,7 +62,14 @@ test.describe("postagens", () => {
     await expect(page.getByText("A legenda aparece aqui")).toBeVisible();
     await page.getByLabel("Legenda").fill("Um dia bonito na loja");
 
-    await expect(page.getByText("Um dia bonito na loja")).toHaveCount(2); // campo e prévia
+    /*
+     * Sem contar ocorrências na página: o destaque de hashtags e menções desenha uma
+     * cópia do texto atrás do campo. O que se prova é a prévia trocando o exemplo
+     * pela legenda — ela vem depois do formulário, por isso o `last()`.
+     */
+    await expect(page.getByLabel("Legenda")).toHaveValue("Um dia bonito na loja");
+    await expect(page.getByText("A legenda aparece aqui")).toHaveCount(0);
+    await expect(page.getByText("Um dia bonito na loja").last()).toBeVisible();
     await expect(page.getByText("Sem imagem ainda")).toBeVisible();
   });
 
