@@ -1,12 +1,13 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ApiEnv } from "../config/env";
 import { POSTS_CONFIG, postsConfigFrom } from "./posts.config";
+import { PostCommentsDomainService } from "./post-comments.domain.service";
 import { PostsController } from "./posts.controller";
 import { PostsDomainService } from "./posts.domain.service";
 import { PostsQueryService } from "./posts.query.service";
 
 /**
- * Composição de postagens: criar, editar, marcar como pronta, descartar.
+ * A postagem: compor, revisar (enviar, aprovar, reprovar, agendar) e comentar.
  *
  * **Não importa módulo nenhum.** A config própria existe para isso: importar o
  * `AccountsModule` só para reaproveitar `MINIO_PUBLIC_URL` registraria o
@@ -16,9 +17,10 @@ import { PostsQueryService } from "./posts.query.service";
  * ⚠️ **Vive só no processo HTTP.** Nada aqui publica nem fala com a Meta; o
  * despachante e o publicador são do worker, e chegam na 1d (AGENTS.md, regra 1).
  *
- * **Não há módulo `approval/` ainda** — a única regra de aprovação desta fase é
- * a autoaprovação, que mora no serviço. O módulo nasce na Fase 4, junto com
- * reprovar com motivo, fila de pendências e comentários internos.
+ * **As decisões da revisão moram em `PostsDomainService`, e não num módulo
+ * `approval/`** (ADR 0026): toda mudança de status passa pela trava da versão e
+ * grava `Aprovacao` na mesma transação, e o teste de arquitetura só deixa aquele
+ * serviço escrever na postagem. Um módulo à parte precisaria de uma segunda porta.
  */
 @Module({})
 export class PostsModule {
@@ -30,6 +32,7 @@ export class PostsModule {
         { provide: POSTS_CONFIG, useValue: postsConfigFrom(env) },
         PostsQueryService,
         PostsDomainService,
+        PostCommentsDomainService,
       ],
     };
   }

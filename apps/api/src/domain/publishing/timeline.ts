@@ -14,12 +14,14 @@ import type { PostHistoryEntry, PostStatus, PublishFailureCause } from "@repo/sh
  * história que o banco não sabe.
  */
 export interface PublishMilestone {
+  /** O evento que marcou o momento — a linha do tempo precisa de uma chave estável. */
+  readonly id: string;
   readonly at: string;
   readonly outcome: "PUBLISHED" | "FAILED" | "RETRYING";
   readonly cause: PublishFailureCause | null;
 }
 
-type EventInput = Pick<PostHistoryEntry, "at" | "step" | "result">;
+type EventInput = Pick<PostHistoryEntry, "at" | "step" | "result"> & { readonly id: string };
 
 export function publishMilestones(
   events: readonly EventInput[],
@@ -32,12 +34,14 @@ export function publishMilestones(
     if (evento.step === "COLLECT_METRICS") continue;
 
     if (evento.result === "SUCCESS" && (evento.step === "PUBLISH" || evento.step === "RECONCILE")) {
-      marcos.push({ at: evento.at, outcome: "PUBLISHED", cause: null });
+      marcos.push({ id: evento.id, at: evento.at, outcome: "PUBLISHED", cause: null });
     } else if (evento.result === "FATAL_ERROR" || evento.step === "GIVE_UP") {
-      marcos.push({ at: evento.at, outcome: "FAILED", cause: null });
+      marcos.push({ id: evento.id, at: evento.at, outcome: "FAILED", cause: null });
     } else if (evento.result === "RECOVERABLE_ERROR" && evento.step !== "DISPATCH") {
       // Cinco tentativas seguidas são um "tentando de novo", não cinco.
-      if (marcos.at(-1)?.outcome !== "RETRYING") marcos.push({ at: evento.at, outcome: "RETRYING", cause: null });
+      if (marcos.at(-1)?.outcome !== "RETRYING") {
+        marcos.push({ id: evento.id, at: evento.at, outcome: "RETRYING", cause: null });
+      }
     }
   }
 

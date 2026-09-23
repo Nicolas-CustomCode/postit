@@ -77,6 +77,21 @@ export interface PostDetail {
   readonly attempts: number;
   /** A conta perdeu o acesso: a tela oferece reconectar (docs/09, "sinaliza a conta"). */
   readonly accountAccessLost: boolean;
+  /**
+   * A última decisão sobre a postagem (ADR 0026): é dela que saem o "Reprovada por
+   * Fulano: motivo" da Composição e o "enviada por Fulano há 2 h" da Revisão, sem
+   * carregar a linha do tempo inteira. Nula se ninguém decidiu nada ainda.
+   */
+  readonly lastDecision: PostDecision | null;
+}
+
+/** Uma decisão humana de estado, como a tela a mostra: quem, o quê, quando e por quê. */
+export interface PostDecision {
+  readonly action: PostTrailAction;
+  readonly byName: string;
+  readonly at: string;
+  readonly reason: string | null;
+  readonly scheduledFor: string | null;
 }
 
 /**

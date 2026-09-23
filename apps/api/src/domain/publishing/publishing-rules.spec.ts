@@ -235,7 +235,7 @@ describe("regras de publicação", () => {
  * O diário do motor reduzido ao que a equipe precisa ler na Revisão (ADR 0026).
  */
 describe("publishMilestones", () => {
-  const ev = (at: string, step: string, result: string) => ({ at, step, result }) as never;
+  const ev = (at: string, step: string, result: string) => ({ id: `id-${at}`, at, step, result }) as never;
   const agendada = { status: "SCHEDULED", failureCause: null } as const;
 
   it("despachar, criar container, conferir e métricas não aparecem; publicar sim", () => {
@@ -250,12 +250,12 @@ describe("publishMilestones", () => {
       { status: "PUBLISHED", failureCause: null },
     );
 
-    expect(marcos).toEqual([{ at: "t4", outcome: "PUBLISHED", cause: null }]);
+    expect(marcos).toEqual([{ id: "id-t4", at: "t4", outcome: "PUBLISHED", cause: null }]);
   });
 
   it("a reconciliação que confirma também é publicada", () => {
     expect(publishMilestones([ev("t1", "RECONCILE", "SUCCESS")], agendada)).toEqual([
-      { at: "t1", outcome: "PUBLISHED", cause: null },
+      { id: "id-t1", at: "t1", outcome: "PUBLISHED", cause: null },
     ]);
   });
 
@@ -288,9 +288,9 @@ describe("publishMilestones", () => {
     ];
 
     expect(publishMilestones(eventos, { status: "FAILED", failureCause: "LATE_CEILING" })).toEqual([
-      { at: "t1", outcome: "FAILED", cause: null },
-      { at: "t2", outcome: "RETRYING", cause: null },
-      { at: "t3", outcome: "FAILED", cause: "LATE_CEILING" },
+      { id: "id-t1", at: "t1", outcome: "FAILED", cause: null },
+      { id: "id-t2", at: "t2", outcome: "RETRYING", cause: null },
+      { id: "id-t3", at: "t3", outcome: "FAILED", cause: "LATE_CEILING" },
     ]);
 
     // Reagendada depois da falha: a causa guardada não é mais "a atual".

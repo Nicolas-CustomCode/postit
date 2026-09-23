@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import {
+  createCommentSchema,
   createPostSchema,
   postVersionSchema,
   rejectPostSchema,
@@ -7,10 +8,12 @@ import {
   setPostFormatSchema,
   setCaptionSchema,
   setPostMediaSchema,
+  type CreateCommentInput,
   type CreatePostInput,
   type PostDetail,
   type PostHistoryEntry,
   type PostSummary,
+  type PostTimelineEntry,
   type RejectPostInput,
   type SchedulePostInput,
   type SetPostFormatInput,
@@ -21,6 +24,7 @@ import { AnyAuthenticated, RequirePermission } from "../authorization/policy.dec
 import { Auth } from "../auth/auth.decorators";
 import type { AuthContext } from "../auth/session.service";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { PostCommentsDomainService } from "./post-comments.domain.service";
 import { PostsDomainService } from "./posts.domain.service";
 import { PostsQueryService } from "./posts.query.service";
 
@@ -40,13 +44,15 @@ import { PostsQueryService } from "./posts.query.service";
  * estética REST não pagaria o risco.
  *
  * Leitura é `@AnyAuthenticated`; **toda ação** exige permissão do catálogo
- * (regra 5).
+ * (regra 5) — exceto comentar, que é de qualquer logado (ADR 0026) e está na lista
+ * fechada que o teste de política confere.
  */
 @Controller("accounts/:accountId/posts")
 export class PostsController {
   constructor(
     private readonly posts: PostsQueryService,
     private readonly composition: PostsDomainService,
+    private readonly comments: PostCommentsDomainService,
   ) {}
 
   @AnyAuthenticated()
@@ -336,6 +342,32 @@ export class PostsController {
   @Get(":postId/history")
   history(@Param("accountId") accountId: string, @Param("postId") postId: string): Promise<PostHistoryEntry[]> {
     return this.posts.history(accountId, postId);
+  }
+
+  /**
+   * A linha do tempo da Revisão: comentários e histórico juntos (ADR 0026). Sem o
+   * detalhe técnico da Meta — esse é `history`.
+   */
+  @AnyAuthenticated()
+  @Get(":postId/timeline")
+  timeline(@Param("accountId") accountId: string, @Param("postId") postId: string): Promise<PostTimelineEntry[]> {
+    return this.posts.timeline(accountId, postId);
+  }
+
+  /**
+   * Comentar (RF-E04). ⚠️ **`@AnyAuthenticated` numa escrita, de propósito** (ADR
+   * 0026, emenda do ADR 0015): quem só vê também comenta. Comentar não mexe na
+   * postagem — nem status, nem conteúdo, nem versão.
+   */
+  @AnyAuthenticated()
+  @Post(":postId/comments")
+  addComment(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(createCommentSchema)) body: CreateCommentInput,
+  ): Promise<{ id: string }> {
+    return this.comments.add({ accountId, postId, userId: auth.userId, text: body.text });
   }
 
   @RequirePermission("POST_EDIT")

@@ -523,4 +523,117 @@ describe("revisão da postagem", () => {
       ]);
     });
   });
+
+  /*
+   * Comentários internos (RF-E04) e a linha do tempo da Revisão (ADR 0026,
+   * decisões 4 e 5).
+   */
+  describe("comentários e linha do tempo", () => {
+    const comentar = (pessoa: Pessoa, accountId: string, postId: string, text: string) =>
+      api.request({
+        method: "POST",
+        url: `/accounts/${accountId}/posts/${postId}/comments`,
+        payload: { text },
+        token: pessoa.token,
+      });
+    const linhaDoTempo = async (pessoa: Pessoa, accountId: string, postId: string) =>
+      (await api.request({ method: "GET", url: `/accounts/${accountId}/posts/${postId}/timeline`, token: pessoa.token }))
+        .body as unknown as Record<string, unknown>[];
+
+    it("quem só vê comenta — e comentar não mexe na postagem", async () => {
+      const autor = await editor();
+      const leitor = await entrar([]);
+      const accountId = await conta();
+      const postId = await emRevisao(autor, accountId);
+
+      const resposta = await comentar(leitor, accountId, postId, "  O preço entra aqui ou no story?  ");
+
+      expect(resposta.statusCode).toBe(201);
+      expect(await post(postId)).toMatchObject({ status: "IN_REVIEW", version: 3 });
+      const comentario = await api.db.internalComment.findFirstOrThrow({ where: { postId } });
+      expect(comentario).toMatchObject({ userId: leitor.userId, text: "O preço entra aqui ou no story?" });
+    });
+
+    it("vale em qualquer estado, inclusive depois de publicada", async () => {
+      const autor = await editor();
+      const accountId = await conta();
+      const postId = await rascunho(autor, accountId);
+      await api.db.post.update({ where: { id: postId }, data: { status: "PUBLISHED" } });
+
+      expect((await comentar(autor, accountId, postId, "Saiu bonita")).statusCode).toBe(201);
+    });
+
+    it.each([
+      ["vazio", "   "],
+      ["longo demais", "a".repeat(2001)],
+    ])("comentário %s é recusado", async (_, texto) => {
+      const autor = await editor();
+      const accountId = await conta();
+      const postId = await rascunho(autor, accountId);
+
+      const resposta = await comentar(autor, accountId, postId, texto);
+
+      expect(resposta.statusCode).toBe(400);
+      expect(await api.db.internalComment.count()).toBe(0);
+    });
+
+    it("a linha do tempo junta criação, decisões, comentários e publicação, em ordem", async () => {
+      const autor = await editor();
+      const aprovador = await operador();
+      const accountId = await conta();
+      const postId = await emRevisao(autor, accountId);
+      await comentar(aprovador, accountId, postId, "A foto 2 está escura");
+      await acao(aprovador, accountId, postId, "reject", { version: 3, reason: "Troque a foto 2" });
+
+      // Um marco do motor, com a resposta da Meta gravada — que não pode vazar.
+      await api.db.publishEvent.create({
+        data: { postId, step: "PUBLISH", result: "SUCCESS", metaResponse: { segredo: "resposta-crua-da-meta" } },
+      });
+
+      const linhas = await linhaDoTempo(autor, accountId, postId);
+
+      expect(linhas.map((linha) => [linha["kind"], linha["action"] ?? linha["text"] ?? linha["outcome"] ?? null])).toEqual([
+        ["CREATED", null],
+        ["DECISION", "SUBMITTED_FOR_REVIEW"],
+        ["COMMENT", "A foto 2 está escura"],
+        ["DECISION", "REJECTED"],
+        ["PUBLISHING", "PUBLISHED"],
+      ]);
+      expect(linhas[3]).toMatchObject({ byName: "Pessoa de Teste", reason: "Troque a foto 2" });
+
+      // Regra 3: nada da resposta da Meta, e nenhum e-mail — só nomes.
+      const json = JSON.stringify(linhas);
+      expect(json).not.toContain("resposta-crua-da-meta");
+      expect(json).not.toContain("@exemplo.com");
+    });
+
+    it("o detalhe traz a última decisão, para o banner da reprovação", async () => {
+      const autor = await editor();
+      const aprovador = await operador();
+      const accountId = await conta();
+      const postId = await emRevisao(autor, accountId);
+      await acao(aprovador, accountId, postId, "reject", { version: 3, reason: "Troque a foto 2" });
+
+      const detalhe = (await api.request({ method: "GET", url: `/accounts/${accountId}/posts/${postId}`, token: autor.token }))
+        .body;
+
+      expect(detalhe["lastDecision"]).toMatchObject({
+        action: "REJECTED",
+        byName: "Pessoa de Teste",
+        reason: "Troque a foto 2",
+        scheduledFor: null,
+      });
+    });
+
+    it("sem decisão nenhuma, a última decisão é nula", async () => {
+      const autor = await editor();
+      const accountId = await conta();
+      const postId = await rascunho(autor, accountId);
+
+      const detalhe = (await api.request({ method: "GET", url: `/accounts/${accountId}/posts/${postId}`, token: autor.token }))
+        .body;
+
+      expect(detalhe["lastDecision"]).toBeNull();
+    });
+  });
 });

@@ -1,4 +1,5 @@
-import { PATH_METADATA } from "@nestjs/common/constants";
+import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
+import { RequestMethod } from "@nestjs/common";
 import { DiscoveryService, MetadataScanner } from "@nestjs/core";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
 import { POLICY_KEY } from "./policy.decorators";
@@ -19,10 +20,10 @@ describe("política das rotas", () => {
   afterAll(() => api.close());
 
   /** Cada handler de rota com a política que vale para ele. */
-  function routes(): { name: string; policy: unknown }[] {
+  function routes(): { name: string; policy: unknown; method: RequestMethod }[] {
     const discovery = api.app.get(DiscoveryService);
     const scanner = api.app.get(MetadataScanner);
-    const found: { name: string; policy: unknown }[] = [];
+    const found: { name: string; policy: unknown; method: RequestMethod }[] = [];
 
     for (const wrapper of discovery.getControllers()) {
       const instance = wrapper.instance as object | undefined;
@@ -42,6 +43,7 @@ describe("política das rotas", () => {
             Reflect.getMetadata(POLICY_KEY, handler) ??
             Reflect.getMetadata(POLICY_KEY, wrapper.metatype ?? Object) ??
             undefined,
+          method: Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod,
         });
       }
     }
@@ -66,5 +68,32 @@ describe("política das rotas", () => {
     for (const route of routes()) {
       expect(conhecidas).toContain(route.policy);
     }
+  });
+
+  /*
+   * A exceção da regra 5, fechada (ADR 0026): escrita com `@AnyAuthenticated` só
+   * para o próprio perfil e para comentar postagem. Escrita nova de qualquer logado
+   * fora desta lista reprova — o lugar de uma ação sobre dado compartilhado é
+   * `@RequirePermission`.
+   */
+  it("escrita de qualquer logado só nas rotas da lista fechada", () => {
+    const escritasAbertas = routes()
+      .filter((route) => route.policy === "AUTHENTICATED" && route.method !== RequestMethod.GET)
+      .map((route) => route.name)
+      .sort();
+
+    expect(escritasAbertas).toEqual(
+      [
+        // O próprio perfil: sessão, senha, códigos de recuperação.
+        "AuthController.logout",
+        "AuthController.confirm",
+        "AuthController.revokeSession",
+        "AuthController.revokeOthers",
+        "AuthController.changePassword",
+        "AuthController.recoveryCodes",
+        // Comentar postagem (ADR 0026).
+        "PostsController.addComment",
+      ].sort(),
+    );
   });
 });

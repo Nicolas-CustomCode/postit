@@ -3,11 +3,14 @@ import {
   isPublishFailureCause,
   POST_EXCERPT_LENGTH,
   type PostDetail,
+  type PostDecision,
   type PostHistoryEntry,
   type PostSummary,
+  type PostTimelineEntry,
   type PublishFailureCause,
 } from "@repo/shared";
 import { PostNotFoundError } from "../common/errors";
+import { publishMilestones } from "../domain/publishing/timeline";
 import { PrismaService } from "../prisma/prisma.service";
 import { publicUrlFor } from "../storage/public-url";
 import { POSTS_CONFIG, type PostsConfig } from "./posts.config";
@@ -63,10 +66,17 @@ export class PostsQueryService {
         updatedBy: { select: { name: true } },
         publication: { select: { publishedAt: true, permalink: true } },
         account: { select: { accessLostAt: true } },
+        // A última decisão: `id` desempata as que caem no mesmo milissegundo.
+        approvals: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 1,
+          include: { user: { select: { name: true } } },
+        },
       },
     });
 
     if (post === null) throw new PostNotFoundError();
+    const ultima = post.approvals[0];
 
     return {
       id: post.id,
@@ -94,7 +104,69 @@ export class PostsQueryService {
       failureCause: causeOf(post.lastErrorCode),
       attempts: post.attempts,
       accountAccessLost: post.account.accessLostAt !== null,
+      lastDecision: ultima === undefined ? null : decisionOf(ultima),
     };
+  }
+
+  /**
+   * A linha do tempo da Revisão (ADR 0026, decisão 5): a criação, as decisões, os
+   * comentários e os marcos da publicação, em ordem — cada comentário no seu
+   * contexto.
+   *
+   * ⚠️ **Só nomes, e nada da resposta da Meta** (AGENTS.md, regra 3): quem só vê
+   * também lê isto. `respostaMeta` nem é lido aqui; o detalhe técnico fica em
+   * `history()`, recolhido na tela da falha.
+   */
+  async timeline(accountId: string, postId: string): Promise<PostTimelineEntry[]> {
+    const post = await this.prisma.db.post.findFirst({
+      where: { id: postId, accountId },
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        lastErrorCode: true,
+        createdBy: { select: { name: true } },
+        approvals: { include: { user: { select: { name: true } } } },
+        // Os mais recentes, com teto: uma conversa de mil comentários não vem inteira
+        // numa página de celular. A ordem final é feita abaixo, junto com o resto.
+        internalComments: {
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: COMMENTS_LIMIT,
+          include: { user: { select: { name: true } } },
+        },
+        publishEvents: { select: { id: true, createdAt: true, step: true, result: true } },
+      },
+    });
+    if (post === null) throw new PostNotFoundError();
+
+    const eventos = [...post.publishEvents]
+      .sort(byTimeThenId)
+      .map((evento) => ({ id: evento.id, at: evento.createdAt.toISOString(), step: evento.step, result: evento.result }));
+
+    const linhas: (PostTimelineEntry & { readonly sortAt: Date })[] = [
+      { kind: "CREATED", id: post.id, at: post.createdAt.toISOString(), byName: post.createdBy.name, sortAt: post.createdAt },
+      ...post.approvals.map((linha) => ({
+        kind: "DECISION" as const,
+        id: linha.id,
+        ...decisionOf(linha),
+        sortAt: linha.createdAt,
+      })),
+      ...post.internalComments.map((linha) => ({
+        kind: "COMMENT" as const,
+        id: linha.id,
+        at: linha.createdAt.toISOString(),
+        byName: linha.user.name,
+        text: linha.text,
+        sortAt: linha.createdAt,
+      })),
+      ...publishMilestones(eventos, { status: post.status, failureCause: causeOf(post.lastErrorCode) }).map(
+        (marco) => ({ kind: "PUBLISHING" as const, ...marco, sortAt: new Date(marco.at) }),
+      ),
+    ];
+
+    return linhas
+      .sort((a, b) => byTimeThenId({ createdAt: a.sortAt, id: a.id }, { createdAt: b.sortAt, id: b.id }))
+      .map(({ sortAt: _sortAt, ...linha }) => linha);
   }
 
   /**
@@ -128,6 +200,33 @@ export class PostsQueryService {
       bucket: this.config.mediaBucket,
     });
   }
+}
+
+/** Teto de comentários lidos por vez na linha do tempo — os mais recentes. */
+const COMMENTS_LIMIT = 500;
+
+/**
+ * Em ordem de acontecimento. `id` desempata o mesmo milissegundo: envio e
+ * aprovação encadeados caem na mesma transação, e os ids são uuid v7, crescentes.
+ */
+function byTimeThenId(a: { createdAt: Date; id: string }, b: { createdAt: Date; id: string }): number {
+  return a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+}
+
+function decisionOf(linha: {
+  action: PostDecision["action"];
+  createdAt: Date;
+  reason: string | null;
+  scheduledFor: Date | null;
+  user: { name: string };
+}): PostDecision {
+  return {
+    action: linha.action,
+    byName: linha.user.name,
+    at: linha.createdAt.toISOString(),
+    reason: linha.reason,
+    scheduledFor: linha.scheduledFor?.toISOString() ?? null,
+  };
 }
 
 /** O código gravado, se for uma causa conhecida — nunca texto solto para a tela. */
