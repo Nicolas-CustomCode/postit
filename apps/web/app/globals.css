@@ -79,6 +79,8 @@
   --ig-text: #0c1014;
   --ig-muted: #737373;
   --ig-dot-off: #c7c7c7;
+  /* As faixas do carrossel: pretas nos dois temas, como saiu no Instagram em 23/09/2026 (docs/08). */
+  --ig-letterbox: #000000;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -95,6 +95,27 @@ export function cropRect(width: number, height: number, ratio: number, position:
   };
 }
 
+/**
+ * Esta foto vai sair com faixas pretas no carrossel?
+ *
+ * **O quadro do carrossel é o da primeira foto, e as outras entram inteiras** —
+ * encaixadas no quadro, com faixas pretas onde sobra. Observado em 23/09/2026 (docs/08):
+ * a Meta diz *"cropped based on the first image"*, mas não recorta. Foto na mesma
+ * proporção da primeira não ganha faixa.
+ *
+ * Comparação inteira, sem divisão, com **1 px de tolerância**: `cropRect` arredonda,
+ * e a foto recém-recortada na proporção da primeira pode ficar meio pixel fora. Sem a
+ * tolerância, o aviso continuaria na foto que a pessoa acabou de ajustar. O erro do
+ * arredondamento, nessa conta, é no máximo metade do lado maior do quadro.
+ */
+export function letterboxedInCarousel(
+  frame: { readonly width: number; readonly height: number },
+  item: { readonly width: number; readonly height: number },
+): boolean {
+  const diferenca = Math.abs(item.width * frame.height - item.height * frame.width);
+  return diferenca > Math.max(frame.width, frame.height);
+}
+
 /** Em que eixo o corte acontece — é o que o controle da tela move. */
 export function cropAxis(width: number, height: number, ratio: number): "vertical" | "horizontal" {
   return width / height < ratio ? "vertical" : "horizontal";

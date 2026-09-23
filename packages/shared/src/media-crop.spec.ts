@@ -1,4 +1,4 @@
-import { cropAxis, cropRect, fitFrame, targetRatioFor, FIT_MAX_WIDTH } from "./media-crop";
+import { cropAxis, cropRect, fitFrame, letterboxedInCarousel, targetRatioFor, FIT_MAX_WIDTH } from "./media-crop";
 import { IMAGE_SPECS, ratioFits } from "./media-formats";
 
 /**
@@ -203,3 +203,38 @@ const MEDIDAS_FORA_DA_FAIXA: readonly (readonly [number, number])[] = [
   [5000, 400],
   [1080, 1351], // um pixel além de 4:5 — 1080×5 = 5400 < 1351×4 = 5404
 ];
+
+/**
+ * O quadro do carrossel (docs/08, observado em 23/09/2026): o da primeira foto, com as
+ * outras inteiras e faixas pretas onde sobra.
+ */
+describe("letterboxedInCarousel", () => {
+  const PAISAGEM = { width: 678, height: 452 }; // 3:2, a do carrossel de teste
+
+  it("a mesma proporção não ganha faixa, em qualquer tamanho", () => {
+    expect(letterboxedInCarousel(PAISAGEM, { width: 1080, height: 720 })).toBe(false);
+    expect(letterboxedInCarousel({ width: 1080, height: 1350 }, { width: 2160, height: 2700 })).toBe(false);
+  });
+
+  it("a quadrada num quadro 3:2 sai com faixas — o caso que publicamos", () => {
+    expect(letterboxedInCarousel(PAISAGEM, { width: 447, height: 447 })).toBe(true);
+  });
+
+  it("um pixel de diferença não conta", () => {
+    expect(letterboxedInCarousel({ width: 1080, height: 1350 }, { width: 1080, height: 1351 })).toBe(false);
+  });
+
+  /*
+   * O que a tolerância existe para garantir: a foto que a pessoa acabou de recortar
+   * na proporção da primeira não continua avisando.
+   */
+  it.each([
+    [{ width: 678, height: 452 }, { width: 447, height: 447 }],
+    [{ width: 1080, height: 1350 }, { width: 3024, height: 4032 }],
+    [{ width: 1080, height: 1350 }, { width: 1999, height: 1001 }],
+    [{ width: 1911, height: 1000 }, { width: 1537, height: 1025 }],
+  ])("recortada por cropRect na razão da primeira (%j ← %j), fica sem faixa", (quadro, foto) => {
+    const recorte = cropRect(foto.width, foto.height, quadro.width / quadro.height);
+    expect(letterboxedInCarousel(quadro, recorte)).toBe(false);
+  });
+});

@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import type { AccountSummary, ComposableFormat, MediaSummary } from "@repo/shared";
 import { AccountDateTime } from "@/components/account-time";
 import { AccountAvatar } from "@/components/nav/account-avatar";
+import { cn } from "@/lib/utils";
 
 /**
  * Como a postagem vai aparecer (RF-C10; artboard `ComposicaoDesktop`).
@@ -21,10 +22,10 @@ import { AccountAvatar } from "@/components/nav/account-avatar";
  * ⚠️ **Stories não é o feed, e a prévia muda junto.** Lá a imagem ocupa a tela
  * em 9:16, não há barra de curtidas nem legenda por baixo.
  *
- * ⚠️ **No carrossel, a primeira imagem recorta todas.** A Meta faz isso
- * (docs/08) e o docs/08 cobra da interface que mostre — sem isso a prévia mente
- * exatamente onde custa caro: aprova-se uma sequência e publica-se outra, com a
- * segunda foto decapitada.
+ * ⚠️ **No carrossel, o quadro é o da primeira foto, e as outras entram
+ * inteiras**, com faixas pretas onde sobra (docs/08, observado em 23/09/2026). A
+ * documentação da Meta diz "cropped", e até aqui a prévia recortava as outras —
+ * aprovava-se uma imagem cheia e publicava-se uma com faixas.
  */
 export function FeedPreview({
   account,
@@ -38,7 +39,7 @@ export function FeedPreview({
   /** A conta: a prévia mostra a **foto real** dela, como o feed mostraria. */
   readonly account: Pick<AccountSummary, "name" | "username" | "photoUrl">;
   readonly format: ComposableFormat;
-  /** As imagens na ordem final: a primeira manda no recorte de todas. */
+  /** As imagens na ordem final: a primeira define o quadro de todas. */
   readonly media: readonly MediaSummary[];
   readonly caption: string;
   readonly scheduledAt: string | null;
@@ -57,7 +58,7 @@ export function FeedPreview({
   const atual = media[indice];
   const carrossel = !stories && media.length > 1;
 
-  // A proporção da **primeira**, que é a que a Meta aplica a todas. Com a
+  // A proporção da **primeira**, que é o quadro do carrossel inteiro. Com a
   // moldura vazia, 4:5 é só um lugar para a mensagem morar.
   const primeira = media[0];
   const recorte = primeira === undefined ? "4 / 5" : `${primeira.width} / ${primeira.height}`;
@@ -101,8 +102,13 @@ export function FeedPreview({
             <img
               src={atual.url}
               alt=""
-              className="w-full object-cover"
-              style={{ aspectRatio: stories ? "9 / 16" : recorte }}
+              // Da segunda em diante, a foto entra inteira no quadro da primeira, com as
+              // faixas que o Instagram desenha; a primeira preenche o próprio quadro.
+              className={cn("w-full", carrossel && indice > 0 ? "object-contain" : "object-cover")}
+              style={{
+                aspectRatio: stories ? "9 / 16" : recorte,
+                ...(carrossel && indice > 0 ? { background: "var(--ig-letterbox)" } : {}),
+              }}
             />
           )}
 
@@ -197,7 +203,10 @@ export function FeedPreview({
         {stories && <span>Some 24 horas depois de publicada.</span>}
         {/* Depois de publicada não há ordem a mudar: a dica viraria instrução impossível. */}
         {carrossel && publishedAt === null && (
-          <span>A primeira imagem define o recorte de todas — mude a ordem para escolher qual manda.</span>
+          <span>
+            O carrossel usa o formato da primeira foto; as outras entram inteiras, com faixas pretas quando a
+            proporção for diferente.
+          </span>
         )}
       </p>
 
