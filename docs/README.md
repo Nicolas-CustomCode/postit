@@ -82,6 +82,8 @@ qualquer uso externo.
 - [ADR 0024](adr/0024-carrossel-e-quantidade-nao-formato.md) — Carrossel é quantidade, não formato
 - [ADR 0025](adr/0025-ajustar-imagem-ao-formato.md) — Ajustar a imagem ao formato: recortar ou emoldurar,
   nunca à força
+- [ADR 0026](adr/0026-postagem-em-duas-etapas.md) — A postagem em duas etapas: Composição e Revisão, com o
+  núcleo da aprovação e comentários de qualquer logado
 
 ---
 

@@ -56,14 +56,19 @@ Definido no código, num enum `Permissao`. Não é configurável pela tela — s
 
 | Permissão | Libera |
 |---|---|
-| `POSTAGEM_EDITAR` | Criar e editar rascunhos, enviar **e excluir** mídia, enviar para revisão, descartar rascunho, comentar |
+| `POSTAGEM_EDITAR` | Criar e editar rascunhos, enviar **e excluir** mídia, enviar para revisão, descartar rascunho, voltar uma postagem para a composição |
 | `POSTAGEM_APROVAR` | Aprovar e reprovar postagens **de outros** |
 | `POSTAGEM_APROVAR_PROPRIA` | Aprovar a própria postagem. Só tem efeito junto com `POSTAGEM_APROVAR` |
 | `POSTAGEM_AGENDAR` | Agendar, reagendar (inclusive arrastando no calendário), cancelar, publicar agora, decidir sobre postagem em `FALHOU` |
 | `CONTA_GERENCIAR` | Conectar e desconectar contas do Instagram, alterar fuso horário |
 
 **Sem permissão nenhuma**, todo usuário autenticado **vê** calendário, postagens, acervo, métricas, contas
-conectadas e painel de saúde, e gerencia o próprio perfil — senha, códigos de recuperação, sessões.
+conectadas e painel de saúde, **comenta postagens** e gerencia o próprio perfil — senha, códigos de recuperação,
+sessões.
+
+> **Emendado pelo [ADR 0026](0026-postagem-em-duas-etapas.md) em 23/09/2026:** comentar saiu de `POSTAGEM_EDITAR`
+> e passou a ser de qualquer usuário logado; voltar uma postagem em revisão, aprovada ou agendada para a
+> composição é `POSTAGEM_EDITAR`.
 
 **As permissões são globais:** valem para todas as contas do Instagram, e todo usuário enxerga todas as
 contas.
