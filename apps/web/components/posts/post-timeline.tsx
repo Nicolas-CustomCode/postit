@@ -134,46 +134,49 @@ function Comment({
       >
         {accountInitials({ name: entry.byName, username: entry.byName })}
       </span>
-      <div className="rounded-[4px_12px_12px_12px] bg-muted px-3 py-2">
+      {/* `group`: o ícone de excluir só aparece com o ponteiro sobre o comentário. */}
+      <div className="group rounded-[4px_12px_12px_12px] bg-muted px-3 py-2">
         <div className="mb-0.5 flex flex-wrap items-baseline justify-between gap-x-2">
           <span className="text-[13px] font-semibold">{entry.byName}</span>
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
             <LocalDate iso={entry.at} format="comHora" />
-          </span>
-        </div>
-        <p className="text-sm break-words whitespace-pre-wrap">{entry.text}</p>
-        {podeExcluir && (
-          <div className="mt-1 flex justify-end gap-1">
-            {confirmando ? (
-              <>
-                <button
-                  type="button"
-                  disabled={excluindo}
-                  onClick={() => void excluir()}
-                  className="rounded-md px-1.5 py-0.5 text-xs font-semibold text-destructive hover:underline disabled:opacity-50"
-                >
-                  Confirmar exclusão
-                </button>
-                <button
-                  type="button"
-                  disabled={excluindo}
-                  onClick={() => setConfirmando(false)}
-                  className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:underline"
-                >
-                  Manter
-                </button>
-              </>
-            ) : (
+            {/*
+              Discreto: aparece com o ponteiro em cima, ou com o foco do teclado. Em
+              tela de toque não há ponteiro — lá ele fica sempre à vista, senão não
+              haveria como excluir no celular.
+            */}
+            {podeExcluir && !confirmando && (
               <button
                 type="button"
                 onClick={() => setConfirmando(true)}
                 aria-label="Excluir comentário"
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:text-destructive"
+                title="Excluir comentário"
+                className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
               >
                 <Trash2 className="size-3.5" aria-hidden />
-                Excluir
               </button>
             )}
+          </span>
+        </div>
+        <p className="text-sm break-words whitespace-pre-wrap">{entry.text}</p>
+        {podeExcluir && confirmando && (
+          <div className="mt-1 flex justify-end gap-1">
+            <button
+              type="button"
+              disabled={excluindo}
+              onClick={() => void excluir()}
+              className="rounded-md px-1.5 py-0.5 text-xs font-semibold text-destructive hover:underline disabled:opacity-50"
+            >
+              Confirmar exclusão
+            </button>
+            <button
+              type="button"
+              disabled={excluindo}
+              onClick={() => setConfirmando(false)}
+              className="rounded-md px-1.5 py-0.5 text-xs text-muted-foreground hover:underline"
+            >
+              Manter
+            </button>
           </div>
         )}
         {erro !== null && (

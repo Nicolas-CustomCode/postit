@@ -162,6 +162,8 @@ test.describe("publicação", () => {
       await expect(page.getByText(/O preço entra aqui\s+ou no story\?/)).toBeVisible();
 
       // Nos primeiros 5 minutos, quem escreveu exclui — com confirmação (ADR 0026).
+      // O ícone só aparece com o ponteiro sobre o comentário (no celular, sempre).
+      await page.getByText(/O preço entra aqui/).hover();
       await page.getByRole("button", { name: "Excluir comentário" }).click();
       await page.getByRole("button", { name: "Confirmar exclusão" }).click();
       await expect(page.getByText(/O preço entra aqui/)).toHaveCount(0);
