@@ -190,17 +190,7 @@ export class PostsDomainService {
     if (!canMarkReady(post.status)) throw new PostTransitionInvalidError();
     if (selfApprovalRefused(input.approver, post.createdById)) throw new SelfApprovalForbiddenError();
 
-    const problema = postReadinessProblem({
-      format: formatOf(post.format),
-      caption: post.caption,
-      media: post.media.map((item) => ({
-        mimeType: item.media.mimeType,
-        bytes: item.media.bytes,
-        width: item.media.width,
-        height: item.media.height,
-      })),
-    });
-    if (problema !== null) throw readinessError(problema);
+    assertReady(post);
 
     return this.applyUserWrite(input, post.status, { status: "APPROVED" }, async (tx) => {
       // Uma linha por passo do caminho, no mesmo instante e do mesmo usuário.
@@ -232,6 +222,13 @@ export class PostsDomainService {
     const movimento = scheduleMoveFor(post.status);
     if (movimento === null) throw new PostTransitionInvalidError();
 
+    /*
+     * Reagendar uma que falhou é mandar de novo para o ar: a mesma conferência de
+     * quem marca como pronta. Ela foi aprovada, mas pode ter falhado justamente por
+     * uma imagem que não servia.
+     */
+    if (post.status === "FAILED") assertReady(post);
+
     const resolvido = resolveSchedule({
       day: input.day,
       time: input.time,
@@ -247,7 +244,29 @@ export class PostsDomainService {
       scheduledAt: resolvido.instant,
       // Quem definiu o horário vigente é a pergunta que a auditoria faz.
       scheduledById: input.userId,
+      /*
+       * Horário novo é ciclo novo: sem zerar as tentativas, a I-8 ("a primeira
+       * execução não começa mais de 15 minutos atrasada") nunca valeria para uma
+       * postagem reagendada depois de falhar. A causa sai junto — inclusive o
+       * "esperando cota", que o horário novo deixa para trás.
+       */
+      ...FRESH_CYCLE,
     });
+  }
+
+  /**
+   * `FALHOU → RASCUNHO`: "voltar para rascunho, para corrigir antes de agendar de
+   * novo" (artboard `FalhaCelular`; ADR 0007).
+   *
+   * É decisão sobre uma postagem que falhou, e por isso pede `POSTAGEM_AGENDAR`,
+   * como reagendar e cancelar (ADR 0015). O horário some pela mesma razão da I-2:
+   * rascunho não exibe hora de saída.
+   */
+  async toDraft(input: Scope): Promise<Saved> {
+    const post = await this.load(input);
+    if (post.status !== "FAILED") throw new PostTransitionInvalidError();
+
+    return this.applyUserWrite(input, post.status, { status: "DRAFT", scheduledAt: null, ...FRESH_CYCLE });
   }
 
   /** Cancelar o que já tem horário marcado, ou parou de vez (RF-D05). */
@@ -377,6 +396,8 @@ export class PostsDomainService {
          * cumprir.
          */
         ...(keepsSchedule(novoStatus) ? {} : { scheduledAt: null }),
+        // Corrigir uma que falhou recomeça a conta do publicador.
+        ...(post.status === "FAILED" ? FRESH_CYCLE : {}),
       },
       async (tx) => {
         if (rebaixou) {
@@ -388,6 +409,32 @@ export class PostsDomainService {
       },
     );
   }
+}
+
+/**
+ * O que uma postagem perde ao sair de `FALHOU` ou ganhar horário novo: as
+ * tentativas do publicador e a causa da última falha. Só o usuário zera isto; o
+ * worker zera no despacho (docs/07).
+ */
+const FRESH_CYCLE = { attempts: 0, lastErrorCode: null, lastErrorMessage: null } as const;
+
+/** A conferência de "pronta para ir ao ar" — marcar como pronta e reagendar a que falhou. */
+function assertReady(post: {
+  format: Parameters<typeof formatOf>[0];
+  caption: string | null;
+  media: readonly { media: { mimeType: string; bytes: number; width: number; height: number } }[];
+}): void {
+  const problema = postReadinessProblem({
+    format: formatOf(post.format),
+    caption: post.caption,
+    media: post.media.map((item) => ({
+      mimeType: item.media.mimeType,
+      bytes: item.media.bytes,
+      width: item.media.width,
+      height: item.media.height,
+    })),
+  });
+  if (problema !== null) throw readinessError(problema);
 }
 
 /**

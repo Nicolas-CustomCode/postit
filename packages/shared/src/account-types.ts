@@ -9,8 +9,14 @@
  */
 import type { SocialNetwork } from "./domain";
 
-/** Por que uma conta precisa de atenção — a tela mostra o aviso pelo código. */
-export const ACCOUNT_WARNINGS = ["TOKEN_EXPIRING", "TOKEN_EXPIRED"] as const;
+/**
+ * Por que uma conta precisa de atenção — a tela mostra o aviso pelo código.
+ *
+ * `ACCESS_LOST` é a Meta ter recusado o token por inválido ou sem permissão, ao
+ * publicar ou ao renovar (`Conta.acessoPerdidoEm`, docs/07). Vale mais que o prazo:
+ * um token revogado hoje não espera vencer para parar de funcionar.
+ */
+export const ACCOUNT_WARNINGS = ["ACCESS_LOST", "TOKEN_EXPIRING", "TOKEN_EXPIRED"] as const;
 export type AccountWarning = (typeof ACCOUNT_WARNINGS)[number];
 
 export interface AccountSummary {

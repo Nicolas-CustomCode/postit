@@ -1,4 +1,4 @@
-import type { PostStatus } from "@repo/shared";
+import { isPostEditable, type PostStatus } from "@repo/shared";
 
 /**
  * A máquina de estados da postagem (docs/05, "Máquina de estados da postagem").
@@ -79,7 +79,13 @@ export function canMarkReady(from: PostStatus): boolean {
  * escrita passa por ela sempre — em vez de cada rota lembrar de aplicar a regra.
  */
 export function statusAfterContentEdit(current: PostStatus): PostStatus {
-  return current === "APPROVED" || current === "SCHEDULED" ? "DRAFT" : current;
+  /*
+   * `FALHOU` também cai, desde 23/09/2026 (decisão 3 da 1d). Quem corrige uma
+   * postagem que falhou está mudando o que vai ao ar — e o que foi aprovado era a
+   * versão que falhou. Sem cair, bastava editar e reagendar para publicar algo que
+   * ninguém aprovou.
+   */
+  return current === "APPROVED" || current === "SCHEDULED" || current === "FAILED" ? "DRAFT" : current;
 }
 
 /**
@@ -110,7 +116,8 @@ export function keepsSchedule(next: PostStatus): boolean {
  * guardar outra.
  */
 export function isEditable(status: PostStatus): boolean {
-  return status !== "PUBLISHED" && status !== "CANCELED" && status !== "PROCESSING";
+  // A mesma lista com que a tela decide abrir só para ver: as duas não podem divergir.
+  return isPostEditable(status);
 }
 
 /**

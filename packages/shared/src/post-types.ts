@@ -1,4 +1,5 @@
 import type { PostFormat, PostStatus } from "./domain";
+import type { PublishFailureCause } from "./publish-failures";
 
 /**
  * O que a API devolve sobre as postagens.
@@ -34,6 +35,8 @@ export interface PostSummary {
   readonly thumbnailUrl: string | null;
   readonly scheduledAt: string | null;
   readonly updatedAt: string;
+  /** Por que não saiu, ou por que está esperando — a lista destaca a falha com ela. */
+  readonly failureCause: PublishFailureCause | null;
 }
 
 /** A postagem aberta na composição. */
@@ -58,6 +61,34 @@ export interface PostDetail {
   readonly createdByName: string;
   readonly updatedByName: string | null;
   readonly updatedAt: string;
+  /**
+   * Quando saiu e onde ver. Nulo enquanto não foi publicada. O `permalink` também
+   * pode ser nulo com a postagem publicada: é a confirmada pelo estado do
+   * container, sem que a Meta devolvesse o id da mídia (docs/08, V-28).
+   */
+  readonly publication: { readonly publishedAt: string; readonly permalink: string | null } | null;
+  /**
+   * A causa da última falha — ou da tentativa em andamento, em `PROCESSANDO`. Nula
+   * quando não há. A frase vem de `PUBLISH_FAILURES`; o código cru da Meta nunca
+   * chega aqui (RNF-07).
+   */
+  readonly failureCause: PublishFailureCause | null;
+  /** Quantas execuções o publicador já fez neste ciclo: o "tentativa N de 5". */
+  readonly attempts: number;
+  /** A conta perdeu o acesso: a tela oferece reconectar (docs/09, "sinaliza a conta"). */
+  readonly accountAccessLost: boolean;
+}
+
+/**
+ * Uma linha do histórico da publicação (RF-F09): o que o motor fez, quando e
+ * como terminou. `detail` é a resposta da Meta **já saneada** no cliente — sem
+ * token (AGENTS.md, regra 3) —, para quem investiga; a tela o mostra recolhido.
+ */
+export interface PostHistoryEntry {
+  readonly at: string;
+  readonly step: "CREATE_CONTAINER" | "CHECK_STATUS" | "PUBLISH" | "COLLECT_METRICS" | "DISPATCH" | "RECONCILE" | "GIVE_UP";
+  readonly result: "SUCCESS" | "RECOVERABLE_ERROR" | "FATAL_ERROR";
+  readonly detail: unknown;
 }
 
 /** Quantos caracteres da legenda vão no `excerpt` da lista. */
@@ -74,6 +105,20 @@ export const POST_STATUS_LABELS: Record<PostStatus, string> = {
   FAILED: "Falhou",
   CANCELED: "Descartada",
 };
+
+/**
+ * Os estados em que a postagem **não se edita mais**: saiu, está saindo ou foi
+ * descartada. A tela os abre só para ver, e a API recusa qualquer escrita neles —
+ * as duas leem esta lista, para não divergirem.
+ *
+ * `FALHOU` não está aqui de propósito: ela espera a pessoa decidir — reagendar,
+ * voltar para rascunho ou cancelar (ADR 0007).
+ */
+export const POST_READ_ONLY_STATUSES: readonly PostStatus[] = ["PROCESSING", "PUBLISHED", "CANCELED"];
+
+export function isPostEditable(status: PostStatus): boolean {
+  return !POST_READ_ONLY_STATUSES.includes(status);
+}
 
 /** Como cada formato aparece na tela. */
 export const POST_FORMAT_LABELS: Record<PostFormat, string> = {

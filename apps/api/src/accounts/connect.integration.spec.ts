@@ -234,6 +234,40 @@ describe("conectar conta do Instagram", () => {
     expect(await api.db.account.count()).toBe(1);
   });
 
+  /*
+   * A exceção à regra de cima: a conta que perdeu o acesso precisa reconectar, e é
+   * o que o botão da postagem que falhou por token oferece (docs/09).
+   */
+  it("conta ativa sem acesso reconecta: token novo, sinal apagado, mesma linha", async () => {
+    const token = await entrar();
+    await concluir(token, FAKE_META_CODES.ok, await comecar(token));
+    const antes = await api.db.account.update({
+      where: { network_externalId: { network: "INSTAGRAM", externalId: FAKE_META_ACCOUNT.user_id } },
+      data: { accessLostAt: new Date(), tokenEncrypted: "v1:token-velho" },
+    });
+
+    const resposta = await concluir(token, FAKE_META_CODES.ok, await comecar(token));
+
+    expect(resposta.statusCode).toBeLessThan(400);
+    const depois = await api.db.account.findUniqueOrThrow({ where: { id: antes.id } });
+    expect(depois.accessLostAt).toBeNull();
+    expect(depois.tokenEncrypted).not.toBe("v1:token-velho");
+    expect(await api.db.account.count()).toBe(1);
+  });
+
+  it("conta ativa com o token vencendo em poucos dias também reconecta", async () => {
+    const token = await entrar();
+    await concluir(token, FAKE_META_CODES.ok, await comecar(token));
+    await api.db.account.updateMany({ data: { tokenExpiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) } });
+
+    const resposta = await concluir(token, FAKE_META_CODES.ok, await comecar(token));
+
+    expect(resposta.statusCode).toBeLessThan(400);
+    expect((await api.db.account.findFirstOrThrow()).tokenExpiresAt.getTime()).toBeGreaterThan(
+      Date.now() + 50 * 24 * 60 * 60 * 1000,
+    );
+  });
+
   /** Marco 18: conta pessoal em vez de profissional. */
   it("conta pessoal recebe a recusa explicada, e não vira linha no banco", async () => {
     const token = await entrar();

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { TOKEN_WARNING_DAYS } from "@repo/shared";
 import { AccountAlreadyConnectedError } from "../common/errors";
 import { encryptSecret } from "../common/crypto";
 import { ACCOUNTS_CONFIG, type AccountsConfig } from "./accounts.config";
@@ -51,14 +52,14 @@ export class AccountsDomainService {
 
     const jaExiste = await this.prisma.db.account.findUnique({
       where: { network_externalId: { network: "INSTAGRAM", externalId: perfil.externalId } },
-      select: { id: true, active: true, photoObjectKey: true },
+      select: { id: true, active: true, photoObjectKey: true, accessLostAt: true, tokenExpiresAt: true },
     });
 
     const expiresAt = new Date(input.now.getTime() + expiresInSeconds * 1000);
     const tokenEncrypted = encryptSecret(token, this.config.encryptionKey, "instagram-token");
 
     try {
-      const conta = await this.gravar({ jaExiste, perfil, tokenEncrypted, expiresAt });
+      const conta = await this.gravar({ jaExiste, perfil, tokenEncrypted, expiresAt, now: input.now });
 
       // Depois da transação, nunca dentro: baixar e gravar a foto é rede, e
       // transação não espera por rede. O método não lança — conta sem avatar
@@ -83,10 +84,11 @@ export class AccountsDomainService {
   }
 
   private gravar(input: {
-    jaExiste: { id: string; active: boolean } | null;
+    jaExiste: { id: string; active: boolean; accessLostAt: Date | null; tokenExpiresAt: Date } | null;
     perfil: { externalId: string; username: string; name: string | null };
     tokenEncrypted: string;
     expiresAt: Date;
+    now: Date;
   }): Promise<{ id: string; username: string }> {
     const { jaExiste, perfil, tokenEncrypted, expiresAt } = input;
 
@@ -94,7 +96,13 @@ export class AccountsDomainService {
       // Reconectar uma conta desativada é religar a mesma linha, não criar outra:
       // as postagens antigas continuam apontando para ela.
       if (jaExiste !== null) {
-        if (jaExiste.active) throw new AccountAlreadyConnectedError();
+        /*
+         * Conta ativa só se reconecta quando precisa: a Meta recusou o acesso, ou o
+         * token venceu ou está para vencer. É o "Reconectar" da postagem que falhou
+         * por token (docs/09). Conta saudável continua dizendo "já está conectada" —
+         * conectar de novo por engano não é ação que a tela deva aceitar calada.
+         */
+        if (jaExiste.active && !needsReconnect(jaExiste, input.now)) throw new AccountAlreadyConnectedError();
 
         await tx.account.update({
           where: { id: jaExiste.id },
@@ -149,4 +157,10 @@ export class AccountsDomainService {
  */
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === "P2002";
+}
+
+/** A conta ativa precisa de token novo? A mesma régua do aviso da tela de contas. */
+function needsReconnect(account: { accessLostAt: Date | null; tokenExpiresAt: Date }, now: Date): boolean {
+  if (account.accessLostAt !== null) return true;
+  return account.tokenExpiresAt.getTime() - now.getTime() <= TOKEN_WARNING_DAYS * 24 * 60 * 60 * 1000;
 }

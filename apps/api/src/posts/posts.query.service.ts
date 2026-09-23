@@ -1,5 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { POST_EXCERPT_LENGTH, type PostDetail, type PostSummary } from "@repo/shared";
+import {
+  isPublishFailureCause,
+  POST_EXCERPT_LENGTH,
+  type PostDetail,
+  type PostHistoryEntry,
+  type PostSummary,
+  type PublishFailureCause,
+} from "@repo/shared";
 import { PostNotFoundError } from "../common/errors";
 import { PrismaService } from "../prisma/prisma.service";
 import { publicUrlFor } from "../storage/public-url";
@@ -43,6 +50,7 @@ export class PostsQueryService {
       thumbnailUrl: post.media[0] === undefined ? null : this.urlFor(post.media[0].media.objectKey),
       scheduledAt: post.scheduledAt?.toISOString() ?? null,
       updatedAt: post.updatedAt.toISOString(),
+      failureCause: causeOf(post.lastErrorCode),
     }));
   }
 
@@ -53,6 +61,8 @@ export class PostsQueryService {
         media: { orderBy: { position: "asc" }, include: { media: true } },
         createdBy: { select: { name: true } },
         updatedBy: { select: { name: true } },
+        publication: { select: { publishedAt: true, permalink: true } },
+        account: { select: { accessLostAt: true } },
       },
     });
 
@@ -77,7 +87,39 @@ export class PostsQueryService {
       createdByName: post.createdBy.name,
       updatedByName: post.updatedBy?.name ?? null,
       updatedAt: post.updatedAt.toISOString(),
+      publication:
+        post.publication === null
+          ? null
+          : { publishedAt: post.publication.publishedAt.toISOString(), permalink: post.publication.permalink },
+      failureCause: causeOf(post.lastErrorCode),
+      attempts: post.attempts,
+      accountAccessLost: post.account.accessLostAt !== null,
     };
+  }
+
+  /**
+   * O que o motor fez com a postagem, na ordem em que fez (RF-F09; RNF-10).
+   *
+   * `respostaMeta` sai como foi gravada: o cliente da Meta já a saneou antes de
+   * gravar, sem o token (docs/08, "O erro cru vai para a auditoria"). A postagem é
+   * conferida pela conta, como toda leitura daqui (regra 24).
+   */
+  async history(accountId: string, postId: string): Promise<PostHistoryEntry[]> {
+    const post = await this.prisma.db.post.findFirst({ where: { id: postId, accountId }, select: { id: true } });
+    if (post === null) throw new PostNotFoundError();
+
+    const events = await this.prisma.db.publishEvent.findMany({
+      where: { postId },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true, step: true, result: true, metaResponse: true },
+    });
+
+    return events.map((event) => ({
+      at: event.createdAt.toISOString(),
+      step: event.step,
+      result: event.result,
+      detail: event.metaResponse,
+    }));
   }
 
   private urlFor(objectKey: string): string {
@@ -86,6 +128,11 @@ export class PostsQueryService {
       bucket: this.config.mediaBucket,
     });
   }
+}
+
+/** O código gravado, se for uma causa conhecida — nunca texto solto para a tela. */
+function causeOf(code: string | null): PublishFailureCause | null {
+  return isPublishFailureCause(code) ? code : null;
 }
 
 /**

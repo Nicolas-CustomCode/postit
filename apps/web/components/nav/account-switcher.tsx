@@ -253,7 +253,8 @@ function ListaDeContas({
  * também não informa — a frase carrega o sentido inteiro.
  */
 function SegundaLinha({ account }: { readonly account: AccountSummary }): ReactNode {
-  if (account.warning === "TOKEN_EXPIRED") {
+  // Recusada pela Meta ou vencida: nos dois casos, publicar não funciona até reconectar.
+  if (account.warning === "TOKEN_EXPIRED" || account.warning === "ACCESS_LOST") {
     return <span className="truncate text-xs font-medium text-destructive">Sem acesso · reconectar</span>;
   }
 

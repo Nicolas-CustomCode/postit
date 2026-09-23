@@ -8,6 +8,7 @@ import {
   setPostMediaSchema,
   type CreatePostInput,
   type PostDetail,
+  type PostHistoryEntry,
   type PostSummary,
   type SchedulePostInput,
   type SetPostFormatInput,
@@ -196,6 +197,29 @@ export class PostsController {
     @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
   ): Promise<{ version: number }> {
     return this.composition.cancel({ accountId, postId, userId: auth.userId, version: body.version });
+  }
+
+  /**
+   * `FALHOU → RASCUNHO`, para corrigir antes de agendar de novo (ADR 0007). Pede
+   * a mesma permissão de reagendar e cancelar: é decidir sobre uma que falhou.
+   */
+  @RequirePermission("POST_SCHEDULE")
+  @Post(":postId/to-draft")
+  @HttpCode(200)
+  toDraft(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
+  ): Promise<{ version: number }> {
+    return this.composition.toDraft({ accountId, postId, userId: auth.userId, version: body.version });
+  }
+
+  /** O que o motor fez com esta postagem, tentativa a tentativa (RF-F09). */
+  @AnyAuthenticated()
+  @Get(":postId/history")
+  history(@Param("accountId") accountId: string, @Param("postId") postId: string): Promise<PostHistoryEntry[]> {
+    return this.posts.history(accountId, postId);
   }
 
   @RequirePermission("POST_EDIT")

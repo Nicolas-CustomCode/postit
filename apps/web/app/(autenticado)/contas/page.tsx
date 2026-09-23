@@ -109,7 +109,11 @@ function LinhaDaConta({ conta }: { readonly conta: AccountSummary }): ReactNode 
         ) : (
           <Badge variant="destructive">
             <TriangleAlert className="size-3.5" aria-hidden />
-            {conta.warning === "TOKEN_EXPIRED" ? "Acesso expirado" : "Acesso vence em breve"}
+            {conta.warning === "ACCESS_LOST"
+              ? "Sem acesso · reconecte"
+              : conta.warning === "TOKEN_EXPIRED"
+                ? "Acesso expirado"
+                : "Acesso vence em breve"}
           </Badge>
         )}
       </CardContent>

@@ -158,6 +158,8 @@ describe("postagens", () => {
       },
       { method: "POST" as const, caminho: (p: string) => `/${p}/cancel`, payload: { version: 1 } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/discard`, payload: { version: 1 } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/to-draft`, payload: { version: 1 } },
+      { method: "GET" as const, caminho: (p: string) => `/${p}/history`, payload: undefined },
     ];
 
     it.each(ROTAS)("$method $caminho responde 404 pela conta errada", async (rota) => {
@@ -1105,6 +1107,230 @@ describe("postagens", () => {
         expect(resposta.statusCode).toBe(403);
         expect(resposta.body).toMatchObject({ code: "FORBIDDEN" });
       }
+    });
+
+    /*
+     * A postagem que falhou (RF-F07; ADR 0007): o que a tela precisa saber, e as
+     * três saídas — reagendar, voltar para rascunho, cancelar. O estado é posto
+     * direto no banco, como o motor o deixaria.
+     */
+    describe("a postagem que falhou", () => {
+      async function falhada(token: string, accountId: string) {
+        const post = await postagemPronta(token, accountId);
+        await api.db.post.update({
+          where: { id: post.id },
+          data: {
+            status: "FAILED",
+            scheduledAt: new Date("2030-10-15T13:00:00.000Z"),
+            attempts: 5,
+            lastErrorCode: "RATE_LIMITED",
+            lastErrorMessage: "meta 4/?",
+          },
+        });
+        return post;
+      }
+      const url = (accountId: string, postId: string, acao = "") =>
+        `/accounts/${accountId}/posts/${postId}${acao === "" ? "" : `/${acao}`}`;
+
+      it("o detalhe e a lista trazem a causa e as tentativas — nunca o código cru", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+
+        const detalhe = await api.request({ method: "GET", url: url(accountId, post.id), token });
+        expect(detalhe.body).toMatchObject({
+          failureCause: "RATE_LIMITED",
+          attempts: 5,
+          publication: null,
+          accountAccessLost: false,
+        });
+        expect(JSON.stringify(detalhe.body)).not.toContain("meta 4");
+
+        const lista = await api.request({ method: "GET", url: `/accounts/${accountId}/posts`, token });
+        expect((lista.body as unknown as { failureCause: string }[])[0]?.failureCause).toBe("RATE_LIMITED");
+      });
+
+      it("a publicada traz quando saiu e o link", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await postagemPronta(token, accountId);
+        await api.db.post.update({ where: { id: post.id }, data: { status: "PUBLISHED" } });
+        await api.db.publication.create({
+          data: {
+            postId: post.id,
+            externalId: "18000000001",
+            permalink: "https://www.instagram.com/p/abc/",
+            publishedAt: new Date("2030-10-15T13:01:00.000Z"),
+          },
+        });
+
+        const detalhe = await api.request({ method: "GET", url: url(accountId, post.id), token });
+
+        expect(detalhe.body).toMatchObject({
+          publication: { publishedAt: "2030-10-15T13:01:00.000Z", permalink: "https://www.instagram.com/p/abc/" },
+        });
+      });
+
+      it("a conta sem acesso aparece no detalhe", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+        await api.db.account.update({ where: { id: accountId }, data: { accessLostAt: new Date() } });
+
+        const detalhe = await api.request({ method: "GET", url: url(accountId, post.id), token });
+
+        expect(detalhe.body).toMatchObject({ accountAccessLost: true });
+      });
+
+      // Decisão 3 da 1d: a versão aprovada era a que falhou.
+      it("editar a legenda derruba para rascunho, sem horário, e recomeça as tentativas", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "caption"),
+          payload: { version: post.version, caption: "Corrigida" },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(200);
+        const gravada = await api.db.post.findUniqueOrThrow({ where: { id: post.id } });
+        expect(gravada).toMatchObject({ status: "DRAFT", scheduledAt: null, attempts: 0, lastErrorCode: null });
+      });
+
+      it("reagendar volta a AGENDADO e recomeça as tentativas", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "schedule"),
+          payload: { version: post.version, day: "2030-10-16", time: "10:00" },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(200);
+        const gravada = await api.db.post.findUniqueOrThrow({ where: { id: post.id } });
+        expect(gravada).toMatchObject({ status: "SCHEDULED", attempts: 0, lastErrorCode: null, lastErrorMessage: null });
+      });
+
+      it("reagendar confere de novo se está pronta — sem imagem, recusa", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+        await api.db.postMedia.deleteMany({ where: { postId: post.id } });
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "schedule"),
+          payload: { version: post.version, day: "2030-10-16", time: "10:00" },
+          token,
+        });
+
+        expect(resposta.body).toMatchObject({ code: "POST_MEDIA_REQUIRED" });
+        expect((await api.db.post.findUniqueOrThrow({ where: { id: post.id } })).status).toBe("FAILED");
+      });
+
+      it("voltar para rascunho: sem horário, tentativas zeradas", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "to-draft"),
+          payload: { version: post.version },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(200);
+        expect(resposta.body).toMatchObject({ version: post.version + 1 });
+        const gravada = await api.db.post.findUniqueOrThrow({ where: { id: post.id } });
+        expect(gravada).toMatchObject({ status: "DRAFT", scheduledAt: null, attempts: 0, lastErrorCode: null });
+      });
+
+      it("voltar para rascunho só vale para a que falhou", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await postagemPronta(token, accountId);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "to-draft"),
+          payload: { version: post.version },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(409);
+        expect(resposta.body).toMatchObject({ code: "POST_TRANSITION_INVALID" });
+      });
+
+      it("voltar para rascunho com a versão velha dá conflito", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const post = await falhada(token, accountId);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "to-draft"),
+          payload: { version: post.version - 1 },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(409);
+        expect(resposta.body).toMatchObject({ code: "POST_VERSION_CONFLICT" });
+      });
+
+      // Decidir sobre uma que falhou é de quem agenda (ADR 0015).
+      it("voltar para rascunho sem POSTAGEM_AGENDAR é recusado", async () => {
+        const dono = await entrar();
+        const accountId = await conta();
+        const post = await falhada(dono.token, accountId);
+        const { token } = await entrar(["POST_EDIT"]);
+
+        const resposta = await api.request({
+          method: "POST",
+          url: url(accountId, post.id, "to-draft"),
+          payload: { version: post.version },
+          token,
+        });
+
+        expect(resposta.statusCode).toBe(403);
+      });
+
+      it("o histórico lista o que o motor fez, em ordem", async () => {
+        const { token } = await entrar(["POST_EDIT"]);
+        const accountId = await conta();
+        const dono = await entrar();
+        const post = await falhada(dono.token, accountId);
+        await api.db.publishEvent.create({ data: { postId: post.id, step: "DISPATCH", result: "SUCCESS" } });
+        await api.db.publishEvent.create({
+          data: { postId: post.id, step: "CREATE_CONTAINER", result: "FATAL_ERROR", metaResponse: { code: 190 } },
+        });
+
+        const resposta = await api.request({ method: "GET", url: url(accountId, post.id, "history"), token });
+
+        expect(resposta.statusCode).toBe(200);
+        expect(resposta.body).toMatchObject([
+          { step: "DISPATCH", result: "SUCCESS" },
+          { step: "CREATE_CONTAINER", result: "FATAL_ERROR", detail: { code: 190 } },
+        ]);
+      });
+
+      // Regra 24: a postagem de outra conta não aparece por este endereço.
+      it("o histórico de uma postagem de outra conta dá 404", async () => {
+        const { token } = await entrar();
+        const accountId = await conta();
+        const outraConta = await conta("outra.conta");
+        const post = await falhada(token, accountId);
+
+        const resposta = await api.request({ method: "GET", url: url(outraConta, post.id, "history"), token });
+
+        expect(resposta.statusCode).toBe(404);
+      });
     });
   });
 

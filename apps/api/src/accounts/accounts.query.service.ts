@@ -34,7 +34,7 @@ export class AccountsQueryService {
       timezone: account.timezone,
       tokenExpiresAt: account.tokenExpiresAt.toISOString(),
       tokenExpiresInDays: Math.floor((account.tokenExpiresAt.getTime() - now.getTime()) / DAY_MS),
-      warning: warningFor(account.tokenExpiresAt, now),
+      warning: warningFor(account.tokenExpiresAt, account.accessLostAt, now),
     }));
   }
 
@@ -45,7 +45,8 @@ export class AccountsQueryService {
   }
 }
 
-function warningFor(tokenExpiresAt: Date, now: Date): AccountWarning | null {
+function warningFor(tokenExpiresAt: Date, accessLostAt: Date | null, now: Date): AccountWarning | null {
+  if (accessLostAt !== null) return "ACCESS_LOST";
   const remaining = tokenExpiresAt.getTime() - now.getTime();
   if (remaining <= 0) return "TOKEN_EXPIRED";
   if (remaining <= TOKEN_WARNING_DAYS * DAY_MS) return "TOKEN_EXPIRING";

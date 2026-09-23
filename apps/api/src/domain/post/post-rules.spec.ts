@@ -117,8 +117,9 @@ describe("máquina de estados da postagem", () => {
       expect(statusAfterContentEdit("DRAFT")).toBe("DRAFT");
     });
 
-    it("editar em FALHOU mantém FALHOU: quem corrige ainda precisa reagendar", () => {
-      expect(statusAfterContentEdit("FAILED")).toBe("FAILED");
+    // Decisão de 22/09/2026: a versão aprovada era a que falhou; corrigir é conteúdo novo.
+    it("editar em FALHOU derruba para RASCUNHO", () => {
+      expect(statusAfterContentEdit("FAILED")).toBe("DRAFT");
     });
 
     it("o resultado é sempre um estado editável ou o mesmo de antes", () => {
