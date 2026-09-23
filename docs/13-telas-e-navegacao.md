@@ -174,8 +174,10 @@ flowchart TD
 | **Cadastro** | Definir senha e cadastrar duas etapas pelo link | — | RF-H06, RF-H04 | O QR code não serve se o aplicativo autenticador está no mesmo celular: a tela oferece "abrir no aplicativo autenticador" |
 | **Redefinir senha** | Nova senha pelo link | — | RF-H06 | — |
 | **Calendário** | Ver e reorganizar a programação | Arrastar ou mover: `POSTAGEM_AGENDAR` | RF-D06, RF-D07, RF-D08 | Visão de **agenda** (lista por dia) como padrão; mês e semana disponíveis. Mover por toque longo e arrastar, **ou** pelo menu "Mover para…" |
-| **Postagens** | Lista da conta ativa, com filtros por status e período; fila de pendências | — | RF-E06, RF-A09 | Filtros numa folha deslizante |
-| **Compor** | Criar e editar na conta ativa: formato, mídia, legenda, marcações, colaboradores, horário | `POSTAGEM_EDITAR` | RF-B01 a RF-B05, RF-C01 a RF-C12, RF-A09 | Etapas em sequência — formato, mídia, legenda, detalhes, horário — em vez de um formulário longo |
+| **Postagens** | Lista da conta ativa, com filtros por status e período; fila de pendências. A que falhou mostra a causa em uma linha, em vermelho, até alguém decidir (ADR 0007) | — | RF-E06, RF-A09, RF-F07 | Filtros numa folha deslizante |
+| **Compor** | Criar e editar na conta ativa: formato, mídia, legenda, **texto alternativo de cada foto**, marcações, colaboradores, horário | `POSTAGEM_EDITAR` | RF-B01 a RF-B05, RF-C01 a RF-C12, RF-A09 | Etapas em sequência — formato, mídia, legenda, detalhes, horário — em vez de um formulário longo. **Pendente:** até a Fase 1 são cartões empilhados; as etapas chegam depois da 1d, junto das marcações (decidido em 23/09/2026) |
+| **Postagem** (leitura) | A postagem que não se edita mais — publicada, saindo, descartada — e **qualquer** postagem para quem não tem `POSTAGEM_EDITAR`: a prévia como conteúdo e, ao lado, a situação ("Publicada em …" com **Ver no Instagram**, ou "Link indisponível"; "Saindo em instantes", com "tentativa N de 5" em retentativa) e os **detalhes de cada foto**. Nenhum campo, nenhum botão. Desenho do `RevisaoDesktop` | — | RF-F03, RF-F07, RF-B05 | A prévia em cima, os cartões embaixo |
+| **Falha** | A postagem em `FALHOU`: "A publicação não saiu", a causa em português com o botão dela (Reconectar), **O que fazer agora** — reagendar com a próxima hora cheia sugerida, voltar para rascunho, cancelar com confirmação — e o **histórico** das tentativas, com o detalhe técnico recolhido. Desenho do `FalhaCelular` | Decidir: `POSTAGEM_AGENDAR`; reconectar: `CONTA_GERENCIAR` | RF-F07, RF-F09; ADR 0007 | A causa primeiro; as ações empilhadas |
 | **Revisão** | Prévia fiel com as marcações visíveis sobre a foto; **detalhes de cada foto** — pessoas marcadas e texto alternativo, com aviso quando falta — e colaboradores da postagem; comentários internos; aprovar ou reprovar, agendar | Aprovar: `POSTAGEM_APROVAR`; agendar: `POSTAGEM_AGENDAR` | RF-E02 a RF-E05, RF-D01 | Ações fixas no rodapé |
 | **Acervo** | Mídias enviadas, reaproveitar, **excluir** | Enviar e excluir: `POSTAGEM_EDITAR` | RF-B01, RF-B04, RF-B07 | Envio pela câmera ou galeria |
 | **Contas** | Contas conectadas, prazo do token, cota | Conectar, desconectar, fuso: `CONTA_GERENCIAR` | RF-A01 a RF-A08 | — |
@@ -279,6 +281,10 @@ Nomes das variáveis do `shadcn/ui`. O tema segue a configuração do aparelho, 
 ### Cores dos status
 
 Sempre em pílula **com o nome escrito** e um ponto da mesma cor — nunca só a cor, por acessibilidade.
+
+**O nome que aparece na pílula** é o do código (`POST_STATUS_LABELS`), no feminino porque concorda com
+"postagem": Rascunho, Em revisão, **Pronta**, **Agendada**, **Publicando**, **Publicada**, Falhou, **Descartada**.
+A tabela abaixo usa os nomes dos estados só para dizer a cor. Decidido em 23/09/2026.
 
 | Status | Claro: texto / fundo | Escuro: texto / fundo |
 |---|---|---|

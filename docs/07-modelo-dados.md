@@ -478,7 +478,9 @@ o fuso da conta que define o que "10h da manhã" significa.
 
 `acessoPerdidoEm` é o "sinaliza a conta" do [09](09-motor-agendamento.md#classificação-de-erros-e-retentativa):
 preenchido quando a Meta recusa o token por inválido ou sem permissão, ao publicar ou ao renovar. Nulo é
-conta com acesso; reconectar ou renovar com sucesso o limpa. Acrescentado na Fase 1d.
+conta com acesso; reconectar ou renovar com sucesso o limpa. Acrescentado na Fase 1d. É ele que acende o aviso
+`ACCESS_LOST` na tela de contas, e que libera reconectar uma conta ativa — conta saudável continua recusando
+("já está conectada").
 
 ### `Midia`
 Um arquivo no MinIO mais os metadados extraídos na inspeção. Existe separada da postagem porque a

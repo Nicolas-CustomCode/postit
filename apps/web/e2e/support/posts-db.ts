@@ -35,3 +35,98 @@ export async function salvarComoOutraPessoa(postId: string, caption: string): Pr
     await client.end();
   }
 }
+
+export interface PostagemSemeada {
+  /** O status no banco, em português: `FALHOU`, `PUBLICADO`, `PROCESSANDO`… */
+  readonly status: "RASCUNHO" | "AGENDADO" | "PROCESSANDO" | "PUBLICADO" | "FALHOU" | "CANCELADO";
+  readonly caption?: string;
+  readonly scheduledAt?: Date;
+  readonly attempts?: number;
+  /** A causa, como o motor grava em `ultimoErroCodigo` — `TOKEN_INVALID`, `RATE_LIMITED`… */
+  readonly failureCause?: string;
+  /** As imagens, já no acervo, com o texto alternativo de cada uma. */
+  readonly media: readonly { readonly id: string; readonly altText?: string }[];
+  /** Com permalink, ou `null` para a publicada sem link (V-28). */
+  readonly publication?: { readonly permalink: string | null; readonly publishedAt: Date };
+  /**
+   * Com uma execução segurando a postagem, como o publicador a deixaria. Sem isso,
+   * uma `PROCESSANDO` semeada é órfã para o despachante do worker dos testes, que a
+   * recolheria e publicaria no meio do teste.
+   */
+  readonly leased?: boolean;
+  /** Linhas de `EventoPublicacao`, na ordem. */
+  readonly events?: readonly { readonly step: string; readonly result: string; readonly detail?: unknown }[];
+}
+
+/**
+ * Uma postagem no estado que o motor a deixaria — publicada, falhada, saindo —
+ * sem passar pelo motor. O caminho inteiro até `PUBLICADO` tem o seu teste; estes
+ * são para as telas de cada estado.
+ */
+export async function semearPostagem(postagem: PostagemSemeada): Promise<string> {
+  const client = new Client({ connectionString: process.env["TEST_DATABASE_URL"] });
+  await client.connect();
+
+  try {
+    const { rows } = await client.query<{ id: string }>(
+      `INSERT INTO "Postagem" (id, "contaId", formato, status, legenda, "publicarEm", tentativas, "ultimoErroCodigo",
+                               "criadoPorId", "agendadoPorId", versao, "criadoEm", "atualizadoEm",
+                               "execucaoId", "execucaoExpiraEm")
+       VALUES (
+         gen_random_uuid(),
+         (SELECT id FROM "Conta" ORDER BY "criadoEm" LIMIT 1),
+         'FEED',
+         $1::"StatusPostagem",
+         $2, $3, $4, $5,
+         (SELECT id FROM "Usuario" ORDER BY "criadoEm" LIMIT 1),
+         (SELECT id FROM "Usuario" ORDER BY "criadoEm" LIMIT 1),
+         1, now(), now(),
+         CASE WHEN $6 THEN gen_random_uuid() END,
+         CASE WHEN $6 THEN now() + interval '10 minutes' END
+       )
+       RETURNING id`,
+      [
+        postagem.status,
+        postagem.caption ?? "Legenda semeada",
+        postagem.scheduledAt ?? new Date(Date.now() - 30 * 60_000),
+        postagem.attempts ?? 0,
+        postagem.failureCause ?? null,
+        postagem.leased === true,
+      ],
+    );
+    const id = rows[0]?.id as string;
+
+    for (const [ordem, item] of postagem.media.entries()) {
+      await client.query(
+        `INSERT INTO "PostagemMidia" (id, "postagemId", "midiaId", ordem, "textoAlternativo")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+        [id, item.id, ordem, item.altText ?? null],
+      );
+    }
+
+    if (postagem.publication !== undefined) {
+      await client.query(
+        `INSERT INTO "Publicacao" (id, "postagemId", "idExterno", permalink, "publicadoEm")
+         VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+        [
+          id,
+          postagem.publication.permalink === null ? null : `1800${Math.floor(Math.random() * 1_000_000_000)}`,
+          postagem.publication.permalink,
+          postagem.publication.publishedAt,
+        ],
+      );
+    }
+
+    for (const evento of postagem.events ?? []) {
+      await client.query(
+        `INSERT INTO "EventoPublicacao" (id, "postagemId", etapa, resultado, "respostaMeta", "criadoEm")
+         VALUES (gen_random_uuid(), $1, $2::"EtapaPublicacao", $3::"ResultadoEtapa", $4, clock_timestamp())`,
+        [id, evento.step, evento.result, evento.detail === undefined ? null : JSON.stringify(evento.detail)],
+      );
+    }
+
+    return id;
+  } finally {
+    await client.end();
+  }
+}

@@ -117,5 +117,28 @@ export default defineConfig({
       reuseExistingServer: false,
       env: { NODE_ENV: "test", FAKE_META_PORT: String(FAKE_META_PORT) },
     },
+    {
+      /*
+       * O worker — quem despacha e publica (Fase 1d), contra o banco de teste e a
+       * Meta falsa. Não tem porta: o Playwright espera a linha que ele escreve ao
+       * subir. `DISPATCH_TICK_SECONDS` faz o despachante varrer a cada 2 s, e não só
+       * na volta do cron de um minuto; fora de NODE_ENV=test a variável impede o
+       * processo de subir.
+       *
+       * O pg-boss dele usa o esquema padrão; o Jest usa `pgboss_jest`. Assim um não
+       * pega as tarefas do outro no mesmo banco.
+       */
+      command: "npm run start:worker -w @repo/api",
+      wait: { stdout: /worker de pé/ },
+      reuseExistingServer: false,
+      env: {
+        NODE_ENV: "test",
+        DATABASE_URL: TEST_DATABASE_URL,
+        META_AUTH_URL: `http://127.0.0.1:${FAKE_META_PORT}`,
+        META_TOKEN_URL: `http://127.0.0.1:${FAKE_META_PORT}`,
+        META_GRAPH_URL: `http://127.0.0.1:${FAKE_META_PORT}`,
+        DISPATCH_TICK_SECONDS: "2",
+      },
+    },
   ],
 });

@@ -224,7 +224,7 @@ testes** e o app PostIt Dev — nunca numa conta real. Não há homologação ([
 | 13 | Enviar ao MinIO sem política assinada, ou maior que o tamanho autorizado | Recusado pelo armazenamento |
 | 14 | Fazer uma publicação falhar com o push ativado num celular | Push "Uma publicação falhou", **sem nome da conta nem motivo**; tocar abre a postagem com a causa |
 | 15 | Abrir a mesma postagem em dois aparelhos e salvar nos dois | O segundo recebe o aviso de conflito e não perde o que digitou |
-| 16 | Compor, marcar pessoas e agendar pelo celular | Tudo funciona sem computador |
+| 16 | Compor e agendar pelo celular | Tudo funciona sem computador. Marcar pessoas saiu daqui em 23/09/2026: é da Fase 2 (RF-C05), e o teste dela é o marco 4 de lá |
 | 17 | Excluir do acervo uma imagem **enviada de verdade** e abrir a URL dela | 404. É a única conferência que cobre o caminho completo com um objeto que existiu mesmo: no Playwright a mídia é semeada no banco e nunca teve arquivo no MinIO |
 | 18 | Enviar uma foto de celular em pé (3:4), escolhê-la para o feed pelo acervo e **ajustar** — nos dois modos | O recorte sai na proporção escolhida e a imagem inteira sai com faixas brancas; as duas entram na postagem, **e nenhuma das duas aparece no acervo**. Mesma razão do item 17: o canvas precisa dos pixels de verdade, e o e2e semeia mídia sem objeto no MinIO |
 | 19 | Publicar a imagem ajustada e comparar com o que o aplicativo faz com a mesma foto | A Meta aceita sem `36003 / 2207009`. É o que fecha o achado registrado no [08](08-integracao-instagram.md#o-aplicativo-aceita-34-a-api-não--observado-em-22092026) |
@@ -311,8 +311,18 @@ No mesmo dia, duas correções da casca: o botão "Nova postagem" da barra later
 itens da conta apagados, obrigando a escolher a conta de novo para voltar
 ([13](13-telas-e-navegacao.md#a-conta-na-casca-das-telas-gerais--desde-22092026)).
 
-**Falta desta fase:** o motor de publicação — despachante, publicador, as quatro camadas de
-idempotência, notificações (1d). Sem ele, uma postagem agendada fica esperando para sempre.
+**22 e 23/09/2026 — a 1d, o motor de publicação.** Despachante, publicador e tratador de falhas no worker,
+com as quatro camadas de idempotência, o arrendamento por postagem e o recolhimento de órfãs
+([09](09-motor-agendamento.md)); publica imagem única, **carrossel** e Story de imagem — o que antecipa os
+containers pai e filho da Fase 2. **A primeira publicação de verdade saiu em 23/09/2026**, pela conta de testes.
+
+Na mesma passagem (parte F): a postagem que não se edita abre em modo de leitura, com "Ver no Instagram"; a que
+falhou mostra a causa, as três saídas do ADR 0007 e o histórico; o texto alternativo por foto entrou na composição
+(RF-B05, que era da Fase 1 e estava sendo descartado); e quem não tem `POSTAGEM_EDITAR` passou a ver a postagem em
+vez de receber 404 (ADR 0015).
+
+**Falta desta fase:** as notificações — o sino (parte G) e o push com as preferências (parte H) —, e o roteiro de
+fogo.
 
 Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
 **5**, **6** a **11**, **14**, **15** e **16**.
@@ -341,8 +351,9 @@ sobrevive ao proxy. Falta só repetir no proxy de verdade, na estreia.
 |---|---|
 | Validador de vídeo: container, codec, duração, taxa de quadros, átomo `moov` | RF-B02, RF-B03 |
 | Upload resumível para vídeos grandes | RF-F10 |
-| Containers pai e filho do carrossel na publicação — a ordenação já existe (ADR 0024) | RF-C04, RF-C02 |
-| Reaproveitamento de containers filhos na retomada | RNF-02 |
+| ~~Containers pai e filho do carrossel na publicação~~ — **entregue na 1d** (22/09/2026) | RF-C04, RF-C02 |
+| ~~Reaproveitamento de containers filhos na retomada~~ — **entregue na 1d** | RNF-02 |
+| **Composição em etapas no celular** (docs/13, artboard com "Etapa N de 5") — pendência registrada em 23/09/2026, junto das marcações | RF-C01, RNF-15 |
 | Reels com capa, aparição no feed e nome do áudio | RF-C07, RF-C08 |
 | Stories com o aviso de recursos indisponíveis | RF-C11 |
 | Marcação de pessoas com coordenadas | RF-C05 |
@@ -513,9 +524,9 @@ Para comentários existe a alternativa de consultar periodicamente; para mensage
 | Fase | Requisitos |
 |---|---|
 | 0 | RF-A01 a RF-A04, RF-A06, RF-A08, RF-A09, RF-G06, RF-H01, RF-H04, RF-H05, RF-H06, RF-H07, RF-I01, RF-J05, RNF-05, RNF-06, RNF-13, RNF-14, RNF-15, RNF-16 (infraestrutura de RF-I04 e RF-I09) |
-| 1 | RF-B01 a RF-B03, RF-B05, RF-C01, RF-C03, RF-C12, RF-D01, RF-D03, RF-D09, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 |
-| 2 | RF-B04, RF-C02, RF-C04 a RF-C11, RF-F10 |
-| 3 | RF-D02, RF-D04 a RF-D08 |
+| 1 | RF-B01 a RF-B05, RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
+| 2 | RF-C05 a RF-C10, RF-F10 (e o que falta de RF-C02: Reels) |
+| 3 | RF-D02, RF-D06 a RF-D08 |
 | 4 | RF-E01 a RF-E06, RF-I02 a RF-I09 |
 | 5 | RF-A05, RF-A07, RF-G01 a RF-G04, RF-G07, RF-H02, RF-H03, RNF-11, RNF-12 |
 | Depois | RF-B06, RF-D10, RF-G05 |
