@@ -268,6 +268,7 @@ erDiagram
         string usuarioId FK
         string acao
         string motivo
+        datetime agendadaPara
         datetime criadoEm
     }
 
@@ -683,7 +684,18 @@ Por usuário e tipo, se quer push. Sem linha, vale o padrão: push ligado. O sin
 ### `Aprovacao` e `ComentarioInterno`
 Trilha do fluxo de revisão. `Aprovacao` registra as transições, com quem e por quê;
 `ComentarioInterno` é a conversa da equipe. Separadas porque uma é evento de estado e a outra é
-texto livre — misturar as duas tornaria confuso reconstruir o histórico.
+texto livre — misturar as duas tornaria confuso reconstruir o histórico. A Revisão as mostra **juntas**,
+numa linha do tempo, mas é a leitura que junta, não o banco.
+
+**Desde a 1e (23/09/2026; [ADR 0026](adr/0026-postagem-em-duas-etapas.md)), `Aprovacao` registra toda
+decisão humana de estado** (invariante I-11), não só as da revisão: enviar, aprovar, reprovar, voltar
+para rascunho, agendar e reagendar, desagendar, cancelar e invalidar por edição. `motivo` é o da
+reprovação; `agendadaPara` é o horário que a decisão marcou — "aprovada e agendada para sexta às 18:30".
+Postagens anteriores à 1e têm histórico incompleto: agendar e cancelar não deixavam linha.
+
+`ComentarioInterno` é de qualquer usuário logado (ADR 0026, emenda do ADR 0015) e não mexe na
+postagem: comentar não sobe `versao`. As duas tabelas têm índice por `(postagemId, criadoEm)`, a ordem
+da linha do tempo.
 
 **Por que "interno" no nome:** está planejado responder comentários do Instagram no futuro. Chamar
 a conversa da equipe só de `Comentario` criaria confusão garantida quando os comentários do público
@@ -715,6 +727,7 @@ PapelContainer    UNICO | PAI | FILHO
 StatusContainer   IN_PROGRESS | FINISHED | ERROR | EXPIRED | PUBLISHED
 MomentoMetrica    T1H | T24H | T7D | STORY_20H
 AcaoAprovacao     ENVIOU_REVISAO | APROVOU | REPROVOU | INVALIDOU_POR_EDICAO
+                  | VOLTOU_RASCUNHO | AGENDOU | DESAGENDOU | CANCELOU
 EtapaPublicacao   CRIAR_CONTAINER | CONSULTAR_STATUS | PUBLICAR | COLETAR_METRICAS
                   | DESPACHAR | RECONCILIAR | DESISTIR
 ResultadoEtapa    SUCESSO | ERRO_RECUPERAVEL | ERRO_FATAL

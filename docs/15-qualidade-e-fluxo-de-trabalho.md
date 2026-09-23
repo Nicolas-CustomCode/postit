@@ -167,15 +167,16 @@ Cenários obrigatórios:
 | 2 | Login com código gerado a partir do segredo de teste | RF-H04 |
 | 3 | Senha certa sem código não entra; código reusado é recusado | RF-H04 |
 | 4 | Onze senhas erradas bloqueiam a conta | RF-H05 |
-| 5 | Editor não vê o botão de aprovar, e a chamada direta à API recebe 403 | RF-I04 |
+| 5 | Editor não vê o botão de aprovar, e a chamada direta à API recebe 403 — `aprovacao.spec.ts`, com os usuários editor e aprovador da preparação | RF-I04 |
 | 6 | Enviar PNG é recusado com a mensagem certa | RF-B02 |
-| 7 | Compor, aprovar, agendar e ver no calendário | RF-C01, RF-E02, RF-D01, RF-D06 |
+| 7 | Compor, aprovar, agendar e ver no calendário. Desde a 1e: compor, continuar para a revisão e **aprovar e agendar**; o calendário é da Fase 3 | RF-C01, RF-E02, RF-D01, RF-D06 |
 | 8 | Publicação contra a Meta falsa, até `PUBLICADO` | RF-F01 a RF-F03 |
 | 9 | Duas abas editando a mesma postagem: a segunda recebe o aviso de conflito | RF-C12 |
 | 10 | Toda página tem CSP com nonce | RNF-14 |
 | 11 | `/entrar?voltar=//site-externo.com` leva para a tela inicial | RF-H01 |
 | 12 | Mover postagem pelo menu "Mover para…" no celular | RF-D07, RNF-15 |
 | 13 | Trocar a conta ativa troca calendário e postagens; link de postagem de outra conta abre na conta certa; duas abas em contas diferentes não se afetam | RF-A09 |
+| 14 | A revisão com papéis ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)): o editor envia e não vê aprovar; quem aprova reprova com motivo obrigatório e o autor vê o motivo na composição; quem aprova sem agendar deixa "falta agendar"; cancelar o agendamento mantém a aprovação; editar uma agendada volta para a composição; quem só vê comenta; no celular, a decisão fica no rodapé no lugar da barra | RF-E01 a RF-E05 |
 
 **O login com duas etapas nos testes** usa um usuário criado com um segredo TOTP conhecido só no ambiente de teste.
 O teste calcula o código com a mesma biblioteca, como qualquer aplicativo autenticador faria.

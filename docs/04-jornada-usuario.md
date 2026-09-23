@@ -111,7 +111,10 @@ iniciou a conexão. Sem isso, o retorno aceita requisição forjada. É o mesmo 
 
 ## 2 — Agendar uma imagem de feed com marcações
 
-**Quem:** editor. **Requisitos:** RF-B01, RF-B02, RF-C01, RF-C03, RF-C05, RF-C10, RF-D01.
+**Quem:** editor. **Requisitos:** RF-B01, RF-B02, RF-C01, RF-C03, RF-C05, RF-C10, RF-E01.
+
+É a **etapa 1 · Composição** da página da postagem ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)): ela
+só monta. O horário não é escolhido aqui — é decisão de quem revisa, na etapa 2 (jornada 5).
 
 ```mermaid
 sequenceDiagram
@@ -143,12 +146,14 @@ sequenceDiagram
     U->>W: Escreve a legenda
     W-->>U: Contador de caracteres, hashtags e mencoes
     U->>W: Marca perfis tocando na imagem
-    U->>W: Define texto alternativo e escolhe data e hora no fuso da conta
+    U->>W: Define o texto alternativo de cada foto
     W->>A: Salva a postagem com marcacoes
-    A->>A: Valida com zod e converte o horario para UTC
+    A->>A: Valida com zod
     A->>DB: Grava a postagem em RASCUNHO
-    U->>W: Envia para revisao
-    Note over W,DB: Segue para a jornada 5
+    U->>W: Envia para revisao (ou continua, se pode aprovar)
+    A->>A: Confere se esta pronta: imagem que serve ao formato, legenda no limite
+    A->>DB: EM_REVISAO, e a linha de Aprovacao de quem enviou
+    Note over W,DB: Segue para a jornada 5, na etapa 2 da mesma pagina
 ```
 
 O arquivo vai **direto do navegador para o MinIO**, sem atravessar o Next nem a API. A validação
@@ -169,8 +174,8 @@ apagado e nunca fica público. Ver [ADR 0012](adr/0012-upload-direto-minio.md).
 | Imagem ajustada pronta | Ela entra na postagem — acrescentada, se veio do seletor; no lugar da anterior, se veio da tarja — e **não aparece no acervo**: é variante de uma que já está lá. A original fica intacta |
 | Legenda no limite | Contador vira alerta ao passar de 2200 caracteres, 30 hashtags ou 20 menções |
 | Marcando pessoas | Sobreposição da imagem com os pontos arrastáveis |
-| Horário no passado | Campo recusa e explica |
-| Salvo | Postagem em `RASCUNHO`, botão para enviar à revisão |
+| Salvo | Postagem em `RASCUNHO`. No rodapé, "Salvar rascunho" e o botão que leva à etapa 2: **"Continuar para revisão"** para quem pode aprovar a postagem, **"Enviar para revisão"** para quem só edita. Os dois salvam antes. Sem imagem, ele fica apagado |
+| Voltou reprovada | No topo, quem reprovou, quando e o motivo — é o que a pessoa veio corrigir (RF-E03) |
 | Outra pessoa salvou antes | "Esta postagem foi alterada por Fulano às 14h32." O que foi digitado **continua na tela**, com as opções "ver a versão atual" e "descartar minhas alterações" (RF-C12) |
 
 **Por que a validação é no envio:** cada erro descoberto só na hora de publicar é uma postagem
@@ -271,35 +276,47 @@ reprova; quem tem `POSTAGEM_AGENDAR` agenda. **Requisitos:** RF-E01 a RF-E06, RF
 aparece nas postagens do próprio usuário — e a API recusa se alguém tentar mesmo assim. Ver
 [ADR 0015](adr/0015-super-admin-e-permissoes.md).
 
+É a **etapa 2 · Revisão** da página da postagem ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)),
+entregue na parte 1e. A fila de pendências (RF-E06) continua na Fase 4.
+
 ```mermaid
 stateDiagram-v2
     [*] --> RASCUNHO: editor cria
     RASCUNHO --> EM_REVISAO: envia para revisao
-    EM_REVISAO --> RASCUNHO: reprovado com motivo
-    EM_REVISAO --> APROVADO: aprovador aprova
+    EM_REVISAO --> RASCUNHO: reprovado com motivo, ou voltou para a composicao
+    EM_REVISAO --> AGENDADO: aprovar e agendar, numa decisao so
+    EM_REVISAO --> APROVADO: aprova sem agendar
     APROVADO --> AGENDADO: define data e hora
-    APROVADO --> RASCUNHO: conteudo editado
-    AGENDADO --> RASCUNHO: conteudo editado
-    AGENDADO --> CANCELADO: cancela
+    AGENDADO --> APROVADO: cancela o agendamento
+    APROVADO --> RASCUNHO: editar
+    AGENDADO --> RASCUNHO: editar
+    AGENDADO --> CANCELADO: descarta
     RASCUNHO --> CANCELADO: descarta
     AGENDADO --> [*]: segue para publicacao
     CANCELADO --> [*]
 ```
 
-**A regra que evita o pior acidente do fluxo:** editar o conteúdo de uma postagem já aprovada ou
-agendada devolve ela para `RASCUNHO`. Sem isso, alguém aprova uma legenda, outra pessoa troca o
-texto, e o que vai ao ar não é o que foi aprovado. O custo é ter que reaprovar depois de um ajuste
-de vírgula — e vale a pena.
+A seta `EM_REVISAO → AGENDADO` do diagrama é o atalho de leitura de **duas** transições da máquina —
+aprovar e agendar —, feitas numa transação só. A máquina de estados do [05](05-arquitetura.md) não tem essa
+aresta.
+
+**A regra que evita o pior acidente do fluxo:** editar o conteúdo de uma postagem em revisão, aprovada ou
+agendada devolve ela para `RASCUNHO`. Sem isso, alguém aprova uma legenda, outra pessoa troca o texto, e o
+que vai ao ar não é o que foi aprovado. O custo é ter que reaprovar depois de um ajuste de vírgula — e vale
+a pena. Na Revisão, "Editar" e "Voltar para a composição" pedem confirmação e dizem isso antes.
 
 **Estados de interface:**
 
 | Estado | O que o usuário vê |
 |---|---|
-| Fila de pendências | Lista do que aguarda revisão, mais urgente primeiro pelo horário previsto |
-| Em revisão | Postagem em modo leitura, com prévia fiel e o painel de comentários ao lado |
-| Reprovando | Comentário obrigatório: não dá para reprovar em silêncio |
-| Aprovada | Selo com quem aprovou e quando; libera o botão de agendar |
-| Editada após aprovação | Aviso explícito: "esta postagem voltou para rascunho porque o conteúdo mudou" |
+| Em revisão, para quem aprova | Prévia fiel e detalhes de cada foto de um lado; do outro, "Aguardando aprovação — enviada por Fulano", data e hora no fuso da conta, **"Aprovar e agendar"** e **"Reprovar com motivo"**. Sem `POSTAGEM_AGENDAR`, só "Aprovar" |
+| Em revisão, para quem não aprova | O mesmo cartão sem decisão: "Quem aprova escolhe o dia e a hora". Na própria postagem, sem `POSTAGEM_APROVAR_PROPRIA`: "outra pessoa precisa aprová-la" |
+| Reprovando | Motivo obrigatório: o botão "Reprovar" fica apagado até haver texto |
+| Aprovada, falta agendar | "Aprovada — falta agendar", com quem aprovou e quando; data, hora e "Agendar" para quem agenda |
+| Agendada | O horário em destaque, no fuso da conta; "Reagendar", "Editar" e "Cancelar agendamento" — este volta para aprovada |
+| Comentários | Qualquer logado comenta. As decisões aparecem intercaladas — enviada, reprovada com o motivo, aprovada e agendada para… —, cada comentário no seu contexto |
+| No celular | As ações principais fixas no rodapé; a barra de navegação some nesta página |
+| Fila de pendências | Fase 4: lista do que aguarda revisão, mais urgente primeiro pelo horário previsto |
 
 ---
 

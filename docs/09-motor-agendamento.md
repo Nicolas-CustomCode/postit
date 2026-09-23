@@ -385,6 +385,14 @@ O despachante só muda para `PROCESSANDO` se o status ainda for `AGENDADO`, e s�
 mudança aconteceu — tudo na mesma transação. Se duas execuções do despachante tentarem ao mesmo
 tempo, uma atualiza uma linha e cria a tarefa; a outra atualiza zero linhas e não faz nada.
 
+**A mesma cerca vale contra a pessoa.** Desde a 1e dá para tirar uma `AGENDADO` do agendamento sem
+editar — cancelar o agendamento (volta para `APROVADO`) ou voltar para a composição ([ADR
+0026](adr/0026-postagem-em-duas-etapas.md)). Se a pessoa grava primeiro, a escrita dela sobe a `versao`,
+e o despachante — que cerca por `{status, versao}` — não encontra a linha. Se o despachante chega
+primeiro, a escrita da pessoa, que cerca pelo status, não encontra `AGENDADO` e responde 409: a tela diz
+que a postagem mudou e oferece recarregar. A janela é de até um minuto antes do horário, porque o
+despachante olha um minuto adiante.
+
 ### Camada 4 — restrição de unicidade no banco
 `Publicacao.postagemId` é único. Mesmo que todas as camadas anteriores falhassem por um caminho
 imprevisto, a segunda gravação seria recusada pelo banco. É a rede de segurança final, e é
@@ -683,14 +691,17 @@ dia, deslocando a janela inteira de uma métrica em silêncio.
 ### O horário de uma postagem que volta a ser rascunho
 
 Editar o conteúdo de uma postagem `AGENDADO` a derruba para `RASCUNHO` (invariante I-2, RF-E05). O
-`publicarEm` **é apagado junto** — decidido em 20/09/2026.
+`publicarEm` **é apagado junto** — decidido em 20/09/2026. Vale também para as portas sem edição da 1e:
+voltar para a composição apaga o horário, e cancelar o agendamento também, mantendo a aprovação.
 
 O motivo: a I-2 existe para tornar visível que a aprovação morreu. Um horário sobrevivente diria o
 contrário **no campo que a pessoa foi conferir** — ela corrige uma vírgula, vê "sexta, 10:00" ainda lá,
 fecha o navegador satisfeita, e a postagem não sai.
 
-O que ela digitou não se perde: a **tela** mantém os campos preenchidos, com o aviso de que o horário
-foi desmarcado, e reagendar é um clique. Só o banco não guarda horário que não vai cumprir.
+Desde a 1e o horário não mora mais na Composição, e sim na Revisão ([ADR
+0026](adr/0026-postagem-em-duas-etapas.md)): antes de "Editar", a tela avisa que a postagem volta para
+rascunho e perde o horário, e o novo sai da revisão seguinte. Só o banco não guarda horário que não vai
+cumprir — e a linha de `Aprovacao` do agendamento anterior continua contando que ele existiu.
 
 ---
 

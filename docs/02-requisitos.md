@@ -322,6 +322,11 @@ bloqueado — não se muda o horário de algo que já está sendo publicado.
 **Aceite:** postagem em `AGENDADO` ou `FALHOU` vai para `CANCELADO`. Postagem em `PUBLICADO` não
 pode ser cancelada pelo sistema, porque a API não apaga posts.
 
+**Desde 23/09/2026 ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)):** na página da postagem,
+"Cancelar agendamento" de uma `AGENDADO` **não descarta** — volta para `APROVADO`, sem horário, e a
+aprovação continua valendo. Descartar de vez continua sendo este requisito: a API o mantém, e a página o
+oferece para a que falhou ("Cancelar postagem").
+
 ### RF-D06 — Calendário visual **[MVP]**
 **Aceite:** visão mensal e semanal, por conta, com cor por status e miniatura da mídia.
 
@@ -344,28 +349,41 @@ Sugerir horários com base no histórico de desempenho.
 
 ## Módulo E — Aprovação
 
+> **Entregues na parte 1e, em 23/09/2026** ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)): RF-E01 a
+> RF-E05, antecipados da Fase 4 junto com a página da postagem em duas etapas. RF-E06 continua na Fase 4.
+
 ### RF-E01 — Enviar para revisão **[MVP]**
-**Aceite:** `RASCUNHO` para `EM_REVISAO`. Postagem em revisão não pode ser agendada.
+**Aceite:** `RASCUNHO` para `EM_REVISAO`. Postagem em revisão não pode ser agendada. **Só vai para revisão
+a postagem pronta** — com imagem que serve ao formato e legenda dentro do limite: quem revisa não recebe
+postagem incompleta.
 
 ### RF-E02 — Aprovar **[MVP]**
 **Aceite:** `EM_REVISAO` para `APROVADO`, registrando quem aprovou e quando. Exige `POSTAGEM_APROVAR`; se
 quem aprova é o autor da postagem, exige também `POSTAGEM_APROVAR_PROPRIA` (RF-I04).
 
-**Estado, desde 20/09/2026:** na Fase 1 as duas transições são **encadeadas numa transação** — "marcar
-como pronta" envia para revisão e aprova no mesmo ato, gravando as duas linhas de `Aprovacao`. Não há
-fila de revisão nem reprovação com motivo (RF-E03) ainda: elas chegam na Fase 4, e a mudança lá é
-parar de encadear. A regra de `POSTAGEM_APROVAR_PROPRIA` **já vale**.
+**Aprovar e agendar é uma decisão só** ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)): quem tem também
+`POSTAGEM_AGENDAR` escolhe o horário na revisão, e a postagem vai de `EM_REVISAO` a `AGENDADO` numa
+transação, com uma linha de `Aprovacao` que guarda o horário. Horário no passado recusa tudo — ela continua
+em revisão. Quem aprova sem agendar deixa a postagem `APROVADO`, esperando quem agende.
+
+Até 23/09/2026 "marcar como pronta" encadeava enviar e aprovar num clique; o ADR 0026 separou os dois.
 
 ### RF-E03 — Rejeitar com motivo **[MVP]**
-**Aceite:** volta para `RASCUNHO` com comentário obrigatório explicando o ajuste necessário.
+**Aceite:** volta para `RASCUNHO` com comentário obrigatório explicando o ajuste necessário — de 1 a
+1000 caracteres, sem contar espaços nas pontas. O motivo aparece no topo da composição para quem vai
+corrigir. A regra de autoaprovação vale também aqui.
 
 ### RF-E04 — Comentários internos **[MVP]**
 **Aceite:** conversa por postagem, ordenada por data, com autor identificado, que sobrevive às
-mudanças de status.
+mudanças de status. **Qualquer usuário logado comenta** ([ADR 0026](adr/0026-postagem-em-duas-etapas.md),
+que emenda o ADR 0015). As decisões — enviada, aprovada, reprovada, agendada — aparecem intercaladas aos
+comentários, cada um no seu contexto.
 
 ### RF-E05 — Invalidar aprovação ao editar **[MVP]**
-**Aceite:** alterar legenda, mídia, marcações ou formato de uma postagem `APROVADO` ou `AGENDADO`
-devolve o status para `RASCUNHO` e registra o motivo. Impede aprovar uma coisa e publicar outra.
+**Aceite:** alterar legenda, mídia, marcações ou formato de uma postagem `EM_REVISAO`, `APROVADO`,
+`AGENDADO` ou `FALHOU` devolve o status para `RASCUNHO` e registra o motivo. Impede aprovar uma coisa e
+publicar outra. `EM_REVISAO` entrou na 1e: sem isso, quem aprova reescreveria a postagem de um colega e a
+aprovaria em seguida.
 
 **O horário sai junto** — decidido em 20/09/2026. Uma postagem que voltou a ser rascunho não pode
 exibir horário de saída: seria a invariante se desarmando no campo que a pessoa foi conferir. O que ela
@@ -529,11 +547,11 @@ Decisão completa em [ADR 0015](adr/0015-super-admin-e-permissoes.md).
 ### Permissões exigidas por requisito
 
 Todo usuário autenticado **vê** calendário, postagens, acervo, métricas, contas conectadas e painel de
-saúde, e gerencia o próprio perfil. **Agir** exige permissão:
+saúde, **comenta postagens** (RF-E04; ADR 0026) e gerencia o próprio perfil. **Agir** exige permissão:
 
 | Permissão | Requisitos que ela libera |
 |---|---|
-| `POSTAGEM_EDITAR` | RF-B01 a RF-B05 e RF-B07, RF-C01 a RF-C12, RF-E01, RF-E04 |
+| `POSTAGEM_EDITAR` | RF-B01 a RF-B05 e RF-B07, RF-C01 a RF-C12, RF-E01, e voltar para a composição (ADR 0026) |
 | `POSTAGEM_APROVAR` | RF-E02, RF-E03 — postagens de outros |
 | `POSTAGEM_APROVAR_PROPRIA` | RF-E02 — a própria postagem, junto com `POSTAGEM_APROVAR` |
 | `POSTAGEM_AGENDAR` | RF-D01, RF-D02, RF-D04, RF-D05, RF-D07, e as decisões de RF-F07 |

@@ -321,8 +321,18 @@ falhou mostra a causa, as três saídas do ADR 0007 e o histórico; o texto alte
 (RF-B05, que era da Fase 1 e estava sendo descartado); e quem não tem `POSTAGEM_EDITAR` passou a ver a postagem em
 vez de receber 404 (ADR 0015).
 
+**23/09/2026 — a 1e, a postagem em duas etapas** ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)). Ao usar o motor
+pela primeira vez, a página da postagem confundiu: um formulário só, com o horário no meio da montagem e telas
+diferentes por estado. Ela virou um *checkout* de duas etapas — **1 · Composição**, que só monta, e **2 · Revisão**,
+onde se aprova e agenda —, com o estado num cartão e os comentários internos com o histórico intercalado. Para isso
+entraram **antecipados da Fase 4** enviar para revisão, aprovar e agendar numa decisão só, reprovar com motivo,
+comentários de qualquer logado e a invalidação ao editar em revisão (RF-E01 a RF-E05, e o bloqueio de agendar sem
+aprovação). A aresta nova `AGENDADO → APROVADO` é cancelar o agendamento sem perder a aprovação, e `Aprovacao` passou
+a registrar toda decisão humana de estado (I-11). A revisão independente do desenho da API achou um buraco antes da
+entrega: editar em revisão não derrubava, e quem aprova podia reescrever a postagem de um colega e aprová-la.
+
 **Falta desta fase:** as notificações — o sino (parte G) e o push com as preferências (parte H) —, e o roteiro de
-fogo.
+fogo. Com a revisão de verdade na 1e, o G decide se "aguardando aprovação" entra junto.
 
 Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
 **5**, **6** a **11**, **14**, **15** e **16**.
@@ -414,12 +424,12 @@ infraestrutura de permissões já nasceu na Fase 0; aqui entram as telas e o flu
 
 | Entrega | Requisitos |
 |---|---|
-| Transições de rascunho, revisão e aprovação | RF-E01 a RF-E03 |
-| Autoaprovação só com `POSTAGEM_APROVAR_PROPRIA` | RF-E02, RF-I04 |
-| Comentários internos por postagem | RF-E04 |
-| Invalidação da aprovação ao editar | RF-E05 |
+| ~~Transições de rascunho, revisão e aprovação~~ — **entregue na 1e** (23/09/2026) | RF-E01 a RF-E03 |
+| ~~Autoaprovação só com `POSTAGEM_APROVAR_PROPRIA`~~ — **entregue na 1b**, e na revisão da 1e | RF-E02, RF-I04 |
+| ~~Comentários internos por postagem~~ — **entregue na 1e**, de qualquer logado (ADR 0026) | RF-E04 |
+| ~~Invalidação da aprovação ao editar~~ — **entregue na 1b**, ampliada na 1e | RF-E05 |
 | Fila de pendências ordenada por urgência | RF-E06 |
-| Bloqueio de agendamento sem aprovação | RF-D01 |
+| ~~Bloqueio de agendamento sem aprovação~~ — **entregue na 1e** | RF-D01 |
 
 **Área de administração** — ver [ADR 0015](adr/0015-super-admin-e-permissoes.md)
 
@@ -433,7 +443,8 @@ infraestrutura de permissões já nasceu na Fase 0; aqui entram as telas e o flu
 | Trilha de auditoria | RF-I07 |
 | Confirmação recente de 15 minutos | RF-I08 |
 
-**Marco verificável:**
+**Marco verificável** (1 a 3 e 5 já têm teste automático desde a 1e — `approval.integration.spec.ts` e
+`aprovacao.spec.ts`):
 1. Tentar agendar uma postagem em `RASCUNHO` — bloqueado
 2. Aprovar, agendar, então editar a legenda — volta para `RASCUNHO`, com aviso explícito
 3. Reprovar sem comentário — bloqueado
@@ -524,10 +535,10 @@ Para comentários existe a alternativa de consultar periodicamente; para mensage
 | Fase | Requisitos |
 |---|---|
 | 0 | RF-A01 a RF-A04, RF-A06, RF-A08, RF-A09, RF-G06, RF-H01, RF-H04, RF-H05, RF-H06, RF-H07, RF-I01, RF-J05, RNF-05, RNF-06, RNF-13, RNF-14, RNF-15, RNF-16 (infraestrutura de RF-I04 e RF-I09) |
-| 1 | RF-B01 a RF-B05, RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
+| 1 | RF-B01 a RF-B05, RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-E01 a RF-E05, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
 | 2 | RF-C05 a RF-C10, RF-F10 (e o que falta de RF-C02: Reels) |
 | 3 | RF-D02, RF-D06 a RF-D08 |
-| 4 | RF-E01 a RF-E06, RF-I02 a RF-I09 |
+| 4 | RF-E06, RF-I02 a RF-I09 (RF-E01 a RF-E05 antecipados na 1e) |
 | 5 | RF-A05, RF-A07, RF-G01 a RF-G04, RF-G07, RF-H02, RF-H03, RNF-11, RNF-12 |
 | Depois | RF-B06, RF-D10, RF-G05 |
 

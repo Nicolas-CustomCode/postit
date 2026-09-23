@@ -187,25 +187,28 @@ O login em si — senha, desafio e código de 6 digitos — está em
 O coração do sistema. Todo comportamento se ancora aqui. A máquina vive em
 `apps/api/src/domain/post/`, como código puro, sem banco e sem HTTP.
 
-> **Nenhuma aresta foi acrescentada para a autoaprovação da Fase 1** — decidido em 20/09/2026.
-> Marcar uma postagem como pronta percorre `RASCUNHO → EM_REVISAO → APROVADO`, as duas transições
-> abaixo, **na mesma transação**, gravando as duas linhas de `Aprovacao`. Nenhuma postagem *persiste*
-> em `EM_REVISAO`, então não existe fila de revisão ainda; a invariante I-1 vale sem exceção, e na
-> Fase 4 a mudança é **parar de encadear**. A alternativa — abrir `RASCUNHO → APROVADO` — criaria uma
-> aresta que teria de ser fechada depois, e um diagrama que mente sobre o fluxo real.
+> **Enviar e aprovar são decisões separadas desde a 1e** ([ADR 0026](adr/0026-postagem-em-duas-etapas.md),
+> 23/09/2026). Até ali, "marcar como pronta" encadeava `RASCUNHO → EM_REVISAO → APROVADO` numa
+> transação, sem aresta inventada. O encadeamento que sobrou é **aprovar e agendar**: `EM_REVISAO →
+> APROVADO → AGENDADO`, as duas transições abaixo, numa transação e com uma linha de `Aprovacao` — de novo
+> sem abrir `EM_REVISAO → AGENDADO`, e só a partir de `EM_REVISAO`.
+>
+> A 1e acrescentou **uma** aresta: `AGENDADO → APROVADO`, cancelar o agendamento sem perder a aprovação.
+> Ela não fere a I-1 — é de `APROVADO` que se chega a `AGENDADO`, não o contrário.
 
 ```mermaid
 stateDiagram-v2
     [*] --> RASCUNHO
 
     RASCUNHO --> EM_REVISAO: enviar para revisao
-    EM_REVISAO --> RASCUNHO: reprovar com motivo
+    EM_REVISAO --> RASCUNHO: reprovar com motivo, voltar para a composicao ou editar conteudo
     EM_REVISAO --> APROVADO: aprovar
 
     APROVADO --> AGENDADO: definir horario
-    APROVADO --> RASCUNHO: editar conteudo
+    APROVADO --> RASCUNHO: voltar para a composicao ou editar conteudo
 
-    AGENDADO --> RASCUNHO: editar conteudo
+    AGENDADO --> APROVADO: cancelar o agendamento
+    AGENDADO --> RASCUNHO: voltar para a composicao ou editar conteudo
     AGENDADO --> PROCESSANDO: despachante entrega ao worker
     AGENDADO --> CANCELADO: cancelar
     AGENDADO --> FALHOU: mais de 15 min de atraso
@@ -231,7 +234,7 @@ Regras que valem sempre e que a implementação precisa garantir, não apenas re
 | # | Invariante | Como se garante |
 |---|---|---|
 | I-1 | Só uma postagem `APROVADO` pode virar `AGENDADO` | Transição validada no domínio, na API — não só na tela |
-| I-2 | Editar conteúdo em `APROVADO`, `AGENDADO` **ou `FALHOU`** derruba para `RASCUNHO` **e apaga `publicarEm`** | Regra no serviço de escrita, aplicada a qualquer alteração de conteúdo — inclusive o texto alternativo de uma foto. `FALHOU` entrou em 22/09/2026: a versão aprovada era a que falhou, e corrigi-la é conteúdo novo. A mesma aresta tem uma porta sem edição, "voltar para rascunho" (`POST :postId/to-draft`, com `POSTAGEM_AGENDAR`), e sair de `FALHOU` por qualquer caminho zera tentativas e causa. O horário sai junto porque uma postagem que não vai sair não pode exibir horário de saída — ver [09](09-motor-agendamento.md#o-horário-de-uma-postagem-que-volta-a-ser-rascunho) |
+| I-2 | Editar conteúdo em `EM_REVISAO`, `APROVADO`, `AGENDADO` **ou `FALHOU`** derruba para `RASCUNHO` **e apaga `publicarEm`** | Regra no serviço de escrita, aplicada a qualquer alteração de conteúdo — inclusive o texto alternativo de uma foto. `FALHOU` entrou em 22/09/2026: a versão aprovada era a que falhou, e corrigi-la é conteúdo novo. `EM_REVISAO` entrou em 23/09/2026 (ADR 0026): sem isso, quem aprova reescreveria a postagem de um colega e a aprovaria em seguida. A aresta tem duas portas sem edição: "voltar para a composição" (`POST :postId/reopen`, com `POSTAGEM_EDITAR`) de revisão, aprovada e agendada, e "voltar para rascunho" (`POST :postId/to-draft`, com `POSTAGEM_AGENDAR`) da que falhou. Toda queda zera tentativas e causa. O horário sai junto porque uma postagem que não vai sair não pode exibir horário de saída — ver [09](09-motor-agendamento.md#o-horário-de-uma-postagem-que-volta-a-ser-rascunho) |
 | I-3 | `PUBLICADO` é terminal e irreversível | Nenhuma transição sai de `PUBLICADO`. A API da Meta não apaga posts |
 | I-4 | `FALHOU` só sai por ação humana | O worker nunca reagenda sozinho a partir de `FALHOU` |
 | I-5 | Uma postagem com identificador de mídia gravado nunca republica | Verificação no início da execução, antes de qualquer chamada à Meta |
@@ -240,6 +243,7 @@ Regras que valem sempre e que a implementação precisa garantir, não apenas re
 | I-8 | Nenhuma publicação começa mais de 15 minutos depois do horário marcado — e nenhuma chamada à Meta acontece mais de 45 minutos depois | Verificação no despachante e na primeira execução do publicador; o teto de 45 minutos, antes de cada chamada. Ver [ADR 0007](adr/0007-falha-exige-decisao-humana.md) |
 | I-9 | Só o processo worker publica | Módulos de publicação e filas importados só pelo `WorkerModule`, com teste de arquitetura |
 | I-10 | Sempre existe ao menos um super admin ativo | Desativar ou remover super admin conta os restantes na mesma transação e desiste se sobraria zero. Ver [ADR 0015](adr/0015-super-admin-e-permissoes.md) |
+| I-11 | Toda mudança de status feita por uma pessoa grava uma linha em `Aprovacao`, na mesma transação | O primitivo de escrita da postagem recusa mudar status sem o registro da decisão — enviar, aprovar, reprovar, voltar para rascunho, agendar, desagendar, cancelar, invalidar por edição. É dele que a Revisão conta a história ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)); o que o worker faz vai para `EventoPublicacao` |
 
 A invariante I-5 é a que impede o pior acidente possível: publicar duas vezes. Ela é verificada
 **antes** de qualquer chamada à Meta, e o identificador é gravado **na mesma transação** que muda o

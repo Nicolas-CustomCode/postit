@@ -344,7 +344,7 @@ Toda rota da API declara uma política. Rota sem declaração é **recusada**.
 | Política | Quem passa |
 |---|---|
 | `@Public` | Qualquer um. Só as rotas de entrar, completar o desafio e usar links de cadastro e redefinição |
-| `@AnyAuthenticated` | Qualquer usuário com sessão. Leituras e o próprio perfil |
+| `@AnyAuthenticated` | Qualquer usuário com sessão. Leituras, o próprio perfil e comentar postagem ([ADR 0026](adr/0026-postagem-em-duas-etapas.md)) |
 | `@RequirePermission(...)` | Usuário com aquela permissão, ou super admin |
 | `@SuperAdmin` | Só super admin. Toda a área de administração |
 | `@RecentConfirmation` | Somada a outra política: exige código do aplicativo digitado há menos de 15 minutos |
@@ -353,18 +353,20 @@ Dois testes automatizados, com as rotas **descobertas pelo Nest**, sem lista esc
 
 - **Política de rotas:** falha se alguma rota não declarar política
 - **Matriz de permissões:** falha se alguma rota com `@RequirePermission` aceitar usuário sem ela
+- **Escritas abertas:** falha se aparecer escrita `@AnyAuthenticated` fora da lista fechada — as do próprio
+  perfil e comentar postagem. Ação sobre dado compartilhado exige `@RequirePermission`
 
 ### As permissões
 
-Todo usuário autenticado **vê** tudo — calendário, postagens, acervo, métricas, contas, painel de saúde — e
-gerencia o próprio perfil. **Agir** exige permissão:
+Todo usuário autenticado **vê** tudo — calendário, postagens, acervo, métricas, contas, painel de saúde —,
+**comenta postagens** e gerencia o próprio perfil. **Agir** exige permissão:
 
 | Permissão | Libera |
 |---|---|
-| `POSTAGEM_EDITAR` | Criar e editar rascunhos, enviar mídia, enviar para revisão, descartar rascunho, comentar |
+| `POSTAGEM_EDITAR` | Criar e editar rascunhos, enviar mídia, enviar para revisão, descartar rascunho, voltar uma postagem para a composição |
 | `POSTAGEM_APROVAR` | Aprovar e reprovar postagens de outros |
 | `POSTAGEM_APROVAR_PROPRIA` | Aprovar a própria postagem, junto com `POSTAGEM_APROVAR` |
-| `POSTAGEM_AGENDAR` | Agendar, reagendar, cancelar, publicar agora, decidir sobre `FALHOU` |
+| `POSTAGEM_AGENDAR` | Agendar, reagendar, cancelar e cancelar o agendamento, publicar agora, decidir sobre `FALHOU`. Aprovar **e** agendar numa decisão só exige esta e `POSTAGEM_APROVAR` |
 | `CONTA_GERENCIAR` | Conectar e desconectar contas do Instagram, alterar fuso |
 
 Regras:
