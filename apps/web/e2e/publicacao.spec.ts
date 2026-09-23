@@ -199,13 +199,16 @@ test.describe("quem só vê", () => {
     await createAccount({ username: CONTA, name: "Loja Aurora" });
   });
 
-  test("abre a postagem em leitura, sem campo nem botão", async ({ page }) => {
+  test("abre a postagem em leitura, sem campo nem botão", async ({ page, isMobile }) => {
     const midia = await criarMidia({ width: 1080, height: 1350 });
     const id = await semearPostagem({ status: "RASCUNHO", media: [{ id: midia.id }] });
 
     await page.goto(url(id));
 
-    await expect(page.getByRole("navigation", { name: "Menu principal" })).toBeVisible();
+    // A casca está lá. No celular, a página da postagem esconde a barra inferior
+    // (ADR 0026); a barra lateral é do computador.
+    if (isMobile !== true) await expect(page.getByRole("navigation", { name: "Menu principal" })).toBeVisible();
+    else await expect(page.getByRole("navigation", { name: "Menu principal" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Postagem", exact: true })).toBeVisible();
     await expect(page.getByText("Você pode ver esta postagem, mas não editar.")).toBeVisible();
     await expect(page.getByLabel("Legenda")).toHaveCount(0);

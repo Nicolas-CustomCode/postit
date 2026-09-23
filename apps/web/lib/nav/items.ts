@@ -76,3 +76,15 @@ export function visibleItems(actor: { superAdmin: boolean; permissions: readonly
 
 /** Os cinco da barra inferior do celular, nesta ordem (docs/13, "Navegação"). */
 export const MOBILE_KEYS = ["calendario", "postagens", "nova", "notificacoes", "mais"] as const;
+
+/**
+ * A página da postagem — compor ou revisar — esconde a barra inferior do celular
+ * (ADR 0026, decisão 6): como num checkout, as ações da etapa ficam fixas no
+ * rodapé, e duas barras empilhadas apertariam a tela.
+ *
+ * Pelo endereço, lido por quem desenha a barra, que é componente de cliente — nunca
+ * calculado no layout, que congela na primeira carga (AGENTS.md, regra 25).
+ */
+export function hidesBottomBar(pathname: string): boolean {
+  return /^\/c\/[^/]+\/postagens\/[^/]+\/?$/.test(pathname);
+}

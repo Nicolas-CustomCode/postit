@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import type { SessionUser } from "@repo/shared";
 import { UserCard } from "@/components/nav/user-card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { hrefFor, visibleItems } from "@/lib/nav/items";
+import { hidesBottomBar, hrefFor, visibleItems } from "@/lib/nav/items";
 import { useShellAccount } from "@/lib/nav/use-shell-account";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +50,9 @@ export function BottomBar({
   const restantes = visibleItems({ superAdmin: user.superAdmin, permissions: user.permissions }).filter(
     (item) => !["calendario", "postagens", "notificacoes"].includes(item.key),
   );
+
+  // Depois dos hooks: a ordem deles não pode depender do endereço.
+  if (hidesBottomBar(pathname)) return null;
 
   return (
     <nav

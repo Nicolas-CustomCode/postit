@@ -136,6 +136,19 @@ test.describe("casca no celular", () => {
    * para as telas da conta. Só no celular, porque no computador a barra lateral
    * tem o seletor sempre visível.
    */
+  // ADR 0026: na página da postagem, as ações da etapa ficam no rodapé no lugar da barra.
+  test("na página da postagem a barra inferior some, e volta na lista", async ({ page }) => {
+    await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
+    const barra = page.getByRole("navigation", { name: "Menu principal" });
+
+    await page.goto("/c/aurora.loja/postagens/nova");
+    await expect(page.getByRole("button", { name: /salvar rascunho/i })).toBeVisible();
+    await expect(barra).toHaveCount(0);
+
+    await page.goto("/c/aurora.loja/postagens");
+    await expect(barra).toBeVisible();
+  });
+
   test("de uma tela geral, a barra inferior volta para a conta", async ({ page }) => {
     await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
     await page.goto("/contas");
