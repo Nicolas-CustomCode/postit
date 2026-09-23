@@ -1,6 +1,6 @@
 {
   "name": "@repo/api",
-  "version": "0.1.69",
+  "version": "0.1.70",
   "private": true,
   "//": "NestJS 11 com Fastify. Um código, dois processos: main.ts (HTTP, só o Next alcança) e worker.ts (filas, sem HTTP). Só o worker publica. Ver docs/05 e docs/adr/0010.",
   "scripts": {

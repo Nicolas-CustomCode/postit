@@ -1,6 +1,7 @@
 import { test as setup } from "@playwright/test";
-import { ESTADO_COMUM, ESTADO_SUPER_ADMIN } from "./support/estado";
+import { ESTADO_APROVADOR, ESTADO_COMUM, ESTADO_EDITOR, ESTADO_SUPER_ADMIN } from "./support/estado";
 import { primeiroAcesso } from "./support/login";
+import { concederPermissoes } from "./support/permissions-db";
 
 /**
  * Entra uma vez e guarda o estado do navegador para os outros testes.
@@ -25,4 +26,22 @@ setup("entra como usuário comum", async ({ page }) => {
   await page.goto("/entrar");
   await primeiroAcesso(page, "setup-comum", false);
   await page.context().storageState({ path: ESTADO_COMUM });
+});
+
+/*
+ * Os papéis da revisão (ADR 0026). As permissões são lidas a cada requisição, então
+ * gravá-las no banco depois do primeiro acesso vale para a sessão já guardada.
+ */
+setup("entra como editor", async ({ page }) => {
+  await page.goto("/entrar");
+  const { email } = await primeiroAcesso(page, "setup-editor", false);
+  await concederPermissoes(email, ["POSTAGEM_EDITAR"]);
+  await page.context().storageState({ path: ESTADO_EDITOR });
+});
+
+setup("entra como aprovador", async ({ page }) => {
+  await page.goto("/entrar");
+  const { email } = await primeiroAcesso(page, "setup-aprovador", false);
+  await concederPermissoes(email, ["POSTAGEM_EDITAR", "POSTAGEM_APROVAR"]);
+  await page.context().storageState({ path: ESTADO_APROVADOR });
 });

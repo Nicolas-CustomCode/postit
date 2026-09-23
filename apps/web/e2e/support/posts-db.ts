@@ -54,6 +54,13 @@ export interface PostagemSemeada {
    * recolheria e publicaria no meio do teste.
    */
   readonly leased?: boolean;
+  /**
+   * Quem criou, pelo começo do e-mail dos usuários da preparação — `e2e-setup-editor`,
+   * `e2e-setup-super`. Sem isso, o primeiro usuário do banco.
+   */
+  readonly author?: string;
+  /** Linhas de `Aprovacao`, do autor, na ordem: `ENVIOU_REVISAO`, `APROVOU`… */
+  readonly decisions?: readonly { readonly action: string; readonly reason?: string }[];
   /** Linhas de `EventoPublicacao`, na ordem. */
   readonly events?: readonly { readonly step: string; readonly result: string; readonly detail?: unknown }[];
 }
@@ -68,6 +75,16 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
   await client.connect();
 
   try {
+    // O mais recente com aquele começo de e-mail: cada rodada da preparação cria usuários novos.
+    const { rows: autores } = await client.query<{ id: string }>(
+      postagem.author === undefined
+        ? `SELECT id FROM "Usuario" ORDER BY "criadoEm" LIMIT 1`
+        : `SELECT id FROM "Usuario" WHERE email LIKE $1 || '-%' ORDER BY "criadoEm" DESC LIMIT 1`,
+      postagem.author === undefined ? [] : [postagem.author],
+    );
+    const autor = autores[0]?.id;
+    if (autor === undefined) throw new Error(`Nenhum usuário para ser autor: ${postagem.author ?? "o primeiro"}`);
+
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO "Postagem" (id, "contaId", formato, status, legenda, "publicarEm", tentativas, "ultimoErroCodigo",
                                "criadoPorId", "agendadoPorId", versao, "criadoEm", "atualizadoEm",
@@ -78,8 +95,8 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
          'FEED',
          $1::"StatusPostagem",
          $2, $3, $4, $5,
-         (SELECT id FROM "Usuario" ORDER BY "criadoEm" LIMIT 1),
-         (SELECT id FROM "Usuario" ORDER BY "criadoEm" LIMIT 1),
+         $7::uuid,
+         $7::uuid,
          1, now(), now(),
          CASE WHEN $6 THEN gen_random_uuid() END,
          CASE WHEN $6 THEN now() + interval '10 minutes' END
@@ -94,9 +111,18 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
         postagem.attempts ?? 0,
         postagem.failureCause ?? null,
         postagem.leased === true,
+        autor,
       ],
     );
     const id = rows[0]?.id as string;
+
+    for (const decisao of postagem.decisions ?? []) {
+      await client.query(
+        `INSERT INTO "Aprovacao" (id, "postagemId", "usuarioId", acao, motivo, "criadoEm")
+         VALUES (gen_random_uuid(), $1, $2, $3::"AcaoAprovacao", $4, clock_timestamp())`,
+        [id, autor, decisao.action, decisao.reason ?? null],
+      );
+    }
 
     for (const [ordem, item] of postagem.media.entries()) {
       await client.query(
