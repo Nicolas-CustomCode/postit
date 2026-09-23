@@ -276,7 +276,7 @@ A cada execução, o publicador soma um em `Postagem.tentativas` e grava um `Eve
 único de sempre.
 
 1. Cria um container **filho** por mídia, **na ordem de `PostagemMidia.ordem`** — a primeira define o
-   recorte de todas
+   quadro de todas, e as outras entram inteiras, com faixas pretas se a proporção diferir (docs/08)
 2. Aguarda cada filho ficar pronto
 3. Cria o container **pai**, com `media_type=CAROUSEL` e a lista de filhos em `children`, mais a
    legenda

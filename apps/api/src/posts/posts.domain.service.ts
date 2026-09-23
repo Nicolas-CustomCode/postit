@@ -90,7 +90,7 @@ export class PostsDomainService {
    *
    * De 0 a 10 itens: reordenar, remover e trocar são todos esta chamada. A
    * ordem é a do array, e ela é conteúdo de verdade — a primeira imagem define
-   * o recorte de todas no carrossel (docs/08).
+   * o quadro de todas no carrossel (docs/08).
    *
    * A mídia é validada contra o formato aqui, com os fatos lidos do registro
    * `Midia`: as medidas de lá já têm a rotação do EXIF aplicada.
@@ -398,7 +398,7 @@ export class PostsDomainService {
     const post = await this.prisma.db.post.findFirst({
       where: { id: scope.postId, accountId: scope.accountId },
       include: {
-        // ⚠️ Ordenado: a primeira imagem define o recorte de todas no carrossel
+        // ⚠️ Ordenado: a primeira imagem define o quadro de todas no carrossel
         // (docs/08), e sem `orderBy` o Postgres devolve na ordem que quiser.
         media: { orderBy: { position: "asc" }, include: { media: true } },
         // O fuso vem junto: é com ele que o relógio escolhido vira instante.

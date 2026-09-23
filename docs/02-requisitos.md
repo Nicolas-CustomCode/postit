@@ -278,9 +278,9 @@ dois ao mesmo tempo na interface.
 **Aceite:** a prévia mostra o recorte correto por formato e as marcações nas posições definidas.
 
 **Desde 21/09/2026** ela também navega o carrossel — contador, setas e pontinhos — e avisa que **a
-primeira imagem define o recorte de todas**, que é o que a Meta faz ([08](08-integracao-instagram.md))
-e o que a prévia precisa demonstrar: sem isso, aprova-se uma sequência e publica-se outra, com a
-segunda foto decapitada.
+primeira imagem define o quadro de todas**, que é o que a Meta faz ([08](08-integracao-instagram.md)):
+as outras entram inteiras, com faixas pretas quando a proporção difere (observado em 23/09/2026 — até
+ali a prévia as recortava, e a publicada saiu diferente da prévia).
 
 ### RF-C11 — Avisar sobre recursos indisponíveis **[MVP]**
 **Aceite:** ao compor um Story, a tela informa que figurinhas, enquetes, links e música não são

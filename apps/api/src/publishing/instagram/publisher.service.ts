@@ -177,7 +177,7 @@ export class PublisherService {
   }
 
   /**
-   * Os filhos na ordem de `PostagemMidia.ordem` — a primeira define o recorte de
+   * Os filhos na ordem de `PostagemMidia.ordem` — a primeira define o quadro de
    * todas —, **todos criados antes de esperar**: esperar um a um levaria até 5
    * minutos por filho, e um carrossel de 10 passaria do prazo da tarefa.
    */

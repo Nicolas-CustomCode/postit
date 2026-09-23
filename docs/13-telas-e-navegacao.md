@@ -380,9 +380,15 @@ nem fonte do Instagram. Segue fundo branco ou preto conforme o tema. **Não most
 permite, nem curtidas, que só existem depois de publicar; uma nota abaixo da prévia avisa as duas ausências.
 
 **No carrossel** (a partir de 21/09/2026) ela navega entre as imagens — contador `2/5` sobre a mídia, setas e
-pontinhos —, usa a proporção da **primeira** imagem em todas, que é o que a Meta faz, e avisa disso **abaixo** do
+pontinhos — e desenha o quadro na proporção da **primeira** imagem. As outras entram **inteiras** nesse quadro, com
+faixas pretas (`--ig-letterbox`) onde a proporção difere — é o que o Instagram publica (docs/08, observado em
+23/09/2026); até ali a prévia as recortava. Avisa disso **abaixo** do
 cartão. Como qualquer informação nossa, o aviso fica fora da moldura: dentro dela, quebraria a imitação no lugar
 exato onde a pessoa está comparando com o aplicativo que conhece.
+
+**Faixas pretas no carrossel:** na composição, a foto que vai sair com faixas ganha a tarja âmbar "Faixas pretas ·
+Ajustar", com a frase abaixo da faixa, e a tarja abre o recorte na proporção da foto 1
+([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md#o-quadro-do-carrossel)).
 
 **Na composição**, a faixa de miniaturas mostra de 1 a 10 imagens com o número da posição em cada uma, e **termina
 num quadrado pontilhado de 112 px com "+ Adicionar"** — o próximo lugar, e não um botão solto sem relação visual

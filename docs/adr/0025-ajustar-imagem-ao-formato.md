@@ -97,6 +97,23 @@ consertada no mesmo lugar, não uma segunda cópia no fim do carrossel.
 ⚠️ **No envio, a ajustada não é derivada de nada** — o original nunca subiu. Marcá-la a faria sumir da
 grade e parecer envio perdido.
 
+### O quadro do carrossel
+
+Acrescentado em 23/09/2026. No carrossel, o quadro é o da **primeira** foto, e as outras entram inteiras, com
+faixas pretas onde a proporção difere — observado ao publicar ([docs/08](../08-integracao-instagram.md)); a
+documentação da Meta diz "cropped", e não é o que acontece.
+
+A mesma tela de ajuste resolve, com uma diferença: o alvo é a **proporção da foto 1**, e não a faixa do formato, e
+**só existe recortar** — "imagem inteira" recriaria justamente as faixas que a pessoa quer tirar.
+
+| Onde | Quando aparece | O que a ajustada faz |
+|---|---|---|
+| Tarja âmbar da faixa de mídia, "Faixas pretas · Ajustar" | No Feed com duas ou mais fotos, a partir da 2ª, quando a proporção difere da 1ª (com 1 px de tolerância, `letterboxedInCarousel`) | **Substitui** naquela posição |
+
+Âmbar, e não vermelho: faixa preta **não impede** salvar nem publicar — é o que vai sair, e pode ser o que a pessoa
+quer. A vermelha, de imagem que não serve ao formato, tem precedência. Reordenar muda quem é a primeira, e o aviso
+se recalcula sozinho.
+
 ## Consequências
 
 - **O acervo continua aceitando o que não serve ao feed**, e agora isso deixou de ser um beco. A

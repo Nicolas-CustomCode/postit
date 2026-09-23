@@ -441,8 +441,16 @@ aba Reels. Isso afeta a prévia da grade do perfil do RF-D08.
 
 **Carrossel** — *"Carousels are limited to 10 images, videos, or a mix of the two."* E:
 *"Carousel images are all cropped based on the first image in the carousel, with the default being a
-1:1 aspect ratio."* A primeira imagem define o recorte de todas — a interface precisa mostrar isso
+1:1 aspect ratio."* A primeira imagem define o **quadro** de todas — a interface precisa mostrar isso
 na prévia. Menos de 2 ou mais de 10 itens retorna erro `2207028`.
+
+**Observado em 23/09/2026: "cropped" não é recorte.** Um carrossel publicado pela conta de testes, com a foto 1
+em 678×452 (3:2) e a foto 2 em 447×447 (1:1), saiu com o quadro em 3:2 — o da primeira — e a segunda **inteira**,
+encaixada pela altura, com **faixas pretas nas laterais**. Nada foi cortado. Até ali a prévia recortava as
+demais para preencher o quadro (`object-cover`) e mostrava uma imagem cheia que não foi a publicada. A prévia
+passou a desenhar as faixas, e a composição avisa e oferece recortar a foto na proporção da primeira
+([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md#o-quadro-do-carrossel)). Não verificado: se a cor da faixa
+muda com o tema do aplicativo de quem vê — no teste, preta.
 
 **Stories** — *"Stories expire after 24 hours."* E, textualmente: *"Publishing stickers (i.e., link,
 poll, location) is not supported; however mentioning users without a sticker is supported."* É a

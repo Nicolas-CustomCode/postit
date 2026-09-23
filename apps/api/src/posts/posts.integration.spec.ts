@@ -604,7 +604,7 @@ describe("postagens", () => {
    *
    * Carrossel não é formato, é quantidade: a mesma rota de mídia recebe a lista
    * inteira, e a ordem do array vira a coluna `ordem`. **A ordem é conteúdo** —
-   * a primeira imagem define o recorte de todas na Meta (docs/08).
+   * a primeira imagem define o quadro de todas na Meta (docs/08).
    */
   describe("carrossel", () => {
     /** As mídias da postagem, na ordem gravada. */
