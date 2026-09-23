@@ -90,6 +90,12 @@ enum ApprovalAction {
   APPROVED             @map("APROVOU")
   REJECTED             @map("REPROVOU")
   INVALIDATED_BY_EDIT  @map("INVALIDOU_POR_EDICAO")
+  // Decisões humanas de estado que não são revisão (ADR 0026): toda mudança de
+  // status feita por uma pessoa deixa linha aqui.
+  RETURNED_TO_DRAFT    @map("VOLTOU_RASCUNHO")
+  SCHEDULED            @map("AGENDOU")
+  UNSCHEDULED          @map("DESAGENDOU")
+  CANCELED             @map("CANCELOU")
 
   @@map("AcaoAprovacao")
 }
@@ -621,11 +627,14 @@ model Approval {
   userId    String         @map("usuarioId") @db.Uuid
   action    ApprovalAction @map("acao")
   reason    String?        @map("motivo")
+  /// O instante marcado, quando a decisão agenda ("Aprovada e agendada para…").
+  scheduledFor DateTime?   @map("agendadaPara") @db.Timestamptz(3)
   createdAt DateTime       @default(now()) @map("criadoEm") @db.Timestamptz(3)
 
   post Post @relation(fields: [postId], references: [id])
   user User @relation(fields: [userId], references: [id])
 
+  @@index([postId, createdAt])
   @@map("Aprovacao")
 }
 
@@ -639,6 +648,7 @@ model InternalComment {
   post Post @relation(fields: [postId], references: [id])
   user User @relation(fields: [userId], references: [id])
 
+  @@index([postId, createdAt])
   @@map("ComentarioInterno")
 }
 
