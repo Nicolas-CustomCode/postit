@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   canDeleteComment,
   COMMENT_DELETE_WINDOW_MS,
@@ -62,31 +62,57 @@ export function PostTimeline({
   /** O horário que a decisão marcou é da conta; o momento de cada evento, de quem lê. */
   readonly timeZone: string;
 }): ReactNode {
+  const lista = useRef<HTMLDivElement>(null);
+
+  /*
+   * Como num chat, a conversa abre no fim — o mais recente, que é o que a pessoa
+   * veio ver — e volta para o fim quando entra um comentário novo. Só quando muda a
+   * quantidade: recarregar a página por outro motivo não arranca quem está lendo
+   * lá em cima.
+   */
+  useLayoutEffect(() => {
+    const caixa = lista.current;
+    if (caixa !== null) caixa.scrollTop = caixa.scrollHeight;
+  }, [entries.length]);
+
   return (
     <ComposeSection
       title="Comentários internos"
       aside={<span className="text-[13px] text-muted-foreground">Só a equipe vê · com o histórico</span>}
     >
-      <ol className="flex flex-col">
-        {entries.map((entry, indice) => (
-          <li
-            key={entry.id}
-            className={cn(
-              "relative grid grid-cols-[30px_minmax(0,1fr)] gap-2.5 py-2",
-              // A linha que costura o tempo, de um ícone ao próximo.
-              "before:absolute before:top-0 before:bottom-0 before:left-[14.5px] before:w-px before:bg-border",
-              indice === 0 && "before:top-5",
-              indice === entries.length - 1 && "before:bottom-[calc(100%-20px)]",
-            )}
-          >
-            {entry.kind === "COMMENT" ? (
-              <Comment entry={entry} username={username} postId={postId} viewerId={viewerId} />
-            ) : (
-              <Event entry={entry} timeZone={timeZone} />
-            )}
-          </li>
-        ))}
-      </ol>
+      {/*
+        Rolagem interna: a conversa tem altura máxima e rola por dentro, e o campo de
+        escrever fica sempre à vista embaixo. A folga no topo e à direita é do botão
+        de excluir, que flutua sobre o canto do balão e seria cortado pela borda.
+      */}
+      <div
+        ref={lista}
+        className="-mr-2 max-h-[min(60dvh,560px)] overflow-y-auto overscroll-contain pt-1.5 pr-2"
+        role="region"
+        tabIndex={0}
+        aria-label="Conversa e histórico da postagem"
+      >
+        <ol className="flex flex-col">
+          {entries.map((entry, indice) => (
+            <li
+              key={entry.id}
+              className={cn(
+                "relative grid grid-cols-[30px_minmax(0,1fr)] gap-2.5 py-2",
+                // A linha que costura o tempo, de um ícone ao próximo.
+                "before:absolute before:top-0 before:bottom-0 before:left-[14.5px] before:w-px before:bg-border",
+                indice === 0 && "before:top-5",
+                indice === entries.length - 1 && "before:bottom-[calc(100%-20px)]",
+              )}
+            >
+              {entry.kind === "COMMENT" ? (
+                <Comment entry={entry} username={username} postId={postId} viewerId={viewerId} />
+              ) : (
+                <Event entry={entry} timeZone={timeZone} />
+              )}
+            </li>
+          ))}
+        </ol>
+      </div>
 
       <CommentForm username={username} postId={postId} />
     </ComposeSection>
