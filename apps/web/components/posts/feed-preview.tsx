@@ -226,7 +226,10 @@ export function FeedPreview({
  * - **Nas pontas, resiste**: o arrasto anda um terço, como o Instagram, dizendo que
  *   não há mais foto sem se mexer como se houvesse.
  * - **As setas continuam**, por cima: são o caminho de quem usa teclado ou leitor de tela.
- * - **Sem animação para quem pediu menos movimento** (`motion-reduce`).
+ * - **Menos movimento, e não nenhum, para quem pediu** (`motion-reduce`): o deslize fica
+ *   mais curto. Tirá-lo de todo fazia a troca parecer um corte seco — e no Windows com
+ *   os efeitos de animação desligados, que é comum, era o que todo mundo via. É um
+ *   deslize curto, dentro do quadro e em resposta ao gesto, não movimento decorativo.
  *
  * Da segunda em diante, cada foto entra inteira no quadro da primeira, com as faixas
  * pretas que o Instagram desenha (docs/08, observado em 23/09/2026).
@@ -290,8 +293,10 @@ function FaixaDoCarrossel({
       <div
         className={cn(
           "flex h-full",
-          // Acompanha o dedo sem atraso; ao soltar, desliza até o lugar.
-          arrasto === null && "transition-transform duration-300 ease-out motion-reduce:transition-none",
+          // Acompanha o dedo sem atraso; ao soltar, desliza até o lugar — rápido no começo
+          // e assentando devagar, como no aplicativo.
+          arrasto === null &&
+            "transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:duration-200",
         )}
         style={{ transform: `translateX(calc(${-indice * 100}% + ${arrasto?.dx ?? 0}px))` }}
       >
