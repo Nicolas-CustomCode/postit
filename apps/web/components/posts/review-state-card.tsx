@@ -14,7 +14,6 @@ import {
 } from "@repo/shared";
 import { AccountDateTime, accountZoneName, civilFieldsFor } from "@/components/account-time";
 import { LocalDate } from "@/components/local-date";
-import { PostStatusBadge } from "@/components/posts/post-status-badge";
 import { ScheduleFields } from "@/components/posts/schedule-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -599,10 +598,8 @@ export function ReviewStateCard({
           : "flex flex-col gap-3.5 rounded-2xl border bg-card p-5"
       }
     >
-      <div className="flex flex-col items-start gap-1">
-        <PostStatusBadge status={post.status} />
-        {topo}
-      </div>
+      {/* Sem pílula de status aqui: ela já está no indicador de etapas, no topo da página. */}
+      <div className="flex flex-col items-start gap-1">{topo}</div>
 
       {corpo}
 
