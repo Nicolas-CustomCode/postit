@@ -150,8 +150,8 @@ describe("arquitetura", () => {
     });
 
     /*
-     * Dentro do próprio serviço, as escritas moram nos dois primitivos e no
-     * `create`. Contá-las prende o número: uma escrita nova em outro lugar muda
+     * Dentro do próprio serviço, as escritas moram nos dois primitivos, em
+     * `record()` e no `create`. Contá-las prende o número: uma escrita nova em outro lugar muda
      * a conta e o teste chama atenção para ela.
      */
     it("as escritas do serviço cabem nos dois primitivos e na criação", () => {
@@ -162,10 +162,8 @@ describe("arquitetura", () => {
         "post.create",
         // applyUserWrite(): a trava otimista
         "post.updateMany",
-        // applyContentChange(): o registro de I-2
+        // record(): a única escrita em Aprovacao — toda decisão passa por ela (ADR 0026)
         "approval.create",
-        // markReady(): as duas linhas do caminho
-        "approval.createMany",
         // setMedia(): apagar e recriar a lista inteira, em ordem
         "postMedia.createMany",
         "postMedia.deleteMany",

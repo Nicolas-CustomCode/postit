@@ -134,8 +134,16 @@ export function statusAfterContentEdit(current: PostStatus): PostStatus {
    * postagem que falhou está mudando o que vai ao ar — e o que foi aprovado era a
    * versão que falhou. Sem cair, bastava editar e reagendar para publicar algo que
    * ninguém aprovou.
+   *
+   * `EM_REVISAO` também, desde a 1e (ADR 0026: só se edita em rascunho). Sem cair,
+   * quem tem `POSTAGEM_APROVAR` reescreveria a postagem de um colega em revisão e a
+   * aprovaria em seguida — a autoaprovação só olha quem criou —, e a edição não
+   * deixaria rastro na linha do tempo. Revisão que muda de conteúdo volta a ser
+   * rascunho, e precisa ser enviada de novo.
    */
-  return current === "APPROVED" || current === "SCHEDULED" || current === "FAILED" ? "DRAFT" : current;
+  return current === "IN_REVIEW" || current === "APPROVED" || current === "SCHEDULED" || current === "FAILED"
+    ? "DRAFT"
+    : current;
 }
 
 /**

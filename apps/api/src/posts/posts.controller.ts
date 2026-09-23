@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common";
 import {
   createPostSchema,
   postVersionSchema,
+  rejectPostSchema,
   schedulePostSchema,
   setPostFormatSchema,
   setCaptionSchema,
@@ -10,6 +11,7 @@ import {
   type PostDetail,
   type PostHistoryEntry,
   type PostSummary,
+  type RejectPostInput,
   type SchedulePostInput,
   type SetPostFormatInput,
   type SetCaptionInput,
@@ -155,8 +157,122 @@ export class PostsController {
       postId,
       userId: auth.userId,
       version: body.version,
-      approver: { id: auth.userId, permissions: auth.permissions, superAdmin: auth.superAdmin },
+      approver: approverOf(auth),
     });
+  }
+
+  /** Enviar para revisão (RF-E01). É de quem edita: quem escreveu pede o olhar de outro. */
+  @RequirePermission("POST_EDIT")
+  @Post(":postId/submit")
+  @HttpCode(200)
+  submit(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
+  ): Promise<{ version: number }> {
+    return this.composition.submit({ accountId, postId, userId: auth.userId, version: body.version });
+  }
+
+  /**
+   * Aprovar sem agendar (RF-E02): a postagem fica "aprovada, falta agendar" até
+   * alguém com `POST_SCHEDULE` escolher o horário. É a rota de quem aprova e não
+   * agenda.
+   *
+   * ⚠️ **`POST_APPROVE` sozinho no decorator, de propósito** — o mesmo motivo de
+   * `ready`: a autoaprovação depende do autor, e quem cobra é o serviço.
+   */
+  @RequirePermission("POST_APPROVE")
+  @Post(":postId/approve")
+  @HttpCode(200)
+  approve(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
+  ): Promise<{ version: number }> {
+    return this.composition.approve({
+      accountId,
+      postId,
+      userId: auth.userId,
+      version: body.version,
+      approver: approverOf(auth),
+    });
+  }
+
+  /**
+   * Aprovar e agendar, numa decisão só (ADR 0026).
+   *
+   * ⚠️ **Rota própria, e não um "agenda se puder" dentro de `approve`.** O guard
+   * exige *todas* as permissões listadas — que é exatamente o que esta ação pede —,
+   * e a política continua estática, conferível pelo teste de política de rotas.
+   */
+  @RequirePermission("POST_APPROVE", "POST_SCHEDULE")
+  @Post(":postId/approve-and-schedule")
+  @HttpCode(200)
+  approveAndSchedule(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(schedulePostSchema)) body: SchedulePostInput,
+  ): Promise<{ version: number }> {
+    return this.composition.approve({
+      accountId,
+      postId,
+      userId: auth.userId,
+      version: body.version,
+      approver: approverOf(auth),
+      schedule: { day: body.day, time: body.time, now: new Date() },
+    });
+  }
+
+  /** Reprovar com motivo (RF-E03): volta para rascunho, e o motivo vai junto. */
+  @RequirePermission("POST_APPROVE")
+  @Post(":postId/reject")
+  @HttpCode(200)
+  reject(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(rejectPostSchema)) body: RejectPostInput,
+  ): Promise<{ version: number }> {
+    return this.composition.reject({
+      accountId,
+      postId,
+      userId: auth.userId,
+      version: body.version,
+      approver: approverOf(auth),
+      reason: body.reason,
+    });
+  }
+
+  /**
+   * "Voltar para a composição" (ADR 0026): em revisão, aprovada ou agendada →
+   * rascunho. `POST_EDIT`, como editar o conteúdo, que já derrubava para rascunho.
+   */
+  @RequirePermission("POST_EDIT")
+  @Post(":postId/reopen")
+  @HttpCode(200)
+  reopen(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
+  ): Promise<{ version: number }> {
+    return this.composition.reopen({ accountId, postId, userId: auth.userId, version: body.version });
+  }
+
+  /** Cancelar o agendamento sem perder a aprovação (ADR 0026): agendada → aprovada. */
+  @RequirePermission("POST_SCHEDULE")
+  @Post(":postId/unschedule")
+  @HttpCode(200)
+  unschedule(
+    @Param("accountId") accountId: string,
+    @Param("postId") postId: string,
+    @Auth() auth: AuthContext,
+    @Body(new ZodValidationPipe(postVersionSchema)) body: { version: number },
+  ): Promise<{ version: number }> {
+    return this.composition.unschedule({ accountId, postId, userId: auth.userId, version: body.version });
   }
 
   /**
@@ -233,4 +349,9 @@ export class PostsController {
   ): Promise<{ version: number }> {
     return this.composition.discard({ accountId, postId, userId: auth.userId, version: body.version });
   }
+}
+
+/** Quem decide, com as permissões da sessão: a autoaprovação depende das duas coisas. */
+function approverOf(auth: AuthContext) {
+  return { id: auth.userId, permissions: auth.permissions, superAdmin: auth.superAdmin };
 }

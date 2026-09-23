@@ -119,6 +119,11 @@ describe("máquina de estados da postagem", () => {
       expect(statusAfterContentEdit("SCHEDULED")).toBe("DRAFT");
     });
 
+    // ADR 0026: sem isso, editar a postagem de um colega em revisão e aprová-la em seguida passaria.
+    it("editar em EM_REVISAO derruba para RASCUNHO", () => {
+      expect(statusAfterContentEdit("IN_REVIEW")).toBe("DRAFT");
+    });
+
     it("editar em RASCUNHO não muda nada", () => {
       expect(statusAfterContentEdit("DRAFT")).toBe("DRAFT");
     });

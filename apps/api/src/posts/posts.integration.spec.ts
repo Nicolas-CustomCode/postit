@@ -151,6 +151,16 @@ describe("postagens", () => {
       { method: "POST" as const, caminho: (p: string) => `/${p}/media`, payload: { version: 1, media: [] } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/format`, payload: { version: 1, format: "STORIES" } },
       { method: "POST" as const, caminho: (p: string) => `/${p}/ready`, payload: { version: 1 } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/submit`, payload: { version: 1 } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/approve`, payload: { version: 1 } },
+      {
+        method: "POST" as const,
+        caminho: (p: string) => `/${p}/approve-and-schedule`,
+        payload: { version: 1, day: "2030-01-01", time: "10:00" },
+      },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/reject`, payload: { version: 1, reason: "x" } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/reopen`, payload: { version: 1 } },
+      { method: "POST" as const, caminho: (p: string) => `/${p}/unschedule`, payload: { version: 1 } },
       {
         method: "POST" as const,
         caminho: (p: string) => `/${p}/schedule`,

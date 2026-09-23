@@ -6,6 +6,7 @@ import {
   type ComposableFormat,
   type ImageFormat,
   type PermissionHolder,
+  type PostTrailAction,
 } from "@repo/shared";
 import {
   MediaUploadInvalidError,
@@ -20,22 +21,28 @@ import {
 } from "../common/errors";
 import { postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
 import {
+  canApproveAndSchedule,
   canMarkReady,
+  canReopen,
+  canTransition,
+  canUnschedule,
   isEditable,
   keepsSchedule,
-  READY_CHAIN,
   statusAfterContentEdit,
 } from "../domain/post/post-state";
+import { trailActionFor } from "../domain/post/post-trail";
 import { canCancel, resolveSchedule, scheduleMoveFor, type ScheduleProblem } from "../domain/post/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
- * Criar e editar postagens (RF-C01, RF-C03, RF-C12; docs/05).
+ * Criar e editar postagens, e as decisões sobre elas (RF-C01, RF-C03, RF-C12,
+ * RF-E01 a RF-E05; docs/05; ADR 0026).
  *
  * ⚠️ **Só dois métodos privados tocam a tabela `Postagem`**, e um teste de
  * arquitetura garante isso:
  *
- * - `applyUserWrite()` — a trava otimista da versão (regra 20);
+ * - `applyUserWrite()` — a trava otimista da versão (regra 20), e o registro da
+ *   decisão em `Aprovacao`, na mesma transação;
  * - `applyContentChange()` — a mesma coisa, **mais** a invariante I-2.
  *
  * É o que impede o modo de falha que a invariante existe para evitar: alguém
@@ -187,9 +194,12 @@ export class PostsDomainService {
    * postagem persiste em `EM_REVISAO` — não há fila de revisão nesta fase —, mas
    * a máquina de estados continua a do `docs/05` e a invariante I-1 vale sem
    * asterisco. As duas linhas de `Aprovacao` contam a verdade: "Fulano enviou e
-   * aprovou às 14h32". Na Fase 4 a mudança é parar de encadear.
+   * aprovou às 14h32".
+   *
+   * ⚠️ **De saída** (ADR 0026): a 1e parou de encadear — `submit()` e `approve()`.
+   * Fica até a Composição deixar de chamá-la, e sai junto com a rota `ready`.
    */
-  async markReady(input: Scope & { approver: PermissionHolder & { id: string } }): Promise<Saved> {
+  async markReady(input: Scope & { approver: Approver }): Promise<Saved> {
     const post = await this.load(input);
 
     if (!canMarkReady(post.status)) throw new PostTransitionInvalidError();
@@ -197,16 +207,125 @@ export class PostsDomainService {
 
     assertReady(post);
 
-    return this.applyUserWrite(input, post.status, { status: "APPROVED" }, async (tx) => {
-      // Uma linha por passo do caminho, no mesmo instante e do mesmo usuário.
-      await tx.approval.createMany({
-        data: READY_CHAIN.map((passo) => ({
-          postId: post.id,
-          userId: input.userId,
-          action: passo === "IN_REVIEW" ? ("SUBMITTED_FOR_REVIEW" as const) : ("APPROVED" as const),
-        })),
-      });
+    // O envio vai no `extra`, antes da linha da aprovação: a ordem conta a história.
+    return this.applyUserWrite(input, post.status, { status: "APPROVED" }, {
+      trail: { action: "APPROVED" },
+      extra: (tx) => this.record(tx, input, { action: "SUBMITTED_FOR_REVIEW" }),
     });
+  }
+
+  /**
+   * Enviar para revisão: `RASCUNHO → EM_REVISAO` (RF-E01; ADR 0026).
+   *
+   * Confere a prontidão **aqui**, e não só na aprovação: quem revisa não deveria
+   * receber uma postagem sem imagem, nem descobrir no clique de aprovar que a
+   * proporção não serve.
+   */
+  async submit(input: Scope): Promise<Saved> {
+    const post = await this.load(input);
+    if (!canTransition(post.status, "IN_REVIEW")) throw new PostTransitionInvalidError();
+
+    assertReady(post);
+
+    return this.applyUserWrite(input, post.status, { status: "IN_REVIEW" }, {
+      trail: { action: "SUBMITTED_FOR_REVIEW" },
+    });
+  }
+
+  /**
+   * Aprovar (RF-E02) — e, com `schedule`, aprovar **e agendar** numa transação só
+   * (ADR 0026): `EM_REVISAO → APROVADO → AGENDADO`, uma linha de `Aprovacao` com o
+   * horário junto.
+   *
+   * ⚠️ **O horário é resolvido antes da transação.** Horário no passado recusa a
+   * decisão inteira: a postagem continua em revisão, na mesma versão — e não
+   * "aprovada, mas sem agendar", que seria meia decisão tomada em nome de alguém.
+   * A mesma ordem de `schedule()`: `resolveSchedule` é puro, e o `now` é o da
+   * requisição.
+   */
+  async approve(
+    input: Scope & { approver: Approver; schedule?: { day: string; time: string; now: Date } },
+  ): Promise<Saved> {
+    const post = await this.load(input);
+
+    // Só de EM_REVISAO. `canTransition(_, APPROVED)` não serve de pergunta: também
+    // vale de AGENDADO, que é desagendar — e aprovar o que já estava aprovado
+    // gravaria uma aprovação que ninguém deu.
+    const pode = input.schedule ? canApproveAndSchedule(post.status) : post.status === "IN_REVIEW";
+    if (!pode) throw new PostTransitionInvalidError();
+    if (selfApprovalRefused(input.approver, post.createdById)) throw new SelfApprovalForbiddenError();
+
+    // A legenda pode ter mudado durante a revisão; aprovar é dizer "esta vai ao ar".
+    assertReady(post);
+
+    if (!input.schedule) {
+      return this.applyUserWrite(input, post.status, { status: "APPROVED" }, { trail: { action: "APPROVED" } });
+    }
+
+    const resolvido = resolveSchedule({ ...input.schedule, timeZone: post.account.timezone });
+    if ("problem" in resolvido) throw scheduleError(resolvido.problem);
+
+    return this.applyUserWrite(
+      input,
+      post.status,
+      { status: "SCHEDULED", scheduledAt: resolvido.instant, scheduledById: input.userId, ...FRESH_CYCLE },
+      { trail: { action: "APPROVED", scheduledFor: resolvido.instant } },
+    );
+  }
+
+  /**
+   * Reprovar com motivo (RF-E03): volta para `RASCUNHO`, e o motivo fica em
+   * `Aprovacao` — é ele que a Composição mostra no topo para quem vai corrigir.
+   *
+   * A regra de autoaprovação vale aqui também: o ADR 0015 dá `POSTAGEM_APROVAR`
+   * para postagens **de outros**, e reprovar é a outra metade da mesma decisão.
+   */
+  async reject(input: Scope & { approver: Approver; reason: string }): Promise<Saved> {
+    const post = await this.load(input);
+
+    if (post.status !== "IN_REVIEW") throw new PostTransitionInvalidError();
+    if (selfApprovalRefused(input.approver, post.createdById)) throw new SelfApprovalForbiddenError();
+
+    return this.applyUserWrite(input, post.status, { status: "DRAFT" }, {
+      trail: { action: trailOf(post.status, "DRAFT", input.reason), reason: input.reason },
+    });
+  }
+
+  /**
+   * "Voltar para a composição" (ADR 0026): em revisão, aprovada ou agendada →
+   * `RASCUNHO`, sem horário.
+   *
+   * É `POSTAGEM_EDITAR`, como editar o conteúdo — que já derrubava para rascunho
+   * (I-2). A porta explícita não dá poder novo, e anda na direção segura. `FALHOU`
+   * tem a sua, com `POSTAGEM_AGENDAR`: é `toDraft()`.
+   */
+  async reopen(input: Scope): Promise<Saved> {
+    const post = await this.load(input);
+    if (!canReopen(post.status)) throw new PostTransitionInvalidError();
+
+    return this.applyUserWrite(
+      input,
+      post.status,
+      { status: "DRAFT", scheduledAt: null, scheduledById: null, ...FRESH_CYCLE },
+      { trail: { action: trailOf(post.status, "DRAFT") } },
+    );
+  }
+
+  /**
+   * Cancelar o agendamento **sem perder a aprovação** (ADR 0026): `AGENDADO →
+   * APROVADO`. Sai o horário, e quem o marcou; fica a aprovação, esperando um
+   * horário novo. Descartar de vez continua sendo `cancel()`.
+   */
+  async unschedule(input: Scope): Promise<Saved> {
+    const post = await this.load(input);
+    if (!canUnschedule(post.status)) throw new PostTransitionInvalidError();
+
+    return this.applyUserWrite(
+      input,
+      post.status,
+      { status: "APPROVED", scheduledAt: null, scheduledById: null, ...FRESH_CYCLE },
+      { trail: { action: trailOf(post.status, "APPROVED") } },
+    );
   }
 
   /**
@@ -242,21 +361,27 @@ export class PostsDomainService {
     });
     if ("problem" in resolvido) throw scheduleError(resolvido.problem);
 
-    return this.applyUserWrite(input, post.status, {
-      // Reagendar não mexe no status: `AGENDADO` continua `AGENDADO`, e por isso
-      // não passa por `canTransition` (RF-D04; AGENTS.md, regra 8).
-      ...(movimento === "TRANSITION" ? { status: "SCHEDULED" as const } : {}),
-      scheduledAt: resolvido.instant,
-      // Quem definiu o horário vigente é a pergunta que a auditoria faz.
-      scheduledById: input.userId,
-      /*
-       * Horário novo é ciclo novo: sem zerar as tentativas, a I-8 ("a primeira
-       * execução não começa mais de 15 minutos atrasada") nunca valeria para uma
-       * postagem reagendada depois de falhar. A causa sai junto — inclusive o
-       * "esperando cota", que o horário novo deixa para trás.
-       */
-      ...FRESH_CYCLE,
-    });
+    return this.applyUserWrite(
+      input,
+      post.status,
+      {
+        // Reagendar não mexe no status: `AGENDADO` continua `AGENDADO`, e por isso
+        // não passa por `canTransition` (RF-D04; AGENTS.md, regra 8).
+        ...(movimento === "TRANSITION" ? { status: "SCHEDULED" as const } : {}),
+        scheduledAt: resolvido.instant,
+        // Quem definiu o horário vigente é a pergunta que a auditoria faz.
+        scheduledById: input.userId,
+        /*
+         * Horário novo é ciclo novo: sem zerar as tentativas, a I-8 ("a primeira
+         * execução não começa mais de 15 minutos atrasada") nunca valeria para uma
+         * postagem reagendada depois de falhar. A causa sai junto — inclusive o
+         * "esperando cota", que o horário novo deixa para trás.
+         */
+        ...FRESH_CYCLE,
+      },
+      // Reagendar também deixa linha: "agendada para sexta" e depois "para sábado".
+      { trail: { action: trailOf(post.status, "SCHEDULED"), scheduledFor: resolvido.instant } },
+    );
   }
 
   /**
@@ -271,7 +396,9 @@ export class PostsDomainService {
     const post = await this.load(input);
     if (post.status !== "FAILED") throw new PostTransitionInvalidError();
 
-    return this.applyUserWrite(input, post.status, { status: "DRAFT", scheduledAt: null, ...FRESH_CYCLE });
+    return this.applyUserWrite(input, post.status, { status: "DRAFT", scheduledAt: null, ...FRESH_CYCLE }, {
+      trail: { action: trailOf(post.status, "DRAFT") },
+    });
   }
 
   /** Cancelar o que já tem horário marcado, ou parou de vez (RF-D05). */
@@ -279,7 +406,9 @@ export class PostsDomainService {
     const post = await this.load(input);
     if (!canCancel(post.status)) throw new PostTransitionInvalidError();
 
-    return this.applyUserWrite(input, post.status, { status: "CANCELED" });
+    return this.applyUserWrite(input, post.status, { status: "CANCELED" }, {
+      trail: { action: trailOf(post.status, "CANCELED") },
+    });
   }
 
   /** Descartar um rascunho. Cancelar o que já está agendado é `cancel()`. */
@@ -287,7 +416,9 @@ export class PostsDomainService {
     const post = await this.load(input);
     if (post.status !== "DRAFT") throw new PostTransitionInvalidError();
 
-    return this.applyUserWrite(input, post.status, { status: "CANCELED" });
+    return this.applyUserWrite(input, post.status, { status: "CANCELED" }, {
+      trail: { action: trailOf(post.status, "CANCELED") },
+    });
   }
 
   /** A postagem com o que as regras precisam. Sempre pelos dois identificadores. */
@@ -317,13 +448,22 @@ export class PostsDomainService {
    * ⚠️ **O status entra no `where` junto da versão.** O worker muda status sem
    * mexer em `versao` (regra 20), então a versão sozinha não perceberia que a
    * postagem foi despachada para publicação entre a leitura e a escrita.
+   *
+   * ⚠️ **Mudou o status, grava a decisão** (ADR 0026, decisão 3): toda mudança de
+   * status feita por uma pessoa deixa uma linha em `Aprovacao`, na mesma
+   * transação. Esquecer a `trail` é erro de programação, e estoura aqui — não vira
+   * um buraco silencioso na linha do tempo.
    */
   private async applyUserWrite(
     scope: Scope,
     expectedStatus: PostStatus,
     data: Prisma.PostUncheckedUpdateManyInput,
-    extra?: (tx: Prisma.TransactionClient) => Promise<void>,
+    options: { trail: TrailEntry | null; extra?: (tx: Prisma.TransactionClient) => Promise<void> },
   ): Promise<Saved> {
+    if (data.status !== undefined && data.status !== expectedStatus && options.trail === null) {
+      throw new Error(`Mudança de status sem registro em Aprovacao: ${expectedStatus} → ${String(data.status)}`);
+    }
+
     await this.prisma.db.$transaction(async (tx) => {
       const { count } = await tx.post.updateMany({
         where: { id: scope.postId, accountId: scope.accountId, version: scope.version, status: expectedStatus },
@@ -351,7 +491,8 @@ export class PostsDomainService {
         throw new PostNotEditableError();
       }
 
-      await extra?.(tx);
+      await options.extra?.(tx);
+      if (options.trail !== null) await this.record(tx, scope, options.trail);
     });
 
     /*
@@ -365,8 +506,8 @@ export class PostsDomainService {
   /**
    * **Primitivo 2 — a invariante I-2** (RF-E05).
    *
-   * Editar legenda ou mídia de uma postagem `APROVADO` ou `AGENDADO` a devolve
-   * para `RASCUNHO`, e registra o motivo. Sem isso, alguém aprovaria uma legenda
+   * Editar legenda ou mídia de uma postagem em revisão, aprovada, agendada ou que
+   * falhou a devolve para `RASCUNHO`, e registra o motivo. Sem isso, alguém aprovaria uma legenda
    * e publicaria outra.
    *
    * Quem decide o status novo é `statusAfterContentEdit()`, no domínio — este
@@ -401,19 +542,47 @@ export class PostsDomainService {
          * cumprir.
          */
         ...(keepsSchedule(novoStatus) ? {} : { scheduledAt: null }),
-        // Corrigir uma que falhou recomeça a conta do publicador.
-        ...(post.status === "FAILED" ? FRESH_CYCLE : {}),
+        /*
+         * Caiu, recomeça a conta do publicador: a que falhou não leva a causa velha,
+         * e a agendada que esperava cota não vira rascunho "esperando cota" — o
+         * mesmo que `reopen()` faz pela porta explícita.
+         */
+        ...(rebaixou ? FRESH_CYCLE : {}),
       },
-      async (tx) => {
-        if (rebaixou) {
-          await tx.approval.create({
-            data: { postId: post.id, userId: scope.userId, action: "INVALIDATED_BY_EDIT" },
-          });
-        }
-        await extra?.(tx);
-      },
+      // A aprovação que morreu fica registrada, com a causa: foi a edição (RF-E05).
+      { trail: rebaixou ? { action: "INVALIDATED_BY_EDIT" } : null, ...(extra ? { extra } : {}) },
     );
   }
+
+  /** A única escrita em `Aprovacao`: uma decisão, de quem age, nesta postagem. */
+  private async record(tx: Prisma.TransactionClient, scope: Scope, trail: TrailEntry): Promise<void> {
+    await tx.approval.create({
+      data: {
+        postId: scope.postId,
+        userId: scope.userId,
+        action: trail.action,
+        reason: trail.reason ?? null,
+        scheduledFor: trail.scheduledFor ?? null,
+      },
+    });
+  }
+}
+
+/** Quem decide: a pessoa, com as permissões dela — a autoaprovação depende das duas. */
+type Approver = PermissionHolder & { readonly id: string };
+
+/** O que uma decisão grava em `Aprovacao`. */
+interface TrailEntry {
+  readonly action: PostTrailAction;
+  readonly reason?: string | null;
+  readonly scheduledFor?: Date | null;
+}
+
+/** A ação da transição, pelo domínio. Nula aqui seria transição do worker — que não passa por este serviço. */
+function trailOf(from: PostStatus, to: PostStatus, reason?: string): PostTrailAction {
+  const acao = trailActionFor(from, to, { reason: reason ?? null });
+  if (acao === null) throw new Error(`Transição sem decisão humana: ${from} → ${to}`);
+  return acao;
 }
 
 /**
