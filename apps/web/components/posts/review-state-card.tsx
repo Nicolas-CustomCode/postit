@@ -264,6 +264,7 @@ export function ReviewStateCard({
             disabled={ocupado}
             onClick={() => setAberto("reject")}
           >
+            <X className="size-4" aria-hidden />
             Reprovar com motivo
           </Button>,
         ];
@@ -618,13 +619,21 @@ export function ReviewStateCard({
         </Alert>
       )}
 
-      {rodape.length > 0 && <div className="flex flex-wrap gap-1">{rodape}</div>}
-
       {soVe && <p className="text-[13px] text-muted-foreground">Você pode ver e comentar, mas não editar nem decidir.</p>}
 
-      {barra.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:static md:z-auto md:flex-wrap md:border-0 md:bg-transparent md:p-0">
-          {barra}
+      {/*
+        Uma fileira só no computador: as ações principais primeiro, as de menor peso
+        — voltar, cancelar — ao lado. No celular a barra sai da fileira e fica fixa
+        no rodapé; o `md:contents` devolve os botões dela para a fileira.
+      */}
+      {(barra.length > 0 || rodape.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {barra.length > 0 && (
+            <div className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:contents">
+              {barra}
+            </div>
+          )}
+          {rodape}
         </div>
       )}
     </section>
