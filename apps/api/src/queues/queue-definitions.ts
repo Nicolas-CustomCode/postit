@@ -2,6 +2,7 @@ import type { Queue } from "pg-boss";
 import {
   ACCOUNT_METRICS_QUEUE,
   DISPATCH_QUEUE,
+  MAINTENANCE_QUEUE,
   NOTIFY_QUEUE,
   POST_METRICS_QUEUE,
   PUBLISH_DEAD_LETTER_QUEUE,
@@ -28,6 +29,8 @@ const THREE_ATTEMPTS = { retryLimit: 2, retryBackoff: true } as const;
 export const QUEUE_DEFINITIONS: readonly Queue[] = [
   { name: TOKEN_REFRESH_QUEUE, ...THREE_ATTEMPTS },
   { name: ACCOUNT_METRICS_QUEUE, ...THREE_ATTEMPTS },
+  // Uma tentativa só (docs/09): o que sobrar hoje a faxina de amanhã pega.
+  { name: MAINTENANCE_QUEUE, retryLimit: 0 },
 
   /*
    * Sem repetição: a próxima volta do cron, um minuto depois, já é a repetição.

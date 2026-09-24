@@ -3,6 +3,8 @@ import { PgBoss } from "pg-boss";
 import {
   ACCOUNT_METRICS_CRON,
   ACCOUNT_METRICS_QUEUE,
+  MAINTENANCE_CRON,
+  MAINTENANCE_QUEUE,
   TOKEN_REFRESH_CRON,
   TOKEN_REFRESH_QUEUE,
 } from "./queue-names";
@@ -49,10 +51,11 @@ export class BossService implements OnModuleInit, OnModuleDestroy {
 
     await this.boss.schedule(TOKEN_REFRESH_QUEUE, TOKEN_REFRESH_CRON);
     await this.boss.schedule(ACCOUNT_METRICS_QUEUE, ACCOUNT_METRICS_CRON);
+    await this.boss.schedule(MAINTENANCE_QUEUE, MAINTENANCE_CRON);
 
     this.logger.log(
       `${QUEUE_DEFINITIONS.length} filas prontas. Recorrentes: ${TOKEN_REFRESH_QUEUE} (${TOKEN_REFRESH_CRON} UTC), ` +
-        `${ACCOUNT_METRICS_QUEUE} (${ACCOUNT_METRICS_CRON} UTC).`,
+        `${ACCOUNT_METRICS_QUEUE} (${ACCOUNT_METRICS_CRON} UTC), ${MAINTENANCE_QUEUE} (${MAINTENANCE_CRON} UTC).`,
     );
   }
 

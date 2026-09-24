@@ -1,5 +1,6 @@
 import { DynamicModule, Module } from "@nestjs/common";
 import type { WorkerEnv } from "./config/env";
+import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublishingModule } from "./publishing/publishing.module";
 import { QueuesModule } from "./queues/queues.module";
@@ -25,6 +26,7 @@ export class WorkerModule {
         StorageModule.forEnv(env),
         QueuesModule.forEnv(env),
         PublishingModule.forEnv(env),
+        MaintenanceModule,
       ],
     };
   }

@@ -59,5 +59,14 @@ export const PUBLISH_DEAD_LETTER_QUEUE = "publicar-instagram-falhas";
  */
 export const POST_METRICS_QUEUE = "coletar-metricas-instagram";
 
+/** A faxina diária (docs/09, "manutencao"). Hoje: as imagens recortadas que ninguém usa. */
+export const MAINTENANCE_QUEUE = "manutencao";
+
+/**
+ * 4h UTC — 1h em Brasília —, entre a renovação de tokens (3h) e as métricas (6h):
+ * longe de qualquer publicação e de quem esteja compondo.
+ */
+export const MAINTENANCE_CRON = "0 4 * * *";
+
 /** Envia o push de uma notificação aos aparelhos dos destinatários (ADR 0017). */
 export const NOTIFY_QUEUE = "notificar";
