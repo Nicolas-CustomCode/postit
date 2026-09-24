@@ -531,12 +531,17 @@ app — scripts, estilos, ícones — ficam guardados. Sem conexão, aparece só
 
 Uma notificação push aparece na **tela bloqueada** do celular, à vista de quem estiver perto. Por isso:
 
-- O conteúdo é só um **título genérico e um link** — "Uma publicação falhou", "Há postagens aguardando
-  aprovação"
+- O conteúdo é só um **título genérico e um link** — "Uma publicação falhou", "Há uma postagem aguardando
+  aprovação". O link é `/notificacoes/<id>`, sem nome de conta; os títulos são fixos por tipo, em
+  `packages/shared/src/push.ts`, e um teste confere que o payload tem só `title` e `url`
 - **Nunca** nome de conta, legenda, e-mail, nome de usuário ou motivo de erro
 - Os detalhes aparecem só dentro do PostIt, com a pessoa logada
 
 A mensagem viaja cifrada pelo protocolo de push: o serviço do fabricante do navegador transporta, mas não lê.
+
+O **endereço da inscrição** (`endpoint`) também é tratado como segredo: quem o tem manda push para o aparelho.
+Ele não aparece em log nem volta em resposta da API — o log do worker cita só o id da inscrição. E a inscrição
+morre com a sessão que a criou: sair do PostIt num aparelho para o push dele (ADR 0017).
 
 ### Chaves VAPID
 

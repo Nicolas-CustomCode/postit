@@ -341,7 +341,13 @@ publicação falhou, conta sem acesso (**antecipada** da fase de saúde para cá
 tipo novo, `POSTAGEM_REPROVADA`, para o autor e para quem enviou. A tela `/notificacoes` lista, abre e marca como
 lido; o número do sino é consultado a cada 60 s e ao voltar para a aba.
 
-**Falta desta fase:** o push com as preferências (parte H) e o roteiro de fogo.
+**O push (parte H) entregue em 24/09/2026.** O worker manda cada aviso do sino ao aparelho, só com título genérico e
+o link `/notificacoes/<id>`; o Perfil ativa, testa e desativa neste aparelho, liga ou desliga cada tipo e explica
+como instalar. A inscrição morre com a sessão: sair do PostIt para o push daquele aparelho (ADR 0017, acréscimos).
+**Falta conferir à mão**: receber no computador pelo `localhost`, no Android pelo túnel e no iPhone instalado (V-21)
+— a entrega real não roda em teste automático.
+
+**Falta desta fase:** o roteiro de fogo.
 
 Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
 **5**, **6** a **11**, **14**, **15** e **16**.

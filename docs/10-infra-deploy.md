@@ -477,15 +477,16 @@ Cada ambiente — local e produção — tem **suas próprias** chaves. Ver
 | `INTERNAL_API_URL` | ✓ | | |
 | `INTERNAL_API_KEY` | ✓ | ✓ | |
 | `API_HOST`, `API_PORT` | | ✓ | |
-| `SESSION_IDLE_DAYS`, `SESSION_MAX_DAYS`, `TOTP_ISSUER` | | ✓ | |
+| `SESSION_IDLE_DAYS` | | ✓ | ✓ — o worker só manda push a aparelho de sessão viva |
+| `SESSION_MAX_DAYS`, `TOTP_ISSUER` | | ✓ | |
 | `CHALLENGE_*`, `LOCKOUT_*`, `SIGNUP_LINK_DAYS`, `PASSWORD_RESET_LINK_HOURS`, `RECENT_CONFIRMATION_MINUTES` | | ✓ | |
 | `DATABASE_URL` | | ✓ | ✓ |
 | Demais `MINIO_*` | | ✓ | ✓ |
 | `IG_*` | | ✓ | ✓ |
 | `ENCRYPTION_KEY` | | ✓ | ✓ |
 | `STATE_SECRET` | | ✓ | |
-| `VAPID_PUBLIC_KEY` | ✓ — para a inscrição no navegador | ✓ | ✓ |
-| `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | | | ✓ |
+| `VAPID_PUBLIC_KEY` | ✓ — para a inscrição no navegador | | ✓ |
+| `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_SWEEP_SECONDS` | | | ✓ |
 
 **A web não tem acesso a banco, MinIO, Meta nem segredos de criptografia.** Se o processo do Next for
 comprometido, o atacante não tem essas credenciais à mão. Na etapa 1, isso significa **não** preencher essas

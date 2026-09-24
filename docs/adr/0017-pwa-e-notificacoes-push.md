@@ -60,6 +60,26 @@ aparelho.
 **iPhone:** push web só chega com o PostIt **instalado na tela inicial**, a partir do iOS 16.4 — informação
 a confirmar na documentação da Apple (item V-21).
 
+#### Acréscimos de 24/09/2026, na construção (parte H da Fase 1d)
+
+- **A inscrição fica presa à sessão** que a criou (`InscricaoPush.sessaoId`). Saiu do PostIt, revogou o aparelho
+  no Perfil, a sessão venceu ou ficou parada além do `SESSION_IDLE_DAYS`: no próximo aviso, o worker apaga a
+  inscrição **sem enviar**. Um celular esquecido logado deixa de receber junto com a sessão, sem mexer em nenhum
+  caminho de logout. Ao entrar de novo, a casca reata a inscrição que o navegador ainda guarda à sessão nova, se a
+  permissão já foi dada — o push "volta sozinho".
+- **O HTTP não enfileira**: quem cria as tarefas `notificar` é uma **varredura do worker**, a cada 10 s, pelas
+  entregas do sino com `pushEnviadoEm` nulo. Marca antes e cria a tarefa na mesma transação — **no máximo uma
+  vez**: um push perdido é aceitável, dois iguais não. Aviso com **mais de uma hora** é só marcado, sem envio.
+- **O link é `/notificacoes/<id>`**, sem nome de conta. A página abre o aviso ao montar — marca como lido e leva à
+  postagem ou a Contas —, e o service worker só aceita caminho do próprio PostIt.
+- **Títulos fixos por tipo**, sem corpo: "Uma publicação falhou", "Uma conta perdeu o acesso", "Há uma postagem
+  aguardando aprovação", "Uma postagem foi reprovada" (`packages/shared/src/push.ts`).
+- **Push de teste**: o Perfil só grava o pedido na inscrição (`testePendenteEm`); a varredura envia.
+- **404 e 410 apagam a inscrição; outra falha soma, e a quinta seguida apaga.** A fila `notificar` tem uma
+  tentativa: repetir reenviaria a quem já recebeu.
+- **Sem as três variáveis VAPID, o push fica desligado**: o worker sobe e avisa no log, e o Perfil diz que o envio
+  não está configurado. O sino recebe tudo de qualquer jeito.
+
 ### 4. Destinatários por responsabilidade
 
 | Tipo | Recebe |
