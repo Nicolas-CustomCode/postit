@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { NotificationItem } from "@repo/shared";
+import type { NotificationItem, PushPreference, PushPreferenceInput, PushSubscriptionInput } from "@repo/shared";
 import { apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 import { requireSession } from "../auth/session";
@@ -58,6 +58,73 @@ export async function markAllNotificationsReadAction(): Promise<ActionResult<{ u
     });
     revalidatePath("/", "layout");
     return success(resultado);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/*
+ * O push (RF-J02, RF-J04). O navegador se inscreve no serviço de push dele, e a
+ * inscrição vem para cá — mesma origem, nada de chamada da tela à API (regra 4) —,
+ * que a entrega à API presa à sessão de quem está logado.
+ *
+ * O `endpoint` é segredo (regra 3): nunca vai para log, nem aqui nem na API.
+ */
+
+/** Ativa o push neste aparelho, ou reata a inscrição que já existia à sessão atual. */
+export async function savePushSubscriptionAction(subscription: PushSubscriptionInput): Promise<ActionResult> {
+  await requireSession();
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
+  try {
+    await apiFetch({ method: "POST", path: "/notifications/push-subscriptions", body: subscription, token });
+    return success(undefined);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removePushSubscriptionAction(endpoint: string): Promise<ActionResult> {
+  await requireSession();
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
+  try {
+    await apiFetch({ method: "POST", path: "/notifications/push-subscriptions/remove", body: { endpoint }, token });
+    return success(undefined);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Pede um push de teste para este aparelho; o worker envia em segundos. */
+export async function requestPushTestAction(endpoint: string): Promise<ActionResult> {
+  await requireSession();
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
+  try {
+    await apiFetch({ method: "POST", path: "/notifications/push-subscriptions/test", body: { endpoint }, token });
+    return success(undefined);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Liga ou desliga o push de um tipo, para todos os aparelhos da pessoa (RF-J04). */
+export async function setPushPreferenceAction(
+  preference: PushPreferenceInput,
+): Promise<ActionResult<PushPreference[]>> {
+  await requireSession();
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
+  try {
+    const preferencias = await apiFetch<PushPreference[]>({
+      method: "POST",
+      path: "/notifications/preferences",
+      body: preference,
+      token,
+    });
+    revalidatePath("/perfil");
+    return success(preferencias);
   } catch (error) {
     return failure(error);
   }

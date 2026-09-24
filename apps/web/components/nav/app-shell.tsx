@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { AccountSummary, SessionUser } from "@repo/shared";
 import { BottomBar } from "@/components/nav/bottom-bar";
 import { MobileTopBar } from "@/components/nav/mobile-top-bar";
+import { PushResync } from "@/components/nav/push-resync";
 import { Sidebar } from "@/components/nav/sidebar";
 import { UnreadCountProvider } from "@/components/nav/unread-count";
 
@@ -46,6 +47,7 @@ export function AppShell({
     // min-h-dvh, e não min-h-screen: no celular a barra do navegador aparece e
     // some, e `vh` não acompanha — o rodapé fica cortado.
     <UnreadCountProvider initial={unreadCount}>
+      <PushResync />
       <div className="flex min-h-dvh">
         <Sidebar user={user} accounts={accounts} rememberedAccount={rememberedAccount} />
 

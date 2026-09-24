@@ -11,7 +11,8 @@ import { NetworkOnly, Serwist, type PrecacheEntry, type SerwistGlobalConfig } fr
  * Não é compilado pelo Next: o withSerwist o passa pelo esbuild e injeta
  * __SW_MANIFEST com os arquivos a guardar. Aqui não existe `window`, só `self`.
  *
- * Push entra na Fase 1, junto com as notificações.
+ * Também recebe o push (RF-J02) e abre o aviso quando a pessoa toca — ver os dois
+ * tratadores no fim do arquivo.
  */
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -62,3 +63,69 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+/**
+ * O push chega como `{ title, url }` e mais nada (AGENTS.md, regra 22): o que a
+ * tela bloqueada mostra é só o título genérico. Sem corpo de propósito — o
+ * detalhe aparece depois de abrir o PostIt, logado.
+ *
+ * Payload ilegível não some: vira um aviso genérico que leva ao sino, porque um
+ * push que chegou é sinal de que algo aconteceu.
+ */
+self.addEventListener("push", (event) => {
+  let title = "PostIt";
+  let url = "/notificacoes";
+  try {
+    const data: unknown = event.data?.json();
+    if (typeof data === "object" && data !== null) {
+      const { title: t, url: u } = data as { title?: unknown; url?: unknown };
+      if (typeof t === "string" && t.length > 0) title = t;
+      url = safePath(u);
+    }
+  } catch {
+    // Mantém o aviso genérico.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      icon: "/icons/192",
+      // O mesmo aviso chegando de novo substitui o anterior em vez de empilhar.
+      tag: url,
+      data: { url },
+    }),
+  );
+});
+
+/**
+ * Tocar abre o aviso: foca uma janela do PostIt que já esteja aberta, ou abre uma
+ * nova. O destino passa pelo mesmo filtro do push — nada fora do próprio PostIt.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = safePath((event.notification.data as { url?: unknown } | null)?.url);
+
+  event.waitUntil(
+    (async () => {
+      const janelas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const aberta = janelas.find((janela) => new URL(janela.url).origin === self.location.origin);
+      if (aberta !== undefined) {
+        await aberta.focus();
+        await aberta.navigate(url);
+        return;
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
+});
+
+/**
+ * Só caminho do próprio PostIt: começa com `/` e não com `//` (que o navegador lê
+ * como outro domínio). Qualquer outra coisa leva ao sino — um payload adulterado
+ * não pode transformar o toque num redirecionamento para fora.
+ */
+function safePath(value: unknown): string {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return "/notificacoes";
+  }
+  return value;
+}

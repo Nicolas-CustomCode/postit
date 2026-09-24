@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { NotificationItem } from "@repo/shared";
+import type { NotificationItem, PushPreference } from "@repo/shared";
 import { ApiError, apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 
@@ -15,6 +15,18 @@ export const listNotifications = cache(async (): Promise<NotificationItem[]> => 
 
   try {
     return await apiFetch<NotificationItem[]>({ method: "GET", path: "/notifications", token });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect("/sessao-expirada");
+    throw error;
+  }
+});
+
+/** Os tipos de aviso e se cada um vai por push (RF-J04). Sem escolha, todos ligados. */
+export const listPushPreferences = cache(async (): Promise<PushPreference[]> => {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+
+  try {
+    return await apiFetch<PushPreference[]>({ method: "GET", path: "/notifications/preferences", token });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect("/sessao-expirada");
     throw error;
