@@ -316,6 +316,50 @@ describe("publicador", () => {
       expect((await worker.db.account.findUniqueOrThrow({ where: { id: accountId } })).accessLostAt).not.toBeNull();
     });
 
+    /*
+     * Os avisos do sino (RF-J03) nascem na transação da falha. Duas postagens da
+     * mesma conta caindo pelo mesmo token: dois "publicação falhou", um só "conta
+     * sem acesso" — o segundo acharia a conta já marcada.
+     */
+    it("token inválido avisa quem agendou e o gerente, e a conta sem acesso só uma vez", async () => {
+      const agendador = await createTestUser(worker.db, worker.encryptionKey, { permissions: ["POST_EDIT"] });
+      const gerente = await createTestUser(worker.db, worker.encryptionKey, { permissions: ["ACCOUNT_MANAGE"] });
+      const primeira = await seed();
+      const segunda = await seed();
+      await worker.db.post.updateMany({
+        where: { id: { in: [primeira.id, segunda.id] } },
+        data: { scheduledById: agendador.id },
+      });
+
+      fake.refuseNextCreate({ code: 190 });
+      await run(primeira);
+      fake.refuseNextCreate({ code: 190 });
+      await run(segunda);
+
+      const avisos = await worker.db.notification.findMany({
+        include: { deliveries: { select: { userId: true } } },
+        orderBy: { createdAt: "asc" },
+      });
+      const falhas = avisos.filter((aviso) => aviso.type === "PUBLISH_FAILED");
+      const semAcesso = avisos.filter((aviso) => aviso.type === "ACCOUNT_ACCESS_LOST");
+
+      expect(falhas.map((aviso) => aviso.targetId).sort()).toEqual([primeira.id, segunda.id].sort());
+      for (const falha of falhas) expect(falha.deliveries.map((d) => d.userId)).toEqual([agendador.id]);
+      expect(semAcesso).toHaveLength(1);
+      expect(semAcesso[0]).toMatchObject({ targetType: "ACCOUNT", targetId: accountId });
+      expect(semAcesso[0]!.deliveries.map((d) => d.userId)).toEqual([gerente.id]);
+    });
+
+    it("recuperável não avisa ninguém: a postagem ainda vai ao ar", async () => {
+      await createTestUser(worker.db, worker.encryptionKey, { superAdmin: true });
+      fake.refuseNextCreate({ code: 4 });
+      const post = await seed();
+
+      await expect(run(post)).rejects.toBeInstanceOf(PublishRetryError);
+
+      expect(await worker.db.notification.count()).toBe(0);
+    });
+
     it("Meta não baixou a imagem: FALHOU", async () => {
       fake.refuseNextCreate({ code: 9004, subcode: 2207052 });
       const post = await seed();

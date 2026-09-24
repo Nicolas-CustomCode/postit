@@ -31,6 +31,7 @@ import {
 } from "../domain/post/post-state";
 import { trailActionFor } from "../domain/post/post-trail";
 import { canCancel, resolveSchedule, scheduleMoveFor, type ScheduleProblem } from "../domain/post/schedule";
+import { recordNotice } from "../notifications/record-notice";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
@@ -201,6 +202,14 @@ export class PostsDomainService {
 
     return this.applyUserWrite(input, post.status, { status: "IN_REVIEW" }, {
       trail: { action: "SUBMITTED_FOR_REVIEW" },
+      // O aviso de quem pode aprovar, na transação do envio: 409 de versão desfaz os dois.
+      extra: async (tx) => {
+        await recordNotice(
+          tx,
+          { type: "POST", id: input.postId },
+          { type: "AWAITING_APPROVAL", authorId: post.createdById, actorId: input.userId },
+        );
+      },
     });
   }
 
@@ -260,6 +269,25 @@ export class PostsDomainService {
 
     return this.applyUserWrite(input, post.status, { status: "DRAFT" }, {
       trail: { action: trailOf(post.status, "DRAFT", input.reason), reason: input.reason },
+      extra: async (tx) => {
+        // Quem enviou por último. O `extra` roda antes do `record`, então a linha
+        // desta reprovação ainda não existe e não atrapalha a busca.
+        const envio = await tx.approval.findFirst({
+          where: { postId: input.postId, action: "SUBMITTED_FOR_REVIEW" },
+          orderBy: { createdAt: "desc" },
+          select: { userId: true },
+        });
+        await recordNotice(
+          tx,
+          { type: "POST", id: input.postId },
+          {
+            type: "POST_REJECTED",
+            authorId: post.createdById,
+            submitterId: envio?.userId ?? null,
+            actorId: input.userId,
+          },
+        );
+      },
     });
   }
 

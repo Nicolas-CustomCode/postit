@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { decryptSecret } from "../common/crypto";
-import { createTestAccount } from "../common/testing/factories";
+import { createTestAccount, createTestUser } from "../common/testing/factories";
 import { ageColumn } from "../common/testing/reset-database";
 import { bootTestApp, type TestApp } from "../common/testing/test-app";
 import { createFakeMeta, FAKE_META_LONG_TOKEN, FAKE_META_REDIRECT_URI } from "../fake-meta/fake-meta";
@@ -160,6 +160,25 @@ describe("renovação de token do Instagram", () => {
       (await api.db.account.findUniqueOrThrow({ where: { id }, select: { accessLostAt: true } })).accessLostAt;
     expect(await sinal(perdida.id)).not.toBeNull();
     expect(await sinal(recuperada.id)).toBeNull();
+  });
+
+  /*
+   * O aviso do sino nasce com o sinal, na mesma transação — e só na passagem de
+   * nulo para marcado: a tarefa roda todo dia, e a conta perdida continuaria
+   * gerando um aviso por dia.
+   */
+  it("recusa definitiva avisa quem gerencia contas, uma vez só", async () => {
+    const gerente = await createTestUser(api.db, api.config.encryptionKey, { permissions: ["ACCOUNT_MANAGE"] });
+    await createTestUser(api.db, api.config.encryptionKey, { permissions: ["POST_EDIT"] });
+    const perdida = await contaConectadaHa(31, "token-revogado-pela-pessoa");
+
+    await refresh.refreshDue(new Date());
+    await refresh.refreshDue(new Date(Date.now() + 60_000));
+
+    const avisos = await api.db.notification.findMany({ include: { deliveries: { select: { userId: true } } } });
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatchObject({ type: "ACCOUNT_ACCESS_LOST", targetType: "ACCOUNT", targetId: perdida.id });
+    expect(avisos[0]!.deliveries.map((entrega) => entrega.userId)).toEqual([gerente.id]);
   });
 
   it("uma conta com problema não impede as outras de renovar", async () => {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { Prisma } from "@repo/database";
 import type { PublishFailureCause } from "@repo/shared";
+import { recordNotice } from "../../notifications/record-notice";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PostOutcomeStore } from "./post-outcome.store";
 import { recordPublishEvent, type PublishStepValue } from "./publish-events";
@@ -23,8 +24,8 @@ export interface FailPostInput {
  *
  * Um lugar só porque o que acompanha a falha precisa entrar na **mesma
  * transação** (AGENTS.md, regra 8): o status, o evento de auditoria, o sinal na
- * conta e a notificação `PUBLICACAO_FALHOU`. Espalhado em três chamadores, um
- * deles esqueceria uma das quatro.
+ * conta e os avisos do sino — `PUBLICACAO_FALHOU` e, na primeira vez,
+ * `CONTA_SEM_ACESSO`. Espalhado em três chamadores, um deles esqueceria um.
  */
 @Injectable()
 export class PublishFailureService {
@@ -48,11 +49,22 @@ export class PublishFailureService {
         metaResponse: input.metaResponse ?? { cause: input.cause },
       });
 
+      const { scheduledById } = await tx.post.findUniqueOrThrow({
+        where: { id: input.postId },
+        select: { scheduledById: true },
+      });
+      await recordNotice(tx, { type: "POST", id: input.postId }, { type: "PUBLISH_FAILED", scheduledById });
+
       if (input.flagAccountId) {
-        await tx.account.updateMany({
+        const marcada = await tx.account.updateMany({
           where: { id: input.flagAccountId, accessLostAt: null },
           data: { accessLostAt: new Date() },
         });
+        // Só na passagem de nulo para marcado: a segunda postagem que falha na mesma
+        // conta não repete o aviso.
+        if (marcada.count === 1) {
+          await recordNotice(tx, { type: "ACCOUNT", id: input.flagAccountId }, { type: "ACCOUNT_ACCESS_LOST" });
+        }
       }
       return true;
     });

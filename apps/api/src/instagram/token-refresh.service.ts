@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { InstagramUnavailableError } from "../common/errors";
 import { decryptSecret, encryptSecret } from "../common/crypto";
+import { recordNotice } from "../notifications/record-notice";
 import { PrismaService } from "../prisma/prisma.service";
 import { InstagramClient } from "./client";
 import { translateRefusal } from "./errors";
@@ -120,8 +121,7 @@ export class InstagramTokenRefreshService {
       // duas se resolve tentando de novo, e a mensagem não pode dizer mais que
       // isso — ela descreveria o formato do que está guardado.
       this.logger.error(`O token guardado da conta ${conta.username} não pôde ser lido.`);
-      await this.record(conta.id, "FATAL_ERROR");
-      await this.flagAccessLost(conta.id, now);
+      await this.recordFatal(conta.id, now);
       return "fatal";
     }
 
@@ -133,10 +133,10 @@ export class InstagramTokenRefreshService {
       const tipo = traduzido instanceof InstagramUnavailableError ? "recoverable" : "fatal";
 
       this.logger.warn(`Não renovei o token da conta ${conta.username}: ${traduzido.name}`);
-      await this.record(conta.id, tipo === "recoverable" ? "RECOVERABLE_ERROR" : "FATAL_ERROR");
       // Recusa definitiva é a conta sem acesso — o mesmo sinal que o publicador
       // acende (docs/09, "sinaliza a conta").
-      if (tipo === "fatal") await this.flagAccessLost(conta.id, now);
+      if (tipo === "fatal") await this.recordFatal(conta.id, now);
+      else await this.record(conta.id, "RECOVERABLE_ERROR");
       return tipo;
     }
 
@@ -181,12 +181,28 @@ export class InstagramTokenRefreshService {
     }
   }
 
-  /** Só na primeira vez, para a data dizer desde quando a conta está sem acesso. */
-  private async flagAccessLost(accountId: string, now: Date): Promise<void> {
-    await this.prisma.db.account.updateMany({ where: { id: accountId, accessLostAt: null }, data: { accessLostAt: now } });
+  /**
+   * A falha definitiva: o evento, o sinal na conta e o aviso do sino, na **mesma
+   * transação** (AGENTS.md, regra 8). Até 24/09/2026 eram duas escritas soltas.
+   *
+   * O sinal só na primeira vez, para a data dizer desde quando a conta está sem
+   * acesso — e o aviso só nessa passagem de nulo para marcado, para a renovação
+   * de cada dia não repeti-lo.
+   */
+  private async recordFatal(accountId: string, now: Date): Promise<void> {
+    await this.prisma.db.$transaction(async (tx) => {
+      await tx.tokenEvent.create({ data: { accountId, action: "REFRESH", result: "FATAL_ERROR" } });
+      const marcada = await tx.account.updateMany({
+        where: { id: accountId, accessLostAt: null },
+        data: { accessLostAt: now },
+      });
+      if (marcada.count === 1) {
+        await recordNotice(tx, { type: "ACCOUNT", id: accountId }, { type: "ACCOUNT_ACCESS_LOST" });
+      }
+    });
   }
 
-  private async record(accountId: string, result: "RECOVERABLE_ERROR" | "FATAL_ERROR"): Promise<void> {
+  private async record(accountId: string, result: "RECOVERABLE_ERROR"): Promise<void> {
     await this.prisma.db.tokenEvent.create({ data: { accountId, action: "REFRESH", result } });
   }
 }
