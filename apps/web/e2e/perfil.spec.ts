@@ -75,7 +75,8 @@ test.describe("perfil — o que a tela mostra", () => {
     const principal = page.getByRole("main");
 
     await expect(principal.getByRole("heading", { name: "Aparelhos conectados" })).toBeVisible();
-    await expect(principal.getByText("ESTE APARELHO")).toBeVisible();
+    // Exato: o cartão de notificações também fala "neste aparelho".
+    await expect(principal.getByText("ESTE APARELHO", { exact: true })).toBeVisible();
     // O navegador dos testes é Chromium; o rótulo nunca é o user-agent cru.
     await expect(principal.getByText(/^(Chrome|Safari|Edge|Firefox|Aparelho desconhecido)/).first()).toBeVisible();
     await expect(principal.getByText(/conectado desde/).first()).toBeVisible();
@@ -138,7 +139,7 @@ test.describe("perfil — o que a tela faz", () => {
     await encerrar.click();
     await expect(principal.getByText(/Nenhum outro aparelho está conectado/)).toBeVisible();
     // Este aparelho continua: a rota recusa encerrar a própria sessão.
-    await expect(principal.getByText("ESTE APARELHO")).toBeVisible();
+    await expect(principal.getByText("ESTE APARELHO", { exact: true })).toBeVisible();
 
     // E a sessão do outro morreu de verdade, não só sumiu da lista.
     await outraAba.goto("/perfil");

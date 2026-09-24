@@ -29,6 +29,32 @@ export async function limparAvisos(): Promise<void> {
   await comBanco((client) => client.query(`TRUNCATE TABLE "NotificacaoEntrega", "Notificacao"`));
 }
 
+/** Apaga as inscrições e as preferências de push: cada teste do Perfil começa do zero. */
+export async function limparPush(): Promise<void> {
+  await comBanco((client) => client.query(`TRUNCATE TABLE "InscricaoPush", "PreferenciaNotificacao"`));
+}
+
+/** As inscrições gravadas, com o pedido de teste — para conferir o que o Perfil mandou à API. */
+export async function inscricoesDePush(): Promise<{ endpoint: string; testePendente: boolean }[]> {
+  return comBanco(async (client) => {
+    const { rows } = await client.query<{ endpoint: string; testePendente: boolean }>(
+      `SELECT endpoint, "testePendenteEm" IS NOT NULL AS "testePendente" FROM "InscricaoPush" ORDER BY "criadaEm"`,
+    );
+    return rows;
+  });
+}
+
+/** A escolha gravada de um tipo, pelo nome do banco — `null` quando nunca foi escolhida (vale ligado). */
+export async function preferenciaDePush(tipo: string): Promise<boolean | null> {
+  return comBanco(async (client) => {
+    const { rows } = await client.query<{ push: boolean }>(
+      `SELECT push FROM "PreferenciaNotificacao" WHERE tipo = $1::"TipoNotificacao"`,
+      [tipo],
+    );
+    return rows[0]?.push ?? null;
+  });
+}
+
 export interface AvisoSemeado {
   /** O tipo no banco, em português: `PUBLICACAO_FALHOU`, `CONTA_SEM_ACESSO`… */
   readonly type: "PUBLICACAO_FALHOU" | "CONTA_SEM_ACESSO" | "AGUARDANDO_APROVACAO" | "POSTAGEM_REPROVADA";

@@ -85,6 +85,10 @@ export default defineConfig({
         APP_URL: `http://localhost:${WEB_PORT}`,
         // Fala com a API destes testes, não com a do desenvolvimento.
         INTERNAL_API_URL: `http://127.0.0.1:${API_PORT}`,
+        // Uma chave pública do push só para o Perfil sair de "não configurado". A
+        // privada foi descartada: o worker destes testes sobe com o push desligado, e
+        // a inscrição do navegador é simulada no próprio teste.
+        VAPID_PUBLIC_KEY: "BE0GQ27rSQG5HDf_Me_hUoNpwu63DV2oIDzSCyX4CeNq8OSzJO_hTbj2HJa2sAMGlLmtkawoXNoLyPxSUDDzmDw",
       },
     },
     {

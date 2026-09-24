@@ -6,11 +6,14 @@ import { LocalMonth } from "@/components/local-date";
 import { PageHeader } from "@/components/nav/page-header";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/lib/actions/auth";
+import { listPushPreferences } from "@/lib/data/notifications";
 import { getSecurityOverview } from "@/lib/data/security";
+import { readWebEnv } from "@/lib/env";
 import { listActiveSessions } from "@/lib/data/sessions";
 import { requireSession } from "@/lib/auth/session";
 import { DevicesCard } from "./devices-card";
 import { IdentityCard, PermissionsCard } from "./identity-card";
+import { InstallCard, NotificationsCard } from "./notifications-card";
 import { SecurityCard } from "./security-card";
 
 export const metadata: Metadata = { title: "Perfil" };
@@ -21,12 +24,19 @@ export const metadata: Metadata = { title: "Perfil" };
  * Duas colunas no computador (artboard `PerfilDesktop`): identidade e permissões
  * à esquerda, ações à direita. Uma coluna no celular, na mesma ordem.
  *
- * Preferências de notificação e "ativar push" entram na Fase 1, junto com o
- * push. A proteção é o `requireSession()` daqui — não a do layout.
+ * As notificações (RF-J02, RF-J04) e a instalação (RF-J05) ficam na coluna da
+ * direita, depois dos aparelhos. A proteção é o `requireSession()` daqui — não a do
+ * layout.
  */
 export default async function PerfilPage(): Promise<ReactNode> {
   const { user } = await requireSession();
-  const [sessions, security] = await Promise.all([listActiveSessions(), getSecurityOverview()]);
+  const [sessions, security, preferences] = await Promise.all([
+    listActiveSessions(),
+    getSecurityOverview(),
+    listPushPreferences(),
+  ]);
+  // A chave pública do push chega ao navegador como prop, e não por NEXT_PUBLIC_ (ADR 0017).
+  const vapidPublicKey = readWebEnv().VAPID_PUBLIC_KEY ?? null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
@@ -52,6 +62,8 @@ export default async function PerfilPage(): Promise<ReactNode> {
         <div className="flex flex-col gap-5">
           <SecurityCard security={security} />
           <DevicesCard sessions={sessions} />
+          <NotificationsCard vapidPublicKey={vapidPublicKey} preferences={preferences} />
+          <InstallCard />
         </div>
       </div>
 
