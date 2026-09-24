@@ -14,6 +14,7 @@ export * from "./account-path";
 export * from "./metrics-types";
 export * from "./media-formats";
 export * from "./media-types";
+export * from "./image-normalize";
 export * from "./caption";
 export * from "./post-types";
 export * from "./post-formats";

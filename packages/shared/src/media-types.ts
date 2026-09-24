@@ -1,4 +1,4 @@
-import { IMAGE_UPLOAD_SPEC } from "./media-formats";
+import { NORMALIZE_MAX_INPUT_BYTES } from "./image-normalize";
 
 /**
  * O contrato do envio de mídia (RF-B01, RF-B02; ADR 0012).
@@ -17,21 +17,21 @@ export const ALT_TEXT_MAX_LENGTH = 1000;
  * entrega de graça no objeto `File`.
  *
  * Devolve o motivo ou `null`. A API confere tudo de novo, e mais — esta função
- * existe para evitar um envio de 8 MB que já se sabe condenado, não para
- * proteger (AGENTS.md, regra 17: quem decide é a API).
+ * existe para não abrir um arquivo que já se sabe condenado, não para proteger
+ * (AGENTS.md, regra 17: quem decide é a API).
+ *
+ * **Não confere o tipo nem os 8 MB**: PNG e JPEG pesado são convertidos antes do
+ * envio (RF-B06, `image-normalize.ts`), e o tipo sai dos bytes, não do `File`. O
+ * teto aqui é o do que a tela aceita abrir.
  *
  * Não confere proporção, e nem poderia: o `File` não traz dimensões. Também não
  * deveria — a proporção depende do formato de destino (RF-B03).
  */
-export type MediaPreProblem = "WRONG_TYPE" | "TOO_LARGE" | "EMPTY";
+export type MediaPreProblem = "TOO_LARGE" | "EMPTY";
 
-export function imageUploadPreProblem(file: { type: string; size: number }): MediaPreProblem | null {
-  // Sem o `; charset=`, que alguns navegadores acrescentam.
-  const tipo = file.type.split(";")[0]?.trim().toLowerCase() ?? "";
-
-  if (tipo !== IMAGE_UPLOAD_SPEC.mime) return "WRONG_TYPE";
+export function imageUploadPreProblem(file: { size: number }): MediaPreProblem | null {
   if (file.size === 0) return "EMPTY";
-  if (file.size > IMAGE_UPLOAD_SPEC.maxBytes) return "TOO_LARGE";
+  if (file.size > NORMALIZE_MAX_INPUT_BYTES) return "TOO_LARGE";
   return null;
 }
 

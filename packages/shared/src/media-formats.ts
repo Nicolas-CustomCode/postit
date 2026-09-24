@@ -44,7 +44,10 @@ export interface ImageSpec {
 export const IMAGE_FORMATS = ["FEED", "STORIES"] as const;
 export type ImageFormat = (typeof IMAGE_FORMATS)[number];
 
-/** Só JPEG, em qualquer formato. PNG, WebP, HEIC e AVIF são recusados (docs/08). */
+/**
+ * Só JPEG, em qualquer formato — a API recusa PNG, WebP, HEIC e AVIF (docs/08).
+ * A tela converte PNG, WebP e AVIF antes de enviar (RF-B06, `image-normalize.ts`).
+ */
 export const IMAGE_MIME = "image/jpeg";
 
 /**
