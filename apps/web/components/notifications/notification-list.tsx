@@ -3,6 +3,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import type { NotificationItem } from "@repo/shared";
 import { LocalDate } from "@/components/local-date";
+import { useRefreshUnreadCount } from "@/components/nav/unread-count";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { markAllNotificationsReadAction, openNotificationAction } from "@/lib/actions/notifications";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 export function NotificationList({ items }: { readonly items: readonly NotificationItem[] }): ReactNode {
   const [pendente, iniciar] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
+  const atualizarSino = useRefreshUnreadCount();
   const naoLidas = items.filter((item) => item.readAt === null).length;
 
   function abrir(id: string): void {
@@ -38,6 +40,8 @@ export function NotificationList({ items }: { readonly items: readonly Notificat
     iniciar(async () => {
       const resultado = await markAllNotificationsReadAction();
       if (!resultado.ok) setErro(resultado.message);
+      // Marcar todos não troca de tela: sem isto, o selo esperaria a próxima consulta.
+      await atualizarSino();
     });
   }
 

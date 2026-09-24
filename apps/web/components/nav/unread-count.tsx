@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { unreadCountAction } from "@/lib/actions/notifications";
 import { cn } from "@/lib/utils";
 
@@ -12,12 +13,21 @@ import { cn } from "@/lib/utils";
  * publicação que falhou às 3h — não chegaria a uma tela já aberta. Por isso a
  * consulta: **a cada 60 s e ao voltar para a aba**, e nunca com a aba escondida.
  *
- * Quando uma ação revalida o layout (abrir um aviso, marcar todos), a semente
- * nova chega e substitui o número na hora.
+ * ⚠️ **E também a cada troca de tela, e quando quem lê pede.** Contar com a
+ * revalidação do layout depois de marcar como lido não bastou: o selo continuava
+ * com o número antigo até a consulta seguinte (24/09/2026). Abrir um aviso — pelo
+ * sino ou pelo toque no push — sempre navega, e a troca de tela reconsulta; marcar
+ * todos não navega, e a lista chama `refresh` ao terminar.
  */
 const INTERVALO_MS = 60_000;
 
-const UnreadCountContext = createContext(0);
+interface UnreadCountValue {
+  readonly count: number;
+  /** Pergunta o número de novo, agora — depois de uma ação que marcou avisos como lidos. */
+  readonly refresh: () => Promise<void>;
+}
+
+const UnreadCountContext = createContext<UnreadCountValue>({ count: 0, refresh: () => Promise.resolve() });
 
 export function UnreadCountProvider({
   initial,
@@ -35,33 +45,49 @@ export function UnreadCountProvider({
     setCount(initial);
   }
 
+  const vivo = useRef(true);
+  const refresh = useCallback(async (): Promise<void> => {
+    if (document.visibilityState !== "visible") return;
+    const numero = await unreadCountAction();
+    if (vivo.current && numero !== null) setCount(numero);
+  }, []);
+
   useEffect(() => {
-    let vivo = true;
-
-    async function consultar(): Promise<void> {
-      if (document.visibilityState !== "visible") return;
-      const numero = await unreadCountAction();
-      if (vivo && numero !== null) setCount(numero);
-    }
-
-    const timer = window.setInterval(() => void consultar(), INTERVALO_MS);
-    const aoVoltar = () => void consultar();
+    vivo.current = true;
+    const timer = window.setInterval(() => void refresh(), INTERVALO_MS);
+    const aoVoltar = () => void refresh();
     window.addEventListener("focus", aoVoltar);
     document.addEventListener("visibilitychange", aoVoltar);
 
     return () => {
-      vivo = false;
+      vivo.current = false;
       window.clearInterval(timer);
       window.removeEventListener("focus", aoVoltar);
       document.removeEventListener("visibilitychange", aoVoltar);
     };
-  }, []);
+  }, [refresh]);
 
-  return <UnreadCountContext value={count}>{children}</UnreadCountContext>;
+  // A cada troca de tela, menos a primeira carga, que já veio com a semente do layout.
+  const pathname = usePathname();
+  const primeiraTela = useRef(true);
+  useEffect(() => {
+    if (primeiraTela.current) {
+      primeiraTela.current = false;
+      return;
+    }
+    void refresh();
+  }, [pathname, refresh]);
+
+  return <UnreadCountContext value={{ count, refresh }}>{children}</UnreadCountContext>;
 }
 
 export function useUnreadCount(): number {
-  return useContext(UnreadCountContext);
+  return useContext(UnreadCountContext).count;
+}
+
+/** Para quem acabou de marcar avisos como lidos sem trocar de tela: o selo acompanha na hora. */
+export function useRefreshUnreadCount(): () => Promise<void> {
+  return useContext(UnreadCountContext).refresh;
 }
 
 /**
