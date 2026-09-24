@@ -8,10 +8,9 @@ import zlib from "node:zlib";
  * `createImageBitmap`. Sai um PNG cinza montado na hora — dados uniformes
  * comprimem a quase nada, então uma "foto" de 1512×2016 dá poucos kilobytes.
  *
- * O tipo declarado no envio continua sendo JPEG: quem escolhe o arquivo no
- * navegador informa o tipo, e é isso que a conferência local olha. O que sai do
- * recorte é um JPEG de verdade, gerado pelo canvas — por isso a API, que confere
- * os bytes, aceita.
+ * Declarado como JPEG ou como PNG, dá no mesmo: a tela decide pelos bytes, vê
+ * um PNG e o converte para JPEG antes do envio (RF-B06, ADR 0027) — por isso a
+ * API, que também confere os bytes, aceita.
  */
 export function imagemDe(width: number, height: number): Buffer {
   const chunk = (tipo: string, dados: Buffer): Buffer => {

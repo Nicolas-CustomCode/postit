@@ -42,7 +42,8 @@ export default async function AcervoPage(): Promise<ReactNode> {
         <CardHeader>
           <CardTitle className="font-heading text-lg">Enviar imagem</CardTitle>
           <CardDescription>
-            JPEG de até 8 MB, com pelo menos 320 pixels de largura — os limites do próprio Instagram.
+            JPEG de até 8 MB, com pelo menos 320 pixels de largura — os limites do próprio Instagram. PNG,
+            WebP e fotos maiores são convertidos antes do envio.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

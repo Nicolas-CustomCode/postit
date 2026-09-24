@@ -8,18 +8,20 @@ import {
   imageUploadPreProblem,
   targetRatioFor,
   IMAGE_SPECS,
-  IMAGE_UPLOAD_SPEC,
   megabytes,
   type ImageFormat,
+  type ImageKind,
   type ImageSpec,
   type MediaSummary,
   type MediaPreProblem,
+  type NormalizeProblem,
 } from "@repo/shared";
 import { ImageAdjust, type AdjustChoice } from "@/components/media/image-adjust";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { blobToFile, cropToJpeg, fitToJpeg, loadImage, type LoadedImage } from "@/lib/media/crop-image";
+import { blobToFile, cropToJpeg, fitToJpeg, type LoadedImage } from "@/lib/media/crop-image";
+import { normalizeImage, NORMALIZE_ACCEPT, type NormalizeNotice } from "@/lib/media/normalize-image";
 import { uploadImage } from "@/lib/media/upload";
 
 /**
@@ -46,8 +48,12 @@ import { uploadImage } from "@/lib/media/upload";
  * ⚠️ **Não dá para usar um `<form action="…">` apontando para o armazenamento**:
  * a CSP tem `form-action 'self'` e o navegador bloquearia o envio (ADR 0014).
  */
-/** O arquivo original fica guardado: "enviar como está" manda ele, sem recorte. */
-type Escolhida = { file: File; imagem: LoadedImage };
+/**
+ * O arquivo já normalizado fica guardado: "enviar como está" manda ele, sem
+ * recorte. É o original quando ele já era JPEG de até 8 MB; senão, a conversão,
+ * e o `aviso` diz o que mudou (RF-B06).
+ */
+type Escolhida = { file: File; imagem: LoadedImage; aviso: NormalizeNotice | null };
 
 type Estado =
   | { fase: "parado" }
@@ -132,15 +138,17 @@ export function UploadField({
      * Só aqui as dimensões aparecem: o navegador decodifica a imagem e **já
      * aplica a orientação da câmera**, então a foto tirada em pé chega em pé. É
      * o que permite dizer para que formatos ela serve antes de gastar 8 MB.
+     *
+     * E é aqui que PNG, WebP e JPEG pesado viram o JPEG que a Meta aceita
+     * (RF-B06): daqui em diante, prévia, proporção e ajuste usam o convertido.
      */
-    let imagem: LoadedImage;
-    try {
-      imagem = await loadImage(file);
-    } catch {
-      setErro("Não consegui ler esta imagem. O arquivo pode estar corrompido.");
+    const normalizada = await normalizeImage(file);
+    if (!normalizada.ok) {
+      setErro(mensagemDaConversao(normalizada.problem));
       setEstado({ fase: "parado" });
       return;
     }
+    const imagem = normalizada.image;
 
     /*
      * **Nada sobe sem a pessoa ver.** Até 21/09/2026, a imagem que já cabia ia
@@ -149,7 +157,11 @@ export function UploadField({
      * diz se vale falar de recorte ou se basta confirmar.
      */
     const ratioAlvo = targetRatioFor(imagem.width, imagem.height, alvo);
-    setEstado({ fase: "decidindo", escolhida: { file, imagem }, ratioAlvo });
+    setEstado({
+      fase: "decidindo",
+      escolhida: { file: normalizada.file, imagem, aviso: normalizada.notice },
+      ratioAlvo,
+    });
   }
 
   /** Aplica o ajuste escolhido e envia o resultado, nunca o original. */
@@ -200,7 +212,7 @@ export function UploadField({
       <input
         ref={input}
         type="file"
-        accept={IMAGE_UPLOAD_SPEC.mime}
+        accept={NORMALIZE_ACCEPT}
         className="sr-only"
         disabled={ocupado}
         onChange={(evento) => {
@@ -215,6 +227,7 @@ export function UploadField({
         <ImageConfirm
           image={estado.escolhida.imagem}
           file={estado.escolhida.file}
+          notice={estado.escolhida.aviso}
           spec={alvo}
           ratioAlvo={estado.ratioAlvo}
           /*
@@ -316,6 +329,7 @@ export function UploadField({
 function ImageConfirm({
   image,
   file,
+  notice,
   spec,
   ratioAlvo,
   onSend,
@@ -323,8 +337,10 @@ function ImageConfirm({
   onChooseAnother,
 }: {
   readonly image: LoadedImage;
-  /** A prévia sai do arquivo original, não do bitmap já decodificado. */
+  /** A prévia sai do arquivo que vai subir, não do bitmap já decodificado. */
   readonly file: File;
+  /** O que a conversão mudou no arquivo escolhido, ou `null` quando nada. */
+  readonly notice: NormalizeNotice | null;
   readonly spec: ImageSpec;
   /** `null` quando a imagem já cabe: aí não há recorte a oferecer. */
   readonly ratioAlvo: number | null;
@@ -377,6 +393,8 @@ function ImageConfirm({
         <p className="text-sm font-medium">
           Esta imagem é {image.width} × {image.height} pixels
         </p>
+        {/* Nada muda sem a pessoa saber: o arquivo que sobe não é o escolhido. */}
+        {notice !== null && <p className="text-sm text-muted-foreground">{textoDoAviso(notice)}</p>}
         {/*
           A frase evita preposição antes do nome do formato: "não cabe em Feed"
           sai torto, e "no Feed" quebraria em "no Stories".
@@ -447,15 +465,59 @@ function rotulo(estado: Estado, label?: string): string {
   }
 }
 
-/** O que a tela mesma detectou, antes de enviar. */
+/** O que a tela mesma detectou, antes de abrir o arquivo. */
 function mensagemLocal(problema: MediaPreProblem, bytes: number): string {
   switch (problema) {
-    case "WRONG_TYPE":
-      return "O Instagram só aceita JPEG. Converta a imagem e tente de novo.";
     case "EMPTY":
       return "Este arquivo está vazio.";
     case "TOO_LARGE":
-      return `JPEG de até 8 MB. Este arquivo tem ${megabytes(bytes)} MB.`;
+      return `Este arquivo tem ${megabytes(bytes)} MB — grande demais para abrir aqui. O limite é 50 MB.`;
   }
+}
+
+/** O que não deu para converter em JPEG (RF-B06). */
+function mensagemDaConversao(problema: NormalizeProblem): string {
+  switch (problema) {
+    case "UNREADABLE":
+      return "Não consegui ler esta imagem. O arquivo pode estar corrompido.";
+    case "HEIC":
+      return "O navegador não lê HEIC. No iPhone, escolha a foto pela galeria — ela já chega em JPEG; no computador, exporte como JPEG.";
+    case "GIF":
+      return "GIF não serve: o Instagram publicaria só o primeiro quadro, sem a animação. Envie JPEG, PNG ou WebP.";
+    case "TOO_BIG_TO_CONVERT":
+      return "Esta imagem passa de 50 megapixels — grande demais para converter aqui. Reduza e tente de novo.";
+  }
+}
+
+const NOME_DO_TIPO: Record<ImageKind, string> = {
+  jpeg: "JPEG",
+  png: "PNG",
+  webp: "WebP",
+  avif: "AVIF",
+  heic: "HEIC",
+  gif: "GIF",
+};
+
+/**
+ * "Convertida de PNG para JPEG e reduzida de 5000 × 400 para 2160 × 173 — …".
+ * Uma frase só, porque as duas mudanças respondem à mesma pergunta: por que o
+ * arquivo que sobe não é o que escolhi?
+ */
+function textoDoAviso(aviso: NormalizeNotice): string {
+  const { original, final } = aviso;
+  const mudouDeTamanho = original.width !== final.width || original.height !== final.height;
+  const partes: string[] = [];
+
+  if (aviso.reasons.includes("CONVERTED")) partes.push(`convertida de ${NOME_DO_TIPO[aviso.from]} para JPEG`);
+  if (aviso.reasons.includes("REDUCED")) {
+    partes.push(
+      mudouDeTamanho
+        ? `reduzida de ${original.width} × ${original.height} para ${final.width} × ${final.height}`
+        : "recomprimida",
+    );
+  }
+
+  const frase = partes.join(" e ");
+  return `${frase.charAt(0).toUpperCase()}${frase.slice(1)} — o Instagram só aceita JPEG de até 8 MB.`;
 }
 

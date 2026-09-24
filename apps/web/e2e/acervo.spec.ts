@@ -26,6 +26,7 @@ test.describe("acervo — enviar imagem", () => {
     await expect(page.getByRole("heading", { name: "Acervo", exact: true })).toBeVisible();
     await expect(page.getByText(/JPEG de até 8 MB/)).toBeVisible();
     await expect(page.getByText(/320 pixels de largura/)).toBeVisible();
+    await expect(page.getByText(/PNG, WebP e fotos maiores são convertidos/)).toBeVisible();
 
     // E não promete uma faixa de proporção: ela depende do formato de destino,
     // que só a composição conhece (RF-B03).
@@ -40,31 +41,52 @@ test.describe("acervo — enviar imagem", () => {
   });
 
   /*
-   * A recusa local, sem gastar envio: o docs/02 divide assim — o que dá para
-   * conferir sem abrir o arquivo, a tela confere antes.
+   * PNG não é recusado: vira JPEG no navegador antes do envio, e a tela avisa
+   * (RF-B06, ADR 0027). A API continua recusando PNG — é a última barreira.
    */
-  test("um PNG é recusado na hora, com a mensagem certa", async ({ page }) => {
+  test("um PNG é convertido e aceito, com aviso", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
       name: "foto.png",
       mimeType: "image/png",
-      buffer: Buffer.from("89504e470d0a1a0a", "hex"),
+      buffer: imagemDe(1080, 1080),
     });
 
-    await expect(page.getByRole("main").getByRole("alert")).toContainText(/só aceita JPEG/i);
+    await expect(page.getByText(/Convertida de PNG para JPEG/)).toBeVisible();
+    await expect(page.getByText("1080 × 1080 pixels")).toBeVisible();
+    await expect(page.getByRole("button", { name: /usar esta imagem/i })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   });
 
-  test("um arquivo grande demais é recusado com o tamanho dele na mensagem", async ({ page }) => {
+  test("uma imagem enorme é reduzida, com as medidas antes e depois", async ({ page }) => {
     await page.setInputFiles('input[type="file"]', {
-      name: "grande.jpg",
-      mimeType: "image/jpeg",
-      // 9 MB: acima do limite de 8 MB.
-      buffer: Buffer.alloc(9_000_000, 0x20),
+      name: "panorama.png",
+      mimeType: "image/png",
+      buffer: imagemDe(5000, 400),
     });
 
-    const alerta = page.getByRole("main").getByRole("alert");
-    await expect(alerta).toContainText(/até 8 MB/);
-    // O número real do arquivo, que é o que o docs/04 pede.
-    await expect(alerta).toContainText(/9,0 MB/);
+    // O lado maior para em 2160, com a proporção preservada.
+    await expect(page.getByText(/reduzida de 5000 × 400 para 2160 × 173/)).toBeVisible();
+    await expect(page.getByText("2160 × 173 pixels")).toBeVisible();
+  });
+
+  test("um arquivo que não é imagem é recusado", async ({ page }) => {
+    await page.setInputFiles('input[type="file"]', {
+      name: "notas.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from("isto não é uma imagem, é um texto qualquer"),
+    });
+
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(/não consegui ler/i);
+  });
+
+  test("GIF é recusado, com o motivo", async ({ page }) => {
+    await page.setInputFiles('input[type="file"]', {
+      name: "animacao.gif",
+      mimeType: "image/gif",
+      buffer: Buffer.from("GIF89a\u0001\u0000\u0001\u0000", "latin1"),
+    });
+
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(/primeiro quadro/i);
   });
 
   /*

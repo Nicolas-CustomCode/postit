@@ -105,7 +105,8 @@ export function blobToFile(blob: Blob, name: string): File {
   return new File([blob], name, { type: "image/jpeg" });
 }
 
-function paraJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
+/** Também usado pela conversão antes do envio (`normalize-image.ts`): a mesma qualidade 0,92. */
+export function paraJpeg(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolver, rejeitar) => {
     canvas.toBlob(
       (blob) => (blob === null ? rejeitar(new Error("não consegui gerar a imagem")) : resolver(blob)),
