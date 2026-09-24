@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/nav/app-shell";
 import { accountToOpen } from "@/lib/accounts/active-account";
 import { listAccounts } from "@/lib/data/accounts";
+import { unreadNotificationCount } from "@/lib/data/notifications";
 import { requireSession } from "@/lib/auth/session";
 
 /**
@@ -21,11 +22,22 @@ import { requireSession } from "@/lib/auth/session";
  * numa tela geral no celular não tinha como voltar às telas da conta.
  */
 export default async function AutenticadoLayout({ children }: { readonly children: ReactNode }): Promise<ReactNode> {
-  const [{ user }, accounts] = await Promise.all([requireSession(), listAccounts()]);
+  const [{ user }, accounts, naoLidas] = await Promise.all([
+    requireSession(),
+    listAccounts(),
+    unreadNotificationCount(),
+  ]);
   const lembrada = await accountToOpen(accounts);
 
+  // O número do sino também não depende da rota; ele só envelhece, e a casca o
+  // consulta de novo a cada minuto (`UnreadCountProvider`).
   return (
-    <AppShell user={user} accounts={accounts} rememberedAccount={lembrada?.username ?? null}>
+    <AppShell
+      user={user}
+      accounts={accounts}
+      rememberedAccount={lembrada?.username ?? null}
+      unreadCount={naoLidas}
+    >
       {children}
     </AppShell>
   );

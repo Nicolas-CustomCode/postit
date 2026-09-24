@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { SessionUser } from "@repo/shared";
+import { UnreadBadge, useUnreadCount } from "@/components/nav/unread-count";
 import { UserCard } from "@/components/nav/user-card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { hidesBottomBar, hrefFor, visibleItems } from "@/lib/nav/items";
@@ -33,6 +34,7 @@ export function BottomBar({
 }): ReactNode {
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
+  const naoLidas = useUnreadCount();
 
   /*
    * Nas telas gerais — Contas, Perfil, Acervo — o endereço não tem conta, e a
@@ -70,7 +72,13 @@ export function BottomBar({
         </span>
       </Link>
 
-      <BottomLink href="/notificacoes" label="Notificações" icon={Bell} pathname={pathname} disabled />
+      <BottomLink
+        href="/notificacoes"
+        label="Notificações"
+        icon={Bell}
+        pathname={pathname}
+        badge={<UnreadBadge count={naoLidas} className="absolute -top-1.5 left-[calc(50%+4px)]" />}
+      />
 
       <Sheet open={aberto} onOpenChange={setAberto}>
         <SheetTrigger
@@ -131,34 +139,27 @@ function BottomLink({
   label,
   icon: Icone,
   pathname,
-  disabled = false,
+  badge,
 }: {
   readonly href: string;
   readonly label: string;
   readonly icon: typeof Bell;
   readonly pathname: string;
-  readonly disabled?: boolean;
+  /** O selo sobre o ícone — o número do sino. */
+  readonly badge?: ReactNode;
 }): ReactNode {
   const ativo = pathname === href || pathname.startsWith(`${href}/`);
   const classe = "flex min-h-12 flex-col items-center justify-center gap-1 text-[11px]";
-
-  if (disabled) {
-    return (
-      <span className={cn(classe, "font-semibold text-muted-foreground/50")} aria-disabled title="Chega na Fase 1">
-        <Icone className="size-5.5" strokeWidth={2} aria-hidden />
-        {label}
-      </span>
-    );
-  }
 
   return (
     <Link
       href={href}
       aria-current={ativo ? "page" : undefined}
-      className={cn(classe, ativo ? "font-bold text-primary" : "font-semibold text-muted-foreground")}
+      className={cn(classe, "relative", ativo ? "font-bold text-primary" : "font-semibold text-muted-foreground")}
     >
       <Icone className="size-5.5" strokeWidth={2} aria-hidden />
       {label}
+      {badge}
     </Link>
   );
 }

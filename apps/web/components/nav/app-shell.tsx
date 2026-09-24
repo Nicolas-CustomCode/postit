@@ -3,6 +3,7 @@ import type { AccountSummary, SessionUser } from "@repo/shared";
 import { BottomBar } from "@/components/nav/bottom-bar";
 import { MobileTopBar } from "@/components/nav/mobile-top-bar";
 import { Sidebar } from "@/components/nav/sidebar";
+import { UnreadCountProvider } from "@/components/nav/unread-count";
 
 /**
  * A casca do sistema: barra lateral no computador, barra inferior no celular.
@@ -30,27 +31,32 @@ export function AppShell({
   user,
   accounts,
   rememberedAccount,
+  unreadCount,
   children,
 }: {
   readonly user: SessionUser;
   readonly accounts: readonly AccountSummary[];
   /** Que conta a casca mostra quando o endereço não tem nenhuma. */
   readonly rememberedAccount: string | null;
+  /** A semente do número do sino; quem o mantém em dia é o `UnreadCountProvider`. */
+  readonly unreadCount: number;
   readonly children: ReactNode;
 }): ReactNode {
   return (
     // min-h-dvh, e não min-h-screen: no celular a barra do navegador aparece e
     // some, e `vh` não acompanha — o rodapé fica cortado.
-    <div className="flex min-h-dvh">
-      <Sidebar user={user} accounts={accounts} rememberedAccount={rememberedAccount} />
+    <UnreadCountProvider initial={unreadCount}>
+      <div className="flex min-h-dvh">
+        <Sidebar user={user} accounts={accounts} rememberedAccount={rememberedAccount} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <MobileTopBar accounts={accounts} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <MobileTopBar accounts={accounts} />
 
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col">{children}</div>
 
-        <BottomBar user={user} rememberedAccount={rememberedAccount} />
+          <BottomBar user={user} rememberedAccount={rememberedAccount} />
+        </div>
       </div>
-    </div>
+    </UnreadCountProvider>
   );
 }

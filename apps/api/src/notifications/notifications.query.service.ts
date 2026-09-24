@@ -16,8 +16,9 @@ export class NotificationsQueryService {
     const entregas = await this.prisma.db.notificationDelivery.findMany({
       where: { userId },
       include: { notification: true },
-      // O id é UUIDv7, que cresce com o tempo: a mais recente primeiro, pelo índice.
-      orderBy: { id: "desc" },
+      // Pela hora do aviso, e não pelo id da entrega: o UUIDv7 cresce com o tempo só
+      // quando quem gera é o Prisma, e linha escrita por SQL traz UUID aleatório.
+      orderBy: [{ notification: { createdAt: "desc" } }, { id: "desc" }],
       take: NOTIFICATION_LIST_LIMIT,
     });
     return this.withTargets(entregas);

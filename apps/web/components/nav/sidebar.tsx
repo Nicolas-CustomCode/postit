@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import type { AccountSummary, SessionUser } from "@repo/shared";
 import { AccountSwitcher } from "@/components/nav/account-switcher";
+import { UnreadBadge, useUnreadCount } from "@/components/nav/unread-count";
 import { UserCard } from "@/components/nav/user-card";
 import { BrandSvg } from "@/components/brand";
 import { hrefFor, visibleItems, type NavItem } from "@/lib/nav/items";
@@ -109,6 +110,7 @@ function NavGroup({
   readonly spaced?: boolean;
 }): ReactNode {
   const pathname = usePathname();
+  const naoLidas = useUnreadCount();
 
   return (
     <>
@@ -159,6 +161,7 @@ function NavGroup({
               >
                 <Icone className="size-5" strokeWidth={2} aria-hidden />
                 <span className="flex-1">{item.label}</span>
+                {item.key === "notificacoes" && <UnreadBadge count={naoLidas} />}
               </Link>
             </li>
           );

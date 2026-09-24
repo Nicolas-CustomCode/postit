@@ -40,7 +40,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: "calendario", label: "Calendário", icon: CalendarDays, scope: "account", path: "calendario" },
   { key: "postagens", label: "Postagens", icon: SquarePen, scope: "account", path: "postagens" },
   { key: "metricas", label: "Métricas", icon: BarChart3, scope: "account", path: "metricas" },
-  { key: "notificacoes", label: "Notificações", icon: Bell, scope: "general", path: "/notificacoes", comingIn: "Fase 1" },
+  { key: "notificacoes", label: "Notificações", icon: Bell, scope: "general", path: "/notificacoes" },
   { key: "acervo", label: "Acervo", icon: Images, scope: "general", path: "/acervo" },
   { key: "contas", label: "Contas", icon: AtSign, scope: "general", path: "/contas" },
   { key: "saude", label: "Saúde", icon: HeartPulse, scope: "general", path: "/saude", comingIn: "Fase 5" },
