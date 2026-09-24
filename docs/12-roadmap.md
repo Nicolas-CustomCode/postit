@@ -336,8 +336,12 @@ aprovação). A aresta nova `AGENDADO → APROVADO` é cancelar o agendamento se
 a registrar toda decisão humana de estado (I-11). A revisão independente do desenho da API achou um buraco antes da
 entrega: editar em revisão não derrubava, e quem aprova podia reescrever a postagem de um colega e aprová-la.
 
-**Falta desta fase:** as notificações — o sino (parte G) e o push com as preferências (parte H) —, e o roteiro de
-fogo. Com a revisão de verdade na 1e, o G decide se "aguardando aprovação" entra junto.
+**O sino (parte G) entregue em 24/09/2026.** Quatro avisos, cada um gravado na transação do que o causou:
+publicação falhou, conta sem acesso (**antecipada** da fase de saúde para cá), aguardando aprovação e **reprovada** —
+tipo novo, `POSTAGEM_REPROVADA`, para o autor e para quem enviou. A tela `/notificacoes` lista, abre e marca como
+lido; o número do sino é consultado a cada 60 s e ao voltar para a aba.
+
+**Falta desta fase:** o push com as preferências (parte H) e o roteiro de fogo.
 
 Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
 **5**, **6** a **11**, **14**, **15** e **16**.
@@ -492,7 +496,7 @@ de ele quebrar.
 | Exibição de cota restante por conta | RF-A07 |
 | Tarefa `manutencao` com a política de retenção | RNF-12 |
 | Tela de evolução da conta, com métricas indisponíveis explicadas | RF-G07 |
-| Demais tipos de notificação: `TOKEN_EXPIRANDO`, `CONTA_SEM_ACESSO`, `PROCESSAMENTO_TRAVADO` | RF-J03 |
+| Demais tipos de notificação: `TOKEN_EXPIRANDO`, `PROCESSAMENTO_TRAVADO` (`CONTA_SEM_ACESSO` antecipada para a Fase 1, parte G) | RF-J03 |
 
 **Marco verificável:**
 1. Publicar e confirmar a coleta em T+1h, com números batendo com o aplicativo do Instagram

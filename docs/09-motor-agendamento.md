@@ -748,12 +748,19 @@ Só estas situações geram notificação — no sino e por push, para quem é r
 |---|---|---|
 | Postagem em `FALHOU` — alguém precisa decidir | `PUBLICACAO_FALHOU` | Publicador e tratador de falhas |
 | Token a menos de 7 dias de expirar, com renovação falhando | `TOKEN_EXPIRANDO` | Renovador de tokens |
-| Conta com token inválido ou revogado | `CONTA_SEM_ACESSO` | Publicador ou renovador, ao receber erro de token |
+| Conta com token inválido ou revogado | `CONTA_SEM_ACESSO` | Publicador ou renovador, ao receber erro de token — **só na passagem de nulo para marcado** em `acessoPerdidoEm`, para a segunda postagem que falha e a renovação de cada dia não repetirem o aviso |
 | Postagem `PROCESSANDO` sem atividade há mais de 15 minutos | `PROCESSAMENTO_TRAVADO` | Manutenção |
 
-As outras notificações — postagem aguardando aprovação, conta bloqueada por tentativas — são geradas pela API.
+As outras notificações são geradas pela API: **aguardando aprovação** ao enviar para revisão, **reprovada** ao
+reprovar, e conta bloqueada por tentativas.
 
-Destinatários em [02 — Módulo J](02-requisitos.md#módulo-j--notificações). O push é enviado pela fila
+**Todo aviso nasce na transação do que o causou** (`recordNotice`, em `apps/api/src/notifications/`, desde
+24/09/2026): o `PublishFailureService.fail`, a falha definitiva da renovação de token, e o `submit` e o `reject` da
+postagem, pelo gancho `extra` do `applyUserWrite`. Desfeita a mudança — cerca que não deixou, 409 de versão —, o
+aviso some junto.
+
+Destinatários em [02 — Módulo J](02-requisitos.md#módulo-j--notificações). **O processo HTTP não enfileira nada**
+(AGENTS.md, regra 1): o push da parte H varre as entregas com `pushEnviadoEm` nulo e as manda pela fila
 `notificar`, com só um título e um link ([ADR 0017](adr/0017-pwa-e-notificacoes-push.md)).
 
 O resto vive no painel e é consultado quando alguém quiser. Alerta demais é o caminho mais curto

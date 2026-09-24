@@ -376,7 +376,8 @@ Até 23/09/2026 "marcar como pronta" encadeava enviar e aprovar num clique; o AD
 ### RF-E03 — Rejeitar com motivo **[MVP]**
 **Aceite:** volta para `RASCUNHO` com comentário obrigatório explicando o ajuste necessário — de 1 a
 1000 caracteres, sem contar espaços nas pontas. O motivo aparece no topo da composição para quem vai
-corrigir. A regra de autoaprovação vale também aqui.
+corrigir. A regra de autoaprovação vale também aqui. O autor e quem enviou para revisão recebem o aviso
+`POSTAGEM_REPROVADA` no sino (RF-J03).
 
 ### RF-E04 — Comentários internos **[MVP]**
 **Aceite:** conversa por postagem, ordenada por data, com autor identificado, que sobrevive às
@@ -643,8 +644,12 @@ sistema.
 | `CONTA_SEM_ACESSO` | Quem tem `CONTA_GERENCIAR` e super admins |
 | `PROCESSAMENTO_TRAVADO` | Super admins |
 | `CONTA_BLOQUEADA` | Super admins — o texto do push não inclui o e-mail bloqueado |
+| `POSTAGEM_REPROVADA` | O autor e quem enviou para revisão por último — **sem** os super admins: é resposta a quem escreveu, não alerta do sistema. Desde 24/09/2026 |
 
-Os destinatários são calculados com as permissões do momento do envio. Super admins recebem tudo por padrão.
+Os destinatários são calculados com as permissões do momento do envio. Super admins recebem tudo por padrão, menos
+`POSTAGEM_REPROVADA`. **Quem causou o aviso não o recebe**: quem envia a própria postagem não é avisado de que ela
+aguarda, e quem reprova não é avisado da própria reprovação. Usuário desativado nunca recebe. A regra está em
+`apps/api/src/domain/notifications/recipients.ts`.
 
 ### RF-J04 — Preferências de notificação **[MVP]**
 **Aceite:** no Perfil, cada pessoa liga ou desliga push por tipo de notificação. O sino continua recebendo
