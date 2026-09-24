@@ -529,7 +529,7 @@ git diff --name-only v1.3.9 v1.4.0 -- packages/database/prisma/migrations
 
 ```bash
 # No seu computador
-git tag v1.4.0 && git push --tags
+git tag -a v1.4.0 && git push --tags     # anotada, com o que entrou (docs/15, "Versões")
 git push --force origin "v1.4.0^{commit}:refs/heads/producao"   # aponta a branch producao para a tag
 ```
 

@@ -61,9 +61,20 @@ Padrão do `nossobuncker`:
 - **Hook de pre-commit** sobe o PATCH automaticamente; pular com `SKIP_BUMP=1`. Instalado por `core.hooksPath`
   no `postinstall`, como no `hotclone`
 - **MINOR e MAJOR** só manualmente: `npm run version:minor`, `npm run version:major`
-- **Liberar para produção** é marcar uma tag: `git tag v1.4.0 && git push --tags`. Depois, na etapa 1, apontar a
+- **Liberar para produção** é marcar uma tag: `git tag -a v1.4.0 && git push --tags`. Depois, na etapa 1, apontar a
   branch `producao` para a tag e fazer o deploy no Easypanel; na etapa 2, `scripts/deploy.sh v1.4.0`
   ([10](10-infra-deploy.md#deploy))
+
+Decidido em 24/09/2026, antes da primeira tag:
+
+- **A estreia em produção é a `v1.0.0`.** Até lá a versão fica em `0.x`, e o `npm run version:major` imediatamente
+  antes da tag faz a passagem
+- **Tag anotada** (`git tag -a`), com a mensagem listando o que entrou — o resumo dos commits desde a tag
+  anterior, em português. A tag leve não guarda autor, data nem motivo
+- **O PATCH salta entre tags**, e é esperado: o pre-commit sobe a cada commit, então de `v1.0.0` a próxima pode ser
+  `v1.0.37`. O número diz qual código está rodando, não quantas versões saíram
+- **Sem changelog à parte.** `git log v1.0.0..v1.0.37` é o registro, e o padrão das mensagens de commit, com
+  corpo explicando o porquê, é o que o torna legível
 
 ---
 
