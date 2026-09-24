@@ -98,6 +98,11 @@ describe("política das rotas", () => {
         // Marcar os próprios avisos do sino como lidos (RF-J01): só a entrega de quem pede.
         "NotificationsController.markRead",
         "NotificationsController.markAllRead",
+        // O próprio push (RF-J02, RF-J04): os tipos, as inscrições e o teste — só da própria pessoa.
+        "NotificationsController.setPreference",
+        "NotificationsController.subscribe",
+        "NotificationsController.unsubscribe",
+        "NotificationsController.requestPushTest",
       ].sort(),
     );
   });
