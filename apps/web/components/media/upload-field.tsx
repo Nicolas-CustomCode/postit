@@ -142,7 +142,26 @@ export function UploadField({
      * E é aqui que PNG, WebP e JPEG pesado viram o JPEG que a Meta aceita
      * (RF-B06): daqui em diante, prévia, proporção e ajuste usam o convertido.
      */
-    const normalizada = await normalizeImage(file);
+    /*
+     * ⚠️ **Uma cópia em memória, antes de tudo.** No Android, o arquivo escolhido
+     * da galeria é uma referência que o sistema pode revogar a qualquer momento —
+     * foto que só existe na nuvem, ou permissão que expira —, e qualquer leitura
+     * depois disso dá `NotReadableError`. Foi o que aconteceu em 24/09/2026, e o
+     * erro escapava sem mensagem. Copiado aqui, logo depois da escolha, nem a
+     * conversão nem o envio dependem mais da referência.
+     */
+    let copia: File;
+    try {
+      copia = new File([await file.arrayBuffer()], file.name, { type: file.type, lastModified: file.lastModified });
+    } catch {
+      setErro(
+        "Não consegui abrir este arquivo. Se a foto estiver só na nuvem, baixe-a para o aparelho e tente de novo.",
+      );
+      setEstado({ fase: "parado" });
+      return;
+    }
+
+    const normalizada = await normalizeImage(copia);
     if (!normalizada.ok) {
       setErro(mensagemDaConversao(normalizada.problem));
       setEstado({ fase: "parado" });
@@ -216,10 +235,15 @@ export function UploadField({
         className="sr-only"
         disabled={ocupado}
         onChange={(evento) => {
-          const file = evento.target.files?.[0];
-          // Limpa o valor para escolher o mesmo arquivo duas vezes disparar de novo.
-          evento.target.value = "";
-          if (file !== undefined) void escolher(file);
+          const campo = evento.target;
+          const file = campo.files?.[0];
+          // Limpa o valor para escolher o mesmo arquivo duas vezes disparar de novo —
+          // só **depois** de ler: em alguns Android, limpar antes invalida o arquivo.
+          if (file === undefined) campo.value = "";
+          else
+            void escolher(file).finally(() => {
+              campo.value = "";
+            });
         }}
       />
 
