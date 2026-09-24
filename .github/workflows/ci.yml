@@ -94,17 +94,17 @@ jobs:
       # Sobe como passo, e não em `services`, porque a imagem do MinIO precisa do
       # comando `server /data` — e `services` não aceita argumentos de comando.
       #
-      # ⚠️ As imagens vêm do quay.io, e não do Docker Hub: de lá o pull anônimo é
-      # recusado ("pull access denied"), e o runner não tem login. O quay.io é o
-      # registro oficial do próprio MinIO e responde sem autenticação. Localmente
-      # o compose ainda usa o Docker Hub porque as imagens já estão em cache.
+      # ⚠️ As imagens são as da comunidade (pgsty), com versão fixa — as mesmas do
+      # docker-compose. Em setembro de 2026 a MinIO tirou as imagens gratuitas do
+      # Docker Hub e do quay.io, e o pull anônimo dos dois passou a ser recusado.
+      # Ver docs/adr/0028.
       - name: MinIO para os testes de integração
         shell: bash
         run: |
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER="$MINIO_ROOT_USER" \
             -e MINIO_ROOT_PASSWORD="$MINIO_ROOT_PASSWORD" \
-            quay.io/minio/minio:latest server /data
+            pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
 
           for _ in $(seq 1 30); do
             curl -sf http://127.0.0.1:9000/minio/health/live && break
@@ -116,7 +116,7 @@ jobs:
           # "recebidos/ não é legível" significar alguma coisa (ADR 0012).
           # --entrypoint sh porque a imagem tem o próprio mc como entrypoint:
           # sem isso, o "sh" vira subcomando do mc e ele recusa.
-          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c "
+          docker run --rm --network host --entrypoint sh pgsty/mc:RELEASE.2026-09-16T00-00-00Z -c "
             mc alias set local http://127.0.0.1:9000 '$MINIO_ROOT_USER' '$MINIO_ROOT_PASSWORD' &&
             mc mb --ignore-existing local/$MINIO_BUCKET &&
             mc anonymous set download local/$MINIO_BUCKET/publicas"

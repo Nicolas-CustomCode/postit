@@ -34,7 +34,9 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    # Build da comunidade (pgsty), com versão fixa: a MinIO tirou as imagens gratuitas
+    # do Docker Hub e do quay.io em setembro de 2026. Ver docs/adr/0028.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: postit-minio
     restart: unless-stopped
     ports:
@@ -75,12 +77,12 @@ services:
   # — apaga todas as regras do bucket e cria a única que o projeto usa.
   #
   # Refeito, e não "criado se faltar": a conferência antiga passava o `ilm rule ls`
-  # por `grep`, que a imagem minio/mc não tem. O `grep` falhava sempre, e a regra era
+  # por `grep`, que a imagem do mc não tem. O `grep` falhava sempre, e a regra era
   # acrescentada de novo a cada subida — seis cópias iguais em 24/09/2026. Apagar e
   # recriar não depende de ferramenta nenhuma e limpa as cópias que já existiam. O
   # bucket só tem esta regra, e ela nasce aqui. Para rodar de novo: npm run media:setup
   media-init:
-    image: minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     container_name: postit-media-init
     restart: "no"
     depends_on:

@@ -69,7 +69,7 @@ Um projeto `postit` no Easypanel, com cinco serviços:
 | Serviço | Tipo | Domínio | Observações |
 |---|---|---|---|
 | `postgres` | Postgres | Nenhum | PostgreSQL 16. Nome interno mostrado na página do serviço |
-| `minio` | App, imagem `minio/minio` | `midia.seudominio` → porta 9000 | Volume persistente em `/data`. Console de administração **sem domínio** |
+| `minio` | App, imagem `pgsty/minio`, com a mesma versão fixa do `docker-compose.yml` ([ADR 0028](adr/0028-minio-pela-build-da-comunidade.md)) | `midia.seudominio` → porta 9000 | Volume persistente em `/data`. Console de administração **sem domínio** |
 | `api` | App, `Dockerfile` do repositório, comando `api` | **Nenhum** | `API_HOST=0.0.0.0`. Aplica as migrations ao iniciar. Réplicas: 1 |
 | `worker` | App, mesmo `Dockerfile`, comando `worker` | **Nenhum** | Sem porta, sem verificação de saúde. **Réplicas: 1** |
 | `web` | App, mesmo `Dockerfile`, comando `web` | `app.seudominio` → porta 3010 | HTTPS ligado |
@@ -178,7 +178,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z   # build da comunidade, versão fixa (ADR 0028)
     container_name: postit-minio
     restart: unless-stopped
     ports:

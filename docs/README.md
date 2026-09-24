@@ -86,6 +86,8 @@ qualquer uso externo.
   núcleo da aprovação e comentários de qualquer logado
 - [ADR 0027](adr/0027-normalizar-imagem-no-navegador.md) — Converter e reduzir a imagem no navegador, antes
   do envio; a API continua só com JPEG de até 8 MB
+- [ADR 0028](adr/0028-minio-pela-build-da-comunidade.md) — MinIO pela build da comunidade (pgsty), com versão fixa,
+  depois que a MinIO tirou as imagens gratuitas do ar
 
 ---
 
