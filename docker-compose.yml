@@ -71,8 +71,14 @@ services:
   # apagando envios abandonados em recebidos/. Ver docs/adr/0012 e docs/10.
   #
   # Roda a cada `docker compose up` e sai. Repetível: `mb --ignore-existing` e
-  # `anonymous set` não reclamam do que já existe, e a regra de ciclo de vida só
-  # é criada se ainda não estiver lá. Para rodar de novo: npm run media:setup
+  # `anonymous set` não reclamam do que já existe, e o ciclo de vida é **refeito**
+  # — apaga todas as regras do bucket e cria a única que o projeto usa.
+  #
+  # Refeito, e não "criado se faltar": a conferência antiga passava o `ilm rule ls`
+  # por `grep`, que a imagem minio/mc não tem. O `grep` falhava sempre, e a regra era
+  # acrescentada de novo a cada subida — seis cópias iguais em 24/09/2026. Apagar e
+  # recriar não depende de ferramenta nenhuma e limpa as cópias que já existiam. O
+  # bucket só tem esta regra, e ela nasce aqui. Para rodar de novo: npm run media:setup
   media-init:
     image: minio/mc:latest
     container_name: postit-media-init
@@ -89,7 +95,8 @@ services:
       mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
       mc mb --ignore-existing local/$$BUCKET &&
       mc anonymous set download local/$$BUCKET/publicas &&
-      (mc ilm rule ls local/$$BUCKET | grep -q recebidos/ || mc ilm rule add --prefix recebidos/ --expire-days 1 local/$$BUCKET) &&
+      (mc ilm rule rm --all --force local/$$BUCKET > /dev/null 2>&1 || true) &&
+      mc ilm rule add --prefix recebidos/ --expire-days 1 local/$$BUCKET &&
       echo bucket $$BUCKET pronto, leitura publica so em publicas/
       "
 

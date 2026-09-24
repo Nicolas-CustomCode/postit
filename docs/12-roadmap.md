@@ -341,6 +341,12 @@ Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **
 seguir a [estreia em produção](10-infra-deploy.md#estreia-em-produção) — cabeçalhos, `X-Real-IP`, V-15, V-16,
 login, push, a primeira publicação acompanhada e o teste de dump e restauração — **antes** de conectar as demais contas reais.
 
+⚠️ **Falta escrever, antes da estreia: o script de preparação do bucket para a produção.** O [10](10-infra-deploy.md#minio)
+manda aplicar a política de leitura e o ciclo de vida de `recebidos/` por ele, rodado pelo terminal do serviço `api`,
+mas ele **não existe** — só existe o `media-init` do `docker-compose.yml`, que é do ambiente local (conferido em
+24/09/2026). Sem ele, a produção sobe com `recebidos/` sem ciclo de vida. O `media-init` serve de modelo: refaz o
+ciclo de vida inteiro a cada execução, sem depender de `grep`.
+
 **Validações da lista V do [08](08-integracao-instagram.md)** a resolver nesta fase: V-1 e V-3 (a
 cota), V-5 e V-6 (a URL da mídia), V-13 (`singletonKey` do pg-boss), V-22 e V-23 (Traefik do Easypanel, na
 estreia) e V-24 (limite de 100 MB da Cloudflare). Registrar o resultado no próprio documento 08.

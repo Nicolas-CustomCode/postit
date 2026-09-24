@@ -119,7 +119,9 @@ Preenchidas na aba **Environment** de cada serviço, com os mesmos nomes de [Var
 - **CORS:** pela variável **`MINIO_API_CORS_ALLOW_ORIGIN`**, com a origem exata do app
 - **Regra de ciclo de vida** para apagar envios abandonados em `recebidos/`
 - Política e ciclo de vida são aplicados pelo script de preparação do bucket, rodado pelo terminal do
-  serviço `api`. O CORS não: é variável de ambiente do serviço `minio`
+  serviço `api`. O CORS não: é variável de ambiente do serviço `minio`. ⚠️ **O script ainda não existe** —
+  pendência da estreia registrada no [12](12-roadmap.md) em 24/09/2026; no local, quem faz isso é o `media-init` do
+  `docker-compose.yml`
 
 **Sobre o CORS, três coisas que custaram tempo e é melhor já saber** (verificado em 18/09/2026):
 
