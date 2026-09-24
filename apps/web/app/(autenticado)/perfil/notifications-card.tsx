@@ -120,27 +120,33 @@ export function NotificationsCard({
             {ocupado ? "Ativando…" : "Ativar notificações neste aparelho"}
           </Button>
         )}
-        {aparelho.estado === "ativo" && (
-          <div className="flex flex-col gap-2 md:flex-row">
-            <Button
-              variant="secondary"
-              onClick={() => testar(aparelho.endpoint)}
-              disabled={ocupado}
-              className="h-11 w-full md:h-10 md:w-auto"
-            >
-              Enviar notificação de teste
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => desativar(aparelho.endpoint)}
-              disabled={ocupado}
-              className="h-11 w-full md:h-10 md:w-auto"
-            >
-              Desativar neste aparelho
-            </Button>
-          </div>
-        )}
       </div>
+
+      {/*
+        Duas ações não cabem ao lado do texto: espremiam o estado numa coluna de uma
+        palavra por linha. Descem para baixo dele, alinhadas ao texto e não ao ícone,
+        como os formulários do cartão de segurança.
+      */}
+      {aparelho.estado === "ativo" && (
+        <div className="flex flex-col gap-2 pb-3 md:flex-row md:pl-8">
+          <Button
+            variant="secondary"
+            onClick={() => testar(aparelho.endpoint)}
+            disabled={ocupado}
+            className="h-11 w-full md:h-10 md:w-auto"
+          >
+            Enviar notificação de teste
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => desativar(aparelho.endpoint)}
+            disabled={ocupado}
+            className="h-11 w-full md:h-10 md:w-auto"
+          >
+            Desativar neste aparelho
+          </Button>
+        </div>
+      )}
 
       {aviso !== null && (
         <p
