@@ -347,7 +347,7 @@ repetição.
 | `renovar-tokens-instagram` | Recorrente, diária | Renova tokens com mais de 30 dias | 3 |
 | `coletar-metricas-conta-instagram` | Recorrente, diária | Coleta as métricas de cada conta, relendo os últimos 3 dias | 3 |
 | `notificar` | Quem gera a notificação — API ou worker | Envia o push aos aparelhos inscritos dos destinatários | 3 |
-| `manutencao` | Recorrente, diária | Limpa containers expirados, mídia órfã, envios abandonados em `recebidos/`, retenção de mídia, postagens travadas; expurga sessões revogadas ou expiradas, desafios de login, links de acesso, tentativas e bloqueios com mais de 90 dias | 1 |
+| `manutencao` | Recorrente, diária, 4h UTC | **Hoje (desde 24/09/2026):** apaga as imagens ajustadas (derivadas) que ninguém usa — mais de 24 horas, fora de postagem viva, sem ser capa nem ter derivada dela (ADR 0025; `OrphanDerivativesService`). **Previsto:** containers expirados, retenção de mídia, postagens travadas; expurgo de sessões revogadas ou expiradas, desafios de login, links de acesso, tentativas e bloqueios com mais de 90 dias. Os envios abandonados em `recebidos/` já saem pela regra de ciclo de vida do MinIO | 1 |
 
 **Filas com o nome da rede** são as que dependem da API daquela rede. Quando uma segunda rede
 chegar, ela ganha as suas — `publicar-tiktok`, por exemplo — com limites e paralelismo próprios, sem

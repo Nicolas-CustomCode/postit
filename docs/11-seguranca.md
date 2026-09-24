@@ -734,6 +734,7 @@ acesso, e nomes de usuário públicos do Instagram nas marcações.
 | Contas do Instagram | Enquanto conectadas. Token apagado na desconexão |
 | Mídias em `recebidos/` | Horas: validadas, recusadas ou apagadas por abandono |
 | Mídias em `publicas/` | 12 meses após a publicação, se nenhuma postagem referenciar (RNF-12) |
+| Imagens ajustadas (derivadas) sem uso | 24 horas: a faxina diária apaga a que não está em postagem viva (ADR 0025) |
 | Postagens e métricas | Indefinido. É o histórico do trabalho |
 | Auditoria de publicação | 24 meses |
 | Auditoria de ações administrativas | 24 meses |

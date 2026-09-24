@@ -515,6 +515,12 @@ seria intenção de uso, e continua proibido.
 original não pode impedir a publicação. A consequência aceita é que, sem original, ela volta a
 aparecer no acervo — o que é verdade, porque deixou de ser variante de alguma coisa.
 
+**A derivada que ninguém usa é apagada pela faxina diária** (`manutencao`, [09](09-motor-agendamento.md),
+desde 24/09/2026). Escondida do acervo, ela não teria quem a apagasse: fica órfã quando a postagem nunca é
+salva, quando a foto é trocada ou ajustada de novo, e quando a postagem é descartada. Sai a que tem mais de
+24 horas, não está em postagem viva, não é capa e **não tem derivada dela** — das pontas para dentro, porque
+apagar a mãe antes da filha faria o `SET NULL` devolver a filha ao acervo.
+
 ### `Postagem`
 A unidade central. Existe no nosso banco muito antes de existir no Instagram — e pode nunca chegar
 a existir lá, se for cancelada.
@@ -829,6 +835,9 @@ cuja `Postagem` não esteja `CANCELADO` — inclusive `PUBLICADO` — segura a m
 usam estão `CANCELADO`, essas `PostagemMidia` e as `Marcacao` delas saem na mesma transação; as duas
 são `RESTRICT`, então a ordem é `Marcacao` → `PostagemMidia` → `Midia`. `Postagem.capaMidiaId` é
 `SET NULL` e por isso entra na conferência: sem ela, um Reels perderia a capa em silêncio.
+
+Dois caminhos usam essa exclusão, e ela mora num lugar só (`MediaRemovalService`): a pessoa excluindo do
+acervo, e a faxina diária apagando as derivadas órfãs (ver `derivadaDeId`, acima).
 
 `EventoPublicacao` e `Aprovacao` **nunca** são apagados junto com a postagem: a auditoria precisa
 sobreviver ao objeto auditado. A exclusão de postagem é lógica, não física.

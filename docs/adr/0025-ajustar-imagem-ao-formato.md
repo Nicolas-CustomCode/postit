@@ -121,7 +121,10 @@ se recalcula sozinho.
 - **Uma foto usada em dois formatos ocupa três objetos** — a original e duas variantes. É o preço de a
   Meta publicar baixando de uma URL: o recorte precisa existir como arquivo.
 - **O acervo não mostra as variantes**, então a pessoa não vê o custo. Se um dia isso incomodar, a
-  coluna já permite listá-las sob a original, e apagar órfãs.
+  coluna já permite listá-las sob a original.
+- **As órfãs são apagadas sozinhas** (desde 24/09/2026). Escondida, a variante que ninguém usa não teria
+  quem a apagasse. A faxina diária (`manutencao`, docs/09) apaga a que tem mais de 24 horas, não está em
+  postagem viva, não é capa e não tem variante dela — ver [07](../07-modelo-dados.md), `derivadaDeId`.
 - **A largura da moldura para em 1440 px** (`FIT_MAX_WIDTH`). Não é validação — a Meta redimensiona
   sozinha acima disso e nunca recusa por largura (docs/08). É que emoldurar é a **única operação que
   aumenta** a imagem, e sem o teto um panorama grande viraria um JPEG acima dos 8 MB da própria
