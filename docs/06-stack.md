@@ -205,7 +205,8 @@ JPEG com miniatura embutida no EXIF, cujas medidas um leitor ingênuo confunde c
 duas coisas. A biblioteca devolve `orientation`; girar é regra nossa, em `apps/api/src/domain/media/`.
 
 **Alternativa descartada:** `sharp`. Faz muito mais, com binário nativo por plataforma e dez vezes o
-tamanho — e nada do que ele faz a mais é usado enquanto redimensionar for "Depois" (RF-B06).
+tamanho — e nada do que ele faz a mais é usado: converter e reduzir imagem (RF-B06) acontece no
+navegador, antes do envio ([ADR 0027](adr/0027-normalizar-imagem-no-navegador.md)).
 
 **Alternativa descartada:** arquivos direto no disco. Sem ciclo de vida de objeto e sem envio assinado.
 

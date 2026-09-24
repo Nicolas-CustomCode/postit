@@ -101,7 +101,7 @@ Meta e recusa o que não passa.
 envio aplica só o que reprova em **qualquer** formato: um JPEG de 8 MB é grande demais tanto para o
 feed quanto para Stories, mas 9:16 só é problema no feed.
 
-**Aceite:** um PNG, um JPEG de 12 MB ou um vídeo de 2 segundos são recusados **no envio**, com
+**Aceite:** um GIF, um arquivo que não é imagem ou um vídeo de 2 segundos são recusados **no envio**, com
 mensagem dizendo qual regra foi violada e qual é o limite. Nenhuma cota é consumida. O que dá para
 conferir sem abrir o arquivo — tipo e tamanho — a tela confere antes de enviar; o resto a API confere
 logo após o envio. **Arquivo recusado é apagado do armazenamento e nunca fica acessível
@@ -162,11 +162,16 @@ O usuário informa texto alternativo para imagens, por acessibilidade.
 
 **Aceite:** o campo aceita até 1000 caracteres e é enviado à Meta na criação do container de imagem.
 
-### RF-B06 — Normalizar mídia automaticamente **[Depois]**
-Converter arquivos fora da especificação em vez de recusar: PNG para JPEG, recodificar vídeo,
-mover o átomo `moov` para o início.
+### RF-B06 — Normalizar mídia automaticamente **[MVP para imagem · Depois para vídeo]**
+Converter arquivos fora da especificação em vez de recusar.
 
-**Aceite:** um PNG enviado é convertido e aceito, com aviso de que houve conversão.
+- **Imagem — antecipada em 24/09/2026** ([ADR 0027](adr/0027-normalizar-imagem-no-navegador.md)):
+  PNG, WebP e AVIF viram JPEG, e o JPEG acima de 8 MB é reduzido, no navegador, antes do envio.
+  JPEG de até 8 MB sobe intocado. HEIC e GIF continuam recusados, com o motivo.
+- **Vídeo — Depois:** recodificar e mover o átomo `moov` para o início.
+
+**Aceite:** um PNG enviado é convertido e aceito, com aviso de que houve conversão; um JPEG de 12 MB
+é reduzido e aceito, com as medidas de antes e de depois.
 
 ### RF-B07 — Excluir mídia do acervo **[MVP]**
 O usuário tira do acervo uma imagem que não serve mais. A `Midia` sai do banco e o objeto sai de
@@ -552,7 +557,7 @@ saúde, **comenta postagens** (RF-E04; ADR 0026) e gerencia o próprio perfil. *
 
 | Permissão | Requisitos que ela libera |
 |---|---|
-| `POSTAGEM_EDITAR` | RF-B01 a RF-B05 e RF-B07, RF-C01 a RF-C12, RF-E01, e voltar para a composição (ADR 0026) |
+| `POSTAGEM_EDITAR` | RF-B01 a RF-B07, RF-C01 a RF-C12, RF-E01, e voltar para a composição (ADR 0026) |
 | `POSTAGEM_APROVAR` | RF-E02, RF-E03 — postagens de outros |
 | `POSTAGEM_APROVAR_PROPRIA` | RF-E02 — a própria postagem, junto com `POSTAGEM_APROVAR` |
 | `POSTAGEM_AGENDAR` | RF-D01, RF-D02, RF-D04, RF-D05, RF-D07, e as decisões de RF-F07 |

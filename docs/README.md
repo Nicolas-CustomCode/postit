@@ -84,6 +84,8 @@ qualquer uso externo.
   nunca à força
 - [ADR 0026](adr/0026-postagem-em-duas-etapas.md) — A postagem em duas etapas: Composição e Revisão, com o
   núcleo da aprovação e comentários de qualquer logado
+- [ADR 0027](adr/0027-normalizar-imagem-no-navegador.md) — Converter e reduzir a imagem no navegador, antes
+  do envio; a API continua só com JPEG de até 8 MB
 
 ---
 

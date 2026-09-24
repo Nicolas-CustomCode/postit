@@ -211,8 +211,8 @@ testes** e o app PostIt Dev — nunca numa conta real. Não há homologação ([
 |---|---|---|
 | 1 | Agendar uma imagem para dali a 5 minutos | Publica sozinha, em até 2 minutos do horário |
 | 2 | Conferir o perfil no Instagram | A postagem está lá, com legenda e texto alternativo corretos |
-| 3 | Enviar um PNG | Recusado no envio, com a mensagem certa |
-| 4 | Enviar JPEG de 12 MB | Recusado no envio, informando o limite de 8 MB |
+| 3 | Enviar um PNG | Convertido para JPEG no navegador e aceito, com aviso (RF-B06, desde 24/09/2026) |
+| 4 | Enviar JPEG de 12 MB | Reduzido no navegador e aceito, com as medidas de antes e de depois (RF-B06, desde 24/09/2026) |
 | 5 | Enviar imagem 9:16 e usá-la numa postagem de feed | **Entra no acervo** (serve para Stories); a composição recusa para o feed, informando a faixa de 4:5 a 1.91:1, e oferece o recorte |
 | 6 | Executar o publicador da mesma postagem duas vezes em paralelo | **Uma única publicação** |
 | 7 | Parar o worker, deixar passar 20 minutos do horário de uma postagem agendada e religar | **Nada é publicado**; a postagem vai para `FALHOU` com a causa "sistema indisponível" |
@@ -236,6 +236,11 @@ certa), **4** (acima de 8 MB recusado — e **pelo próprio armazenamento**, ant
 o que o RF-B02 pede), **12** (`recebidos/` devolve 403 e `publicas/` devolve 200) e **13** (envio sem
 política assinada é recusado). Os quatro cobertos por teste automático contra o MinIO de verdade, e o V-15
 resolvido junto.
+
+⚠️ **Os testes 3 e 4 mudaram de sinal em 24/09/2026**, com a normalização de imagem (RF-B06, [ADR 0027](adr/0027-normalizar-imagem-no-navegador.md)):
+a tela converte o PNG e reduz o JPEG pesado antes do envio. A recusa de 18/09 continua valendo **na API e no
+armazenamento**, e segue coberta por teste automático — é a última barreira. A conversão está no e2e do acervo;
+falta conferir à mão, no celular, um print de tela, uma foto do iPhone e uma foto grande de câmera.
 
 ⚠️ **O teste 5 mudou de sinal** na mesma data. Ele dizia "imagem 2:1 é recusada no envio", o que só
 valeria se o acervo fosse de feed — e ele é compartilhado entre formatos (RF-B03, RF-B04). A metade do
@@ -506,7 +511,7 @@ Ordenado por valor percebido, não por facilidade:
 
 | Item | Requisito | Observação |
 |---|---|---|
-| Normalização automática de mídia | RF-B06 | Converter em vez de recusar. Elimina a fricção mais comum do dia a dia |
+| Normalização automática de vídeo | RF-B06 | Recodificar e mover o `moov` em vez de recusar. A metade das imagens foi antecipada para a Fase 1 em 24/09/2026 |
 | Painel de desempenho comparativo | RF-G05 | Só faz sentido com histórico acumulado |
 | Sugestão de melhor horário | RF-D10 | Depende do painel acima |
 | Modelos de legenda | — | Assinatura, conjuntos de hashtags |
@@ -541,12 +546,12 @@ Para comentários existe a alternativa de consultar periodicamente; para mensage
 | Fase | Requisitos |
 |---|---|
 | 0 | RF-A01 a RF-A04, RF-A06, RF-A08, RF-A09, RF-G06, RF-H01, RF-H04, RF-H05, RF-H06, RF-H07, RF-I01, RF-J05, RNF-05, RNF-06, RNF-13, RNF-14, RNF-15, RNF-16 (infraestrutura de RF-I04 e RF-I09) |
-| 1 | RF-B01 a RF-B05, RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-E01 a RF-E05, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
+| 1 | RF-B01 a RF-B05, RF-B06 (imagem), RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-E01 a RF-E05, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
 | 2 | RF-C05 a RF-C10, RF-F10 (e o que falta de RF-C02: Reels) |
 | 3 | RF-D02, RF-D06 a RF-D08 |
 | 4 | RF-E06, RF-I02 a RF-I09 (RF-E01 a RF-E05 antecipados na 1e) |
 | 5 | RF-A05, RF-A07, RF-G01 a RF-G04, RF-G07, RF-H02, RF-H03, RNF-11, RNF-12 |
-| Depois | RF-B06, RF-D10, RF-G05 |
+| Depois | RF-B06 (vídeo), RF-D10, RF-G05 |
 
 Todos os requisitos do MVP estão cobertos. Conferido contra [02](02-requisitos.md).
 

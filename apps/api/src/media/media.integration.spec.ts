@@ -11,8 +11,10 @@ import { PUBLIC_PREFIX, StorageService } from "../storage/storage.service";
  * recusado **some** e que o aceito **fica público**, e nenhum dos dois se prova
  * com armazenamento falso.
  *
- * Cobre os testes 3 e 4 do roteiro da Fase 1 (docs/12) — PNG e arquivo grande
- * demais. O teste 5 mudou de sinal: proporção deixou de ser condição de envio
+ * Cobre a metade da API dos testes 3 e 4 do roteiro da Fase 1 (docs/12) — PNG e
+ * arquivo grande demais. Desde 24/09/2026 a tela converte os dois antes do envio
+ * (RF-B06, ADR 0027); a recusa daqui é a última barreira, para o que chegar sem
+ * passar por ela. O teste 5 mudou de sinal: proporção deixou de ser condição de envio
  * (RF-B03), e o bloco "proporção não impede o envio" registra o porquê.
  */
 describe("envio de mídia", () => {

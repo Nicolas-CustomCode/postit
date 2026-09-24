@@ -168,7 +168,7 @@ Cenários obrigatórios:
 | 3 | Senha certa sem código não entra; código reusado é recusado | RF-H04 |
 | 4 | Onze senhas erradas bloqueiam a conta | RF-H05 |
 | 5 | Editor não vê o botão de aprovar, e a chamada direta à API recebe 403 — `aprovacao.spec.ts`, com os usuários editor e aprovador da preparação | RF-I04 |
-| 6 | Enviar PNG é recusado com a mensagem certa | RF-B02 |
+| 6 | Enviar PNG é convertido para JPEG e aceito, com aviso; GIF e arquivo que não é imagem são recusados com a mensagem certa | RF-B02, RF-B06 |
 | 7 | Compor, aprovar, agendar e ver no calendário. Desde a 1e: compor, continuar para a revisão e **aprovar e agendar**; o calendário é da Fase 3 | RF-C01, RF-E02, RF-D01, RF-D06 |
 | 8 | Publicação contra a Meta falsa, até `PUBLICADO` | RF-F01 a RF-F03 |
 | 9 | Duas abas editando a mesma postagem: a segunda recebe o aviso de conflito | RF-C12 |

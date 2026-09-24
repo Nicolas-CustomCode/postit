@@ -556,8 +556,10 @@ definem o tamanho máximo e o tipo aceitos na política de envio assinada
 | Espaço de cor | sRGB. Outros são convertidos automaticamente |
 | Filtros | Não suportados |
 
-PNG, WebP, HEIC e AVIF são recusados. É a recusa mais comum no dia a dia, e a mensagem precisa
-dizer isso com todas as letras.
+PNG, WebP, HEIC e AVIF são recusados. Era a recusa mais comum no dia a dia, e **desde 24/09/2026
+a tela converte antes do envio** (RF-B06, [ADR 0027](adr/0027-normalizar-imagem-no-navegador.md)): PNG,
+WebP e AVIF viram JPEG, e o JPEG acima de 8 MB é reduzido. A API continua recusando tudo o que não for
+JPEG de até 8 MB — é a última barreira.
 
 #### Como o validador trata estas tabelas — decidido em 18/09/2026
 
@@ -577,7 +579,7 @@ formato; a composição (`validateImageFormat`) aplica a faixa do formato escolh
 
 | Item | O que o validador faz | Por quê |
 |---|---|---|
-| Largura **máxima** de 1440 px | **Não é validada.** Só a mínima, 320 px | A Meta não devolve código de erro para largura — ela redimensiona sozinha. Recusar barraria quase toda foto de celular, que passa de 3000 px, e a normalização automática (RF-B06) está marcada como "Depois". O custo é que a imagem publicada não é byte a byte a enviada |
+| Largura **máxima** de 1440 px | **Não é validada.** Só a mínima, 320 px | A Meta não devolve código de erro para largura — ela redimensiona sozinha. Recusar barraria quase toda foto de celular, que passa de 3000 px. A normalização no navegador (RF-B06) só reduz o que ela já precisa recodificar — PNG, WebP, AVIF e JPEG acima de 8 MB —, para 2160 px no lado maior; JPEG de até 8 MB sobe intocado. O custo é que a imagem publicada não é byte a byte a enviada |
 | "8 MB" | **8.000.000 bytes**, decimal | A Meta não diz a base. 8 MiB seriam 8.388.608. Aceitar o valor maior deixaria passar arquivo que ela recusaria **na hora de publicar**, e esta seção é justamente sobre não deixar isso acontecer. **A confirmar** com um arquivo entre os dois valores |
 | Largura mínima de 320 px | **Aplicada a toda imagem**, não só à de feed | A Meta documenta o mínimo só para feed e não publica nenhum para Stories. Uma imagem de 100 px não serve para nada na prática, então o piso do acervo adota o número do feed. **É prudência nossa, não fonte** |
 | Proporção | **Sai do envio.** Aritmética inteira na composição: `largura × 5 ≥ altura × 4` e `largura × 100 ≤ altura × 191` para o feed | Não existe faixa comum a todos os formatos, então exigir uma no envio escolheria um formato às escondidas — era o que acontecia, e uma arte 9:16 de Stories era recusada e recortada para 4:5. Os inteiros evitam a pergunta "1,9115 passa?", cuja resposta muda com arredondamento; 1080×1350 dá exatamente o limite e passa |

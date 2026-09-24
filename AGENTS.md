@@ -58,6 +58,7 @@ Não escreva `ecosystem.config.cjs`, configuração do Apache nem `deploy.sh` an
 | Permissões, super admin, área de administração | [docs/adr/0015-super-admin-e-permissoes.md](docs/adr/0015-super-admin-e-permissoes.md) |
 | Envio de mídia | [docs/adr/0012-upload-direto-minio.md](docs/adr/0012-upload-direto-minio.md) |
 | Recorte, moldura, proporção que não cabe | [docs/adr/0025-ajustar-imagem-ao-formato.md](docs/adr/0025-ajustar-imagem-ao-formato.md) |
+| Converter PNG, reduzir foto pesada antes do envio | [docs/adr/0027-normalizar-imagem-no-navegador.md](docs/adr/0027-normalizar-imagem-no-navegador.md) |
 | Deploy, Easypanel, Docker, PM2, Apache | [docs/10-infra-deploy.md](docs/10-infra-deploy.md) e [docs/adr/0020-easypanel-na-validacao.md](docs/adr/0020-easypanel-na-validacao.md) |
 | Token, segredo, cifra | [docs/11-seguranca.md](docs/11-seguranca.md) |
 | Telas, navegação, celular | [docs/13-telas-e-navegacao.md](docs/13-telas-e-navegacao.md) |
