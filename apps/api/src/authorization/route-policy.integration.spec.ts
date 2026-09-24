@@ -72,7 +72,8 @@ describe("política das rotas", () => {
 
   /*
    * A exceção da regra 5, fechada (ADR 0026): escrita com `@AnyAuthenticated` só
-   * para o próprio perfil e para comentar postagem. Escrita nova de qualquer logado
+   * para o próprio perfil, para os próprios avisos do sino e para comentar postagem.
+   * Escrita nova de qualquer logado
    * fora desta lista reprova — o lugar de uma ação sobre dado compartilhado é
    * `@RequirePermission`.
    */
@@ -94,6 +95,9 @@ describe("política das rotas", () => {
         // Comentar postagem, e excluir o próprio comentário nos primeiros 5 minutos (ADR 0026).
         "PostsController.addComment",
         "PostsController.deleteComment",
+        // Marcar os próprios avisos do sino como lidos (RF-J01): só a entrega de quem pede.
+        "NotificationsController.markRead",
+        "NotificationsController.markAllRead",
       ].sort(),
     );
   });

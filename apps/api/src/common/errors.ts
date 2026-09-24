@@ -322,6 +322,16 @@ export class CommentNotFoundError extends AppError {
   }
 }
 
+/**
+ * O aviso não existe — ou existe e não foi entregue a esta pessoa. Os dois casos
+ * respondem igual: dizer "existe, mas não é seu" já entregaria que o id é real.
+ */
+export class NotificationNotFoundError extends AppError {
+  constructor() {
+    super("NOTIFICATION_NOT_FOUND", 404);
+  }
+}
+
 /** Excluir comentário de outra pessoa (ADR 0026). */
 export class CommentNotYoursError extends AppError {
   constructor() {

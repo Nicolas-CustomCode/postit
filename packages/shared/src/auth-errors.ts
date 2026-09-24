@@ -57,6 +57,8 @@ export const AUTH_ERROR_CODES = [
   "COMMENT_NOT_FOUND",
   "COMMENT_NOT_YOURS",
   "COMMENT_DELETE_EXPIRED",
+  // O sino (RF-J01).
+  "NOTIFICATION_NOT_FOUND",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -158,5 +160,6 @@ export const AUTH_ERROR_MESSAGES: Record<AuthErrorCode, string> = {
   COMMENT_NOT_FOUND: "Este comentário não existe mais",
   COMMENT_NOT_YOURS: "Só quem escreveu pode excluir este comentário",
   COMMENT_DELETE_EXPIRED: "Passaram 5 minutos: este comentário já faz parte da conversa e não pode ser excluído",
+  NOTIFICATION_NOT_FOUND: "Este aviso não existe mais",
   INTERNAL_ERROR: "Algo deu errado",
 };
