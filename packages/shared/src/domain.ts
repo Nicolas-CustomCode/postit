@@ -53,5 +53,6 @@ export const NOTIFICATION_TYPES = [
   "ACCOUNT_ACCESS_LOST",
   "PROCESSING_STUCK",
   "ACCOUNT_LOCKED",
+  "POST_REJECTED",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

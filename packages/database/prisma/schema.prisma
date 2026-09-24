@@ -178,6 +178,8 @@ enum NotificationType {
   ACCOUNT_ACCESS_LOST @map("CONTA_SEM_ACESSO")
   PROCESSING_STUCK    @map("PROCESSAMENTO_TRAVADO")
   ACCOUNT_LOCKED      @map("CONTA_BLOQUEADA")
+  // A revisão devolveu a postagem para rascunho (RF-E03). Desde 24/09/2026.
+  POST_REJECTED       @map("POSTAGEM_REPROVADA")
 
   @@map("TipoNotificacao")
 }

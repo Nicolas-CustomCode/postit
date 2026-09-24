@@ -1,6 +1,6 @@
 {
   "name": "@repo/database",
-  "version": "0.1.98",
+  "version": "0.1.99",
   "private": true,
   "//": "Schema Prisma, migrations e seed. Só a API e o worker usam; o Next nunca acessa o banco (docs/07). O client gerado fica em src/generated, fora do git.",
   "main": "dist/index.js",
