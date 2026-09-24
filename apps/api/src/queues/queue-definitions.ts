@@ -85,5 +85,7 @@ export const QUEUE_DEFINITIONS: readonly Queue[] = [
   },
 
   { name: POST_METRICS_QUEUE, ...THREE_ATTEMPTS },
-  { name: NOTIFY_QUEUE, ...THREE_ATTEMPTS },
+  // Uma tentativa: a tarefa manda para todos os aparelhos da pessoa, e repetir
+  // reenviaria a quem já recebeu. A falha fica contada na inscrição (ADR 0017).
+  { name: NOTIFY_QUEUE, retryLimit: 0 },
 ];

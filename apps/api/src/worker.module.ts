@@ -3,6 +3,7 @@ import type { WorkerEnv } from "./config/env";
 import { MaintenanceModule } from "./maintenance/maintenance.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PublishingModule } from "./publishing/publishing.module";
+import { PushModule } from "./push/push.module";
 import { QueuesModule } from "./queues/queues.module";
 import { StorageModule } from "./storage/storage.module";
 
@@ -27,6 +28,7 @@ export class WorkerModule {
         QueuesModule.forEnv(env),
         PublishingModule.forEnv(env),
         MaintenanceModule,
+        PushModule.forEnv(env),
       ],
     };
   }

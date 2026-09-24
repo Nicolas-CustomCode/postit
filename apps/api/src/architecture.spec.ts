@@ -13,7 +13,8 @@ import { dirname, join, relative, resolve } from "node:path";
  * depois.
  */
 const SRC = __dirname;
-const FORBIDDEN = ["publishing", "queues"];
+// `push` desde 24/09/2026: o envio usa a fila e o `web-push`, e é só do worker.
+const FORBIDDEN = ["publishing", "queues", "push"];
 
 function resolveImport(fromFile: string, specifier: string): string | null {
   if (!specifier.startsWith(".")) return null;
