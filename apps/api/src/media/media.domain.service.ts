@@ -5,7 +5,6 @@ import { IMAGE_UPLOAD_SPEC, validateImageUpload, type ImageProblem, type MediaSu
 import {
   MediaAlreadyConfirmedError,
   MediaCorruptError,
-  MediaInUseError,
   MediaRatioUnsupportedError,
   MediaTooLargeError,
   MediaTooNarrowError,
@@ -13,10 +12,10 @@ import {
   MediaWrongTypeError,
 } from "../common/errors";
 import { detectImageType, orientedSize } from "../domain/media/image-rules";
-import { holdsMedia } from "../domain/post/post-state";
 import { PrismaService } from "../prisma/prisma.service";
 import { publicUrlFor } from "../storage/public-url";
 import { PUBLIC_PREFIX, RECEIVED_PREFIX, StorageService } from "../storage/storage.service";
+import { MediaRemovalService } from "./media-removal.service";
 import { MEDIA_CONFIG, type MediaConfig } from "./media.config";
 import { readUploadTicket, signUploadTicket } from "./upload-ticket";
 
@@ -44,6 +43,7 @@ export class MediaDomainService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly removal: MediaRemovalService,
     @Inject(MEDIA_CONFIG) private readonly config: MediaConfig,
   ) {}
 
@@ -176,91 +176,16 @@ export class MediaDomainService {
   }
 
   /**
-   * Tira imagens do acervo, de vez (RF-B07).
+   * Tira imagens do acervo, de vez (RF-B07): a linha e o arquivo.
    *
-   * **A única exclusão física de conteúdo do sistema:** a linha sai do banco e o
-   * arquivo sai de `publicas/`. `Postagem` e `Sessao` usam exclusão lógica.
-   *
-   * ⚠️ **A linha primeiro, o objeto depois.** O `confirmUpload` já registrou a
-   * doutrina inversa: um objeto que falta com a linha presente é *"uma imagem
-   * quebrada para sempre"*. Apagar o arquivo antes de a transação fechar
-   * reproduz exatamente esse defeito. O banco é a verdade; o bucket segue
-   * (regra 8).
-   *
-   * ⚠️ **Tudo-ou-nada no banco.** A tela já sabe quem está preso — o `inUse` da
-   * listagem —, então a recusa aqui é corrida ou tela velha, não o caminho
-   * normal. Com exclusão parcial, quem pediu dez ficaria com a seleção pela
-   * metade e sem saber o que aconteceu.
-   *
-   * Id inexistente é ignorado em vez de virar 404: a linha já não está lá, a
-   * intenção está cumprida, e a rota precisa ser idempotente — dois cliques na
-   * mesma lixeira não podem virar tela de erro.
+   * Quem apaga é o `MediaRemovalService`, a única exclusão física de conteúdo do
+   * sistema — o mesmo que a limpeza das recortadas órfãs usa no worker. Tudo ou
+   * nada: presa em postagem viva recusa o pedido inteiro com 409.
    */
   async deleteMedia(ids: readonly string[]): Promise<{ deleted: number }> {
-    const midias = await this.prisma.db.media.findMany({
-      where: { id: { in: [...ids] } },
-      select: {
-        id: true,
-        objectKey: true,
-        usages: { select: { post: { select: { status: true } } } },
-        /*
-         * A capa entra na conferência apesar de nada gravá-la hoje (é de Reels,
-         * Fase 2): `capaMidiaId` é `SET NULL`, então no dia em que for gravada a
-         * falha não seria um erro — seria um Reels perdendo a capa em silêncio.
-         */
-        coverOfPosts: { select: { id: true }, take: 1 },
-      },
-    });
-
-    const presa = midias.some(
-      (midia) => midia.usages.some((uso) => holdsMedia(uso.post.status)) || midia.coverOfPosts.length > 0,
-    );
-    if (presa) throw new MediaInUseError();
-
-    const alvos = midias.map((midia) => midia.id);
-    if (alvos.length === 0) return { deleted: 0 };
-
-    try {
-      await this.prisma.db.$transaction(async (tx) => {
-        /*
-         * Na ordem das restrições: `Marcacao` e `PostagemMidia` são as duas
-         * RESTRICT. Nada grava `Marcacao` hoje, e é justamente por isso que o
-         * caso precisa de teste escrito à mão — senão o 500 só apareceria na
-         * Fase 2.
-         */
-        await tx.userTag.deleteMany({
-          where: { postMedia: { mediaId: { in: alvos }, post: { status: "CANCELED" } } },
-        });
-        /*
-         * ⚠️ O filtro por descartada **não** é redundante com a conferência
-         * acima: é a segunda camada contra a corrida de alguém anexar a imagem
-         * entre uma coisa e outra. Com ele, um vínculo vivo nunca é apagado — e
-         * o RESTRICT do banco faz o delete da `Midia` falhar logo em seguida.
-         */
-        await tx.postMedia.deleteMany({ where: { mediaId: { in: alvos }, post: { status: "CANCELED" } } });
-        await tx.media.deleteMany({ where: { id: { in: alvos } } });
-      });
-    } catch (error) {
-      // A chave estrangeira segurou: houve corrida, e nada foi gravado.
-      if (isForeignKeyViolation(error)) throw new MediaInUseError();
-      throw error;
-    }
-
-    /*
-     * Só depois do commit, e cada uma por conta própria: uma falha não pode
-     * impedir as outras. E a requisição **não** falha por isto — a intenção já
-     * foi cumprida, a linha não volta, e repetir a chamada não ajudaria.
-     */
-    for (const midia of midias) {
-      await this.storage.removePublic(midia.objectKey).catch(() => {
-        // O id, nunca a chave: em `publicas/` a URL imprevisível é a proteção
-        // (ADR 0005), e um log com a chave publicaria o que sobrou.
-        this.logger.warn(`Mídia ${midia.id} saiu do banco, mas o objeto ficou em publicas/.`);
-      });
-    }
-
-    this.logger.log(`Excluídas ${alvos.length} mídias do acervo.`);
-    return { deleted: alvos.length };
+    const resultado = await this.removal.remove(ids);
+    if (resultado.deleted > 0) this.logger.log(`Excluídas ${resultado.deleted} mídias do acervo.`);
+    return resultado;
   }
 
 
@@ -330,15 +255,4 @@ function problemToError(problem: ImageProblem): Error {
     case "MEDIA_RATIO_UNSUPPORTED":
       return new MediaRatioUnsupportedError();
   }
-}
-
-/**
- * O Postgres recusou por chave estrangeira?
- *
- * Confere só o código, sem importar o tipo de erro do Prisma: a forma do objeto
- * é estável e o import traria o client gerado para dentro de uma regra que só
- * precisa de uma string.
- */
-function isForeignKeyViolation(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "P2003";
 }

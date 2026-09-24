@@ -1,5 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ApiEnv } from "../config/env";
+import { MediaRemovalModule } from "./media-removal.module";
 import { MEDIA_CONFIG, mediaConfigFrom } from "./media.config";
 import { MediaController } from "./media.controller";
 import { MediaDomainService } from "./media.domain.service";
@@ -20,6 +21,8 @@ export class MediaModule {
   static forEnv(env: ApiEnv): DynamicModule {
     return {
       module: MediaModule,
+      // A exclusão mora à parte, para o worker usá-la sem o resto deste módulo.
+      imports: [MediaRemovalModule],
       controllers: [MediaController],
       providers: [
         { provide: MEDIA_CONFIG, useValue: mediaConfigFrom(env) },
