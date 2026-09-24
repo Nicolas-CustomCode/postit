@@ -45,7 +45,11 @@ export default async function PostagemPage({
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pb-8 md:px-10 md:py-7">
-      <PageHeader trail={[`@${username}`, "Postagens", "Postagem"]} title="Postagem" />
+      <PageHeader
+        trail={[`@${username}`, "Postagens", "Postagem"]}
+        title="Postagem"
+        back={{ href: `/c/${conta}/postagens`, label: "Postagens" }}
+      />
       <PostStepper post={post} timeZone={account.timezone} />
 
       {compondo ? (

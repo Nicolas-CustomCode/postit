@@ -36,7 +36,11 @@ export default async function NovaPostagemPage({
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pb-8 md:px-10 md:py-7">
-      <PageHeader trail={[`@${username}`, "Postagens", "Nova postagem"]} title="Nova postagem" />
+      <PageHeader
+        trail={[`@${username}`, "Postagens", "Nova postagem"]}
+        title="Nova postagem"
+        back={{ href: `/c/${conta}/postagens`, label: "Postagens" }}
+      />
       {/* A etapa 1, como na postagem salva (ADR 0026): nasce rascunho. */}
       <PostStepper post={null} timeZone={account.timezone} />
       {/* Quem cria é o autor: "continua" para a revisão só quem pode aprovar a própria. */}

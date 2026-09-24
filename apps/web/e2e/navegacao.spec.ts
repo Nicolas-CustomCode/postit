@@ -137,7 +137,8 @@ test.describe("casca no celular", () => {
    * tem o seletor sempre visível.
    */
   // ADR 0026: na página da postagem, as ações da etapa ficam no rodapé no lugar da barra.
-  test("na página da postagem a barra inferior some, e volta na lista", async ({ page }) => {
+  // Sem a barra, a saída é o "‹ Postagens" do topo — antes de 24/09/2026 não havia nenhuma.
+  test("na página da postagem a barra inferior some, e o voltar leva à lista", async ({ page }) => {
     await createAccount({ username: "aurora.loja", name: "Loja Aurora" });
     const barra = page.getByRole("navigation", { name: "Menu principal" });
 
@@ -145,7 +146,12 @@ test.describe("casca no celular", () => {
     await expect(page.getByRole("button", { name: /salvar rascunho/i })).toBeVisible();
     await expect(barra).toHaveCount(0);
 
-    await page.goto("/c/aurora.loja/postagens");
+    const voltar = page.getByRole("main").getByRole("link", { name: "Postagens", exact: true });
+    const caixa = await voltar.boundingBox();
+    expect(caixa?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await voltar.click();
+
+    await expect(page).toHaveURL(/\/c\/aurora\.loja\/postagens$/);
     await expect(barra).toBeVisible();
   });
 

@@ -1,3 +1,5 @@
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
@@ -18,6 +20,7 @@ export function PageHeader({
   description,
   actions,
   besideTitle,
+  back,
 }: {
   /** O caminho até aqui, do mais geral ao mais específico. */
   readonly trail: readonly string[];
@@ -31,9 +34,24 @@ export function PageHeader({
    * fazer com aquilo.
    */
   readonly besideTitle?: ReactNode;
+  /**
+   * O "‹ Postagens" do celular, só onde a barra inferior some (ADR 0026): sem ele,
+   * a página da postagem não tinha saída nenhuma. No computador a barra lateral
+   * continua à vista, e o link sobraria.
+   */
+  readonly back?: { readonly href: string; readonly label: string };
 }): ReactNode {
   return (
     <div className="flex flex-col gap-2">
+      {back === undefined ? null : (
+        <Link
+          href={back.href}
+          className="-ml-1 flex h-11 items-center gap-1 self-start pr-2 text-sm font-medium text-muted-foreground md:hidden"
+        >
+          <ChevronLeft className="size-5" aria-hidden />
+          {back.label}
+        </Link>
+      )}
       {trail.length === 0 ? null : <p className="text-[13px] text-muted-foreground">{trail.join(" / ")}</p>}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
