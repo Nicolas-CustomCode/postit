@@ -1,2 +1,2 @@
 // Gerado por scripts/version.mjs. Não editar à mão.
-export const VERSION = "0.1.87";
+export const VERSION = "0.1.88";

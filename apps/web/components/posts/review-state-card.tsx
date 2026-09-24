@@ -98,11 +98,14 @@ export function ReviewStateCard({
         else router.refresh();
         return;
       }
-      // Mudou por baixo — outra pessoa decidiu, ou o worker já pegou para publicar.
-      // O que foi digitado continua nos campos; recarregar mostra o estado novo.
-      const stale = ["POST_VERSION_CONFLICT", "POST_NOT_EDITABLE", "POST_TRANSITION_INVALID"].includes(
-        resultado.code,
-      );
+      // Mudou por baixo. O que foi digitado continua nos campos; recarregar mostra o estado novo.
+      if (resultado.code === "POST_NOT_EDITABLE") {
+        // O motor pegou a postagem para publicar — o minuto antes do horário (docs/09).
+        setErro({ message: "Ela já começou a ser publicada — não dá mais para mudar.", stale: true });
+        return;
+      }
+      // Outra pessoa decidiu antes.
+      const stale = ["POST_VERSION_CONFLICT", "POST_TRANSITION_INVALID"].includes(resultado.code);
       setErro({ message: stale ? "Esta postagem mudou enquanto você olhava." : resultado.message, stale });
     } finally {
       setOcupado(false);

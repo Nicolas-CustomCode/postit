@@ -273,6 +273,7 @@ export class PostsDomainService {
    */
   async reopen(input: Scope): Promise<Saved> {
     const post = await this.load(input);
+    assertStillEditable(post);
     if (!canReopen(post.status)) throw new PostTransitionInvalidError();
 
     return this.applyUserWrite(
@@ -290,6 +291,7 @@ export class PostsDomainService {
    */
   async unschedule(input: Scope): Promise<Saved> {
     const post = await this.load(input);
+    assertStillEditable(post);
     if (!canUnschedule(post.status)) throw new PostTransitionInvalidError();
 
     return this.applyUserWrite(
@@ -314,6 +316,7 @@ export class PostsDomainService {
    */
   async schedule(input: Scope & { day: string; time: string; now: Date }): Promise<Saved> {
     const post = await this.load(input);
+    assertStillEditable(post);
 
     const movimento = scheduleMoveFor(post.status);
     if (movimento === null) throw new PostTransitionInvalidError();
@@ -376,6 +379,7 @@ export class PostsDomainService {
   /** Cancelar o que já tem horário marcado, ou parou de vez (RF-D05). */
   async cancel(input: Scope): Promise<Saved> {
     const post = await this.load(input);
+    assertStillEditable(post);
     if (!canCancel(post.status)) throw new PostTransitionInvalidError();
 
     return this.applyUserWrite(input, post.status, { status: "CANCELED" }, {
@@ -564,7 +568,21 @@ function trailOf(from: PostStatus, to: PostStatus, reason?: string): PostTrailAc
  */
 const FRESH_CYCLE = { attempts: 0, lastErrorCode: null, lastErrorMessage: null } as const;
 
-/** A conferência de "pronta para ir ao ar" — marcar como pronta e reagendar a que falhou. */
+/**
+ * A postagem ainda aceita decisão, ou o motor já a pegou?
+ *
+ * No minuto antes do horário, o despachante pode passar a postagem para
+ * `PROCESSANDO` enquanto alguém clica em reagendar, cancelar ou editar. Sem esta
+ * conferência a recusa saía por dois caminhos: `POST_TRANSITION_INVALID`, se a
+ * leitura já via `PROCESSANDO`, e `POST_NOT_EDITABLE`, se o worker chegava entre a
+ * leitura e a escrita (`applyUserWrite`). Agora os dois respondem o mesmo — e a
+ * tela consegue dizer "já está sendo publicada" em vez de "mudou".
+ */
+function assertStillEditable(post: { status: PostStatus }): void {
+  if (!isEditable(post.status)) throw new PostNotEditableError();
+}
+
+/** A conferência de "pronta para ir ao ar" — enviar para revisão, aprovar e reagendar a que falhou. */
 function assertReady(post: {
   format: Parameters<typeof formatOf>[0];
   caption: string | null;

@@ -420,6 +420,35 @@ describe("revisão da postagem", () => {
     });
   });
 
+  /*
+   * O minuto antes do horário: o despachante já passou a postagem para PROCESSANDO
+   * (sem mexer na versão — regra 20) e alguém decide olhando a tela de antes. As
+   * quatro decisões respondem o mesmo código, para a tela dizer "já está sendo
+   * publicada" em vez de "mudou".
+   */
+  describe("a postagem que o motor já pegou", () => {
+    it.each([
+      ["unschedule", {}],
+      ["reopen", {}],
+      ["schedule", FUTURO],
+      ["cancel", {}],
+    ] as const)("%s responde POST_NOT_EDITABLE, e nada muda", async (verbo, extra) => {
+      const autor = await editor();
+      const aprovador = await operador();
+      const accountId = await conta();
+      const postId = await emRevisao(autor, accountId);
+      await acao(aprovador, accountId, postId, "approve-and-schedule", { version: 3, ...FUTURO });
+      await api.db.post.update({ where: { id: postId }, data: { status: "PROCESSING" } });
+
+      const quem = verbo === "reopen" ? autor : aprovador;
+      const resposta = await acao(quem, accountId, postId, verbo, { version: 4, ...extra });
+
+      expect(resposta.statusCode).toBe(409);
+      expect(resposta.body).toMatchObject({ code: "POST_NOT_EDITABLE" });
+      expect(await post(postId)).toMatchObject({ status: "PROCESSING", version: 4 });
+    });
+  });
+
   describe("cancelar o agendamento (ADR 0026)", () => {
     it("volta para aprovada, sem horário, e a aprovação continua", async () => {
       const autor = await editor();
