@@ -13,6 +13,13 @@ const webSchema = z.object({
   INTERNAL_API_URL: z.string().url(),
   INTERNAL_API_KEY: z.string().min(32, "precisa ter ao menos 32 caracteres"),
   MINIO_PUBLIC_URL: z.string().url(),
+  /*
+   * A chave **pública** do push (ADR 0017), que o navegador precisa para se
+   * inscrever. Chega ao cliente como prop do Perfil, e não por NEXT_PUBLIC_, que
+   * ficaria gravada no build da imagem. Opcional: sem ela, o Perfil diz que o envio
+   * não está configurado.
+   */
+  VAPID_PUBLIC_KEY: z.preprocess((value) => (value === "" ? undefined : value), z.string().min(1).optional()),
 });
 
 export type WebEnv = z.infer<typeof webSchema>;

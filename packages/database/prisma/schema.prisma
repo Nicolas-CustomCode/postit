@@ -301,7 +301,8 @@ model Session {
   revocationReason RevocationReason? @map("motivoRevogacao")
   createdAt        DateTime          @default(now()) @map("criadoEm") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id])
+  user              User               @relation(fields: [userId], references: [id])
+  pushSubscriptions PushSubscription[]
 
   @@index([userId, revokedAt])
   @@index([createdAt])
@@ -733,15 +734,21 @@ model NotificationDelivery {
 model PushSubscription {
   id                  String    @id @default(uuid(7)) @db.Uuid
   userId              String    @map("usuarioId") @db.Uuid
+  // A sessão que ativou o push neste aparelho. Sessão morta — saiu, revogou,
+  // venceu — e a inscrição é apagada sem envio (ADR 0017, acréscimo de 24/09/2026).
+  sessionId           String    @map("sessaoId") @db.Uuid
   endpoint            String    @unique
   p256dhKey           String    @map("chaveP256dh")
   authKey             String    @map("chaveAuth")
   device              String?   @map("aparelho")
   lastSuccessAt       DateTime? @map("ultimoSucessoEm") @db.Timestamptz(3)
   consecutiveFailures Int       @default(0) @map("falhasSeguidas")
+  // Pedido de push de teste, feito no Perfil; o worker envia e limpa.
+  testRequestedAt     DateTime? @map("testePendenteEm") @db.Timestamptz(3)
   createdAt           DateTime  @default(now()) @map("criadaEm") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
 
   @@index([userId])
   @@map("InscricaoPush")

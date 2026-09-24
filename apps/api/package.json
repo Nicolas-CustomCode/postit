@@ -1,6 +1,6 @@
 {
   "name": "@repo/api",
-  "version": "0.1.104",
+  "version": "0.1.105",
   "private": true,
   "//": "NestJS 11 com Fastify. Um código, dois processos: main.ts (HTTP, só o Next alcança) e worker.ts (filas, sem HTTP). Só o worker publica. Ver docs/05 e docs/adr/0010.",
   "scripts": {
@@ -38,6 +38,7 @@
     "qrcode": "1.5.4",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
+    "web-push": "3.6.7",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -46,6 +47,7 @@
     "@nestjs/testing": "11.2.5",
     "@types/jest": "30.0.0",
     "@types/qrcode": "1.5.6",
+    "@types/web-push": "3.6.4",
     "jest": "30.5.2",
     "ts-jest": "29.4.12"
   }

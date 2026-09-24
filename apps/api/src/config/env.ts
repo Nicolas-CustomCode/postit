@@ -115,9 +115,21 @@ const apiSchema = z.object({
 const workerSchema = z
   .object({
     ...shared,
+    /*
+     * O push (ADR 0017). Opcionais **de propósito**: sem as três, o worker sobe e o
+     * push fica desligado, com um aviso no log — o sino continua recebendo tudo.
+     */
     VAPID_PUBLIC_KEY: optional,
     VAPID_PRIVATE_KEY: optional,
     VAPID_SUBJECT: optional,
+    /** De quanto em quanto tempo o worker procura avisos ainda não enviados por push. */
+    PUSH_SWEEP_SECONDS: z.coerce.number().int().positive().default(10),
+    /*
+     * O mesmo prazo de inatividade da API: é por ele que o worker sabe se a sessão
+     * que ativou o push ainda está viva. Valores diferentes nos dois processos
+     * fariam o push chegar a um aparelho cuja sessão a API já considera vencida.
+     */
+    SESSION_IDLE_DAYS: z.coerce.number().int().positive().default(7),
     /*
      * Só para o teste de tela: o despachante varre também a cada tantos segundos,
      * além do cron de um minuto. Fora de NODE_ENV=test o processo não sobe com ela —
