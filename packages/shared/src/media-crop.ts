@@ -68,15 +68,25 @@ export function targetRatioFor(width: number, height: number, spec: ImageSpec): 
  * então `position` escolhe a faixa vertical que sobrevive, que é o que importa
  * para não decapitar ninguém.
  *
- * Os valores saem arredondados: pixel é inteiro, e o canvas trunca sozinho de um
- * jeito que pode devolver uma imagem um pixel fora da proporção pedida.
+ * Os valores saem inteiros: pixel é inteiro, e o canvas trunca sozinho de um jeito
+ * que pode devolver uma imagem um pixel fora da proporção pedida.
+ *
+ * ⚠️ **O lado cortado arredonda para baixo, nunca para o mais próximo.** Com
+ * `Math.round`, uma foto de 1215 de largura recortada para 4:5 saía com 1519 de
+ * altura (1215 ÷ 0,8 = 1518,75): um pixel **mais alta** que 4:5, recusada pela
+ * faixa do feed logo depois do recorte que existia para fazê-la caber
+ * (25/09/2026). Cortar um pixel a mais deixa a proporção do lado de dentro — o
+ * mesmo cuidado de `fitFrame`, que arredonda a moldura para fora.
+ *
+ * O `1e-9` absorve o erro do ponto flutuante quando a conta é exata: 1080 ÷ 0,8
+ * sai 1349,999…, e sem ele a foto perderia um pixel à toa.
  */
 export function cropRect(width: number, height: number, ratio: number, position: CropPosition = 0.5): CropRect {
   const posicao = Math.min(1, Math.max(0, position));
 
   // Alto demais: mantém a largura, corta a altura.
   if (width / height < ratio) {
-    const alturaAlvo = Math.round(width / ratio);
+    const alturaAlvo = Math.floor(width / ratio + 1e-9);
     return {
       x: 0,
       y: Math.round((height - alturaAlvo) * posicao),
@@ -86,7 +96,7 @@ export function cropRect(width: number, height: number, ratio: number, position:
   }
 
   // Largo demais: mantém a altura, corta a largura.
-  const larguraAlvo = Math.round(height * ratio);
+  const larguraAlvo = Math.floor(height * ratio + 1e-9);
   return {
     x: Math.round((width - larguraAlvo) * posicao),
     y: 0,

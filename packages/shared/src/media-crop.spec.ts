@@ -81,6 +81,40 @@ describe("recorte por formato", () => {
       expect(cropRect(w, h, 0.8, 9)).toEqual(cropRect(w, h, 0.8, 1));
     });
 
+    /*
+     * O defeito de 25/09/2026: 1215 ÷ 0,8 = 1518,75, e o `Math.round` dava 1519 —
+     * um pixel mais alta que 4:5. O feed recusava a foto logo depois do recorte que
+     * existia para fazê-la caber, e a tela seguia oferecendo o mesmo ajuste.
+     */
+    it("recortada para o feed, cabe no feed — 1215 de largura sai com 1518, não 1519", () => {
+      const r = cropRect(1215, 2160, targetRatioFor(1215, 2160, FEED)!);
+
+      expect(r).toMatchObject({ width: 1215, height: 1518 });
+      expect(ratioFits(r.width, r.height, FEED)).toBe(true);
+    });
+
+    it("quando a conta é exata, não perde pixel: 1080 vira 1080 × 1350", () => {
+      expect(cropRect(1080, 1920, 0.8)).toMatchObject({ width: 1080, height: 1350 });
+      expect(cropRect(3024, 4032, 0.8)).toMatchObject({ width: 3024, height: 3780 });
+    });
+
+    /*
+     * A garantia inteira, e não só o exemplo: de print de celular a foto de câmera, e
+     * de panorâmica, o recorte que a tela oferece sempre cabe na faixa do feed.
+     */
+    it("em qualquer largura, o recorte oferecido cabe na faixa do feed", () => {
+      const fora: string[] = [];
+      for (let w = 320; w <= 4032; w += 1) {
+        for (const h of [Math.ceil((w * 16) / 9), Math.ceil((w * 4) / 3) + 1, Math.floor(w / 2.5)]) {
+          const alvo = targetRatioFor(w, h, FEED);
+          if (alvo === null || h < 1) continue;
+          const r = cropRect(w, h, alvo);
+          if (!ratioFits(r.width, r.height, FEED)) fora.push(`${w}×${h} → ${r.width}×${r.height}`);
+        }
+      }
+      expect(fora).toEqual([]);
+    });
+
     it("o retângulo nunca sai da imagem", () => {
       for (const [w, h, ratio, pos] of [
         [3024, 4032, 0.8, 0],
