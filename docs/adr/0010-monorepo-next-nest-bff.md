@@ -106,6 +106,10 @@ organização do backend para o momento em que ele já estiver grande.
 do navegador e API exposta na internet. Mais superfície de ataque, sem benefício para um painel que é
 o único cliente da API.
 
+> **Nota de 25/09/2026** — a partir da parte 1f, o assistente por MCP também chega à API, **passando pelo Next**,
+> que só repassa ([ADR 0029](0029-assistente-por-mcp.md)). A decisão deste ADR fica de pé — a API escondida, o Next
+> na frente —; "o único cliente" passa a ler "o único caminho".
+
 **Worker como app separado, como no `alivio-crm`.** Isola mais, porém duplica acesso a banco e
 integrações. No `alivio-crm`, o worker contorna isso pedindo à API por HTTP que faça o trabalho —
 e uma publicação de vídeo leva minutos, tempo demais para ficar pendurado numa requisição.

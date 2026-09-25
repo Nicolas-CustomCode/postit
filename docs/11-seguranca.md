@@ -171,6 +171,7 @@ Em verde, o que a internet não alcança de jeito nenhum.
 | Next (aplicativo) | Sim | TLS, CSP, cabeçalhos de segurança, sessão com duas etapas, `requireSession()` em cada página e ação |
 | MinIO — `publicas/` | Sim, só leitura | Nome imprevisível, sem listagem, CSP `sandbox` |
 | MinIO — envio | Sim, só com política assinada | Assinatura, tamanho e tipo conferidos pelo MinIO; CORS só do domínio do app |
+| Next — `/mcp` e OAuth (parte 1f) | Sim, para o assistente | Rotas de máquina sem cookie, só `Authorization: Bearer`, que só repassam à API. Token OAuth curto, com escopo único, guardado como hash e revogável; autorizar exige login com as duas etapas. Ver [ADR 0029](adr/0029-assistente-por-mcp.md) |
 | **API Nest** | **Não** | Etapa 1: serviço sem domínio nem porta publicada. Etapa 2: escuta em `127.0.0.1`, sem regra no proxy. Exige chave interna mesmo assim |
 | Worker | Não | Não escuta porta nenhuma |
 | Postgres | Não | Etapa 1: serviço sem porta publicada. Etapa 2: preso a `127.0.0.1` |
@@ -639,6 +640,23 @@ A URI de retorno é uma página do Next, que só repassa `code` e `state` à API
 | Código de autorização usado uma vez só | Regra da Meta; reuso indica ataque |
 | `IG_APP_SECRET` e troca de tokens só na API | O Next nunca vê o segredo nem o token |
 
+## O assistente por MCP
+
+A construir na parte 1f ([ADR 0029](adr/0029-assistente-por-mcp.md), [16](16-assistente-mcp.md)). Aqui o PostIt é o
+**servidor** de OAuth — o contrário do Instagram, onde ele é o cliente.
+
+| Cuidado | Por quê |
+|---|---|
+| **Só compor**: nenhuma ferramenta envia para revisão, aprova, agenda, publica ou descarta | Contém o *prompt injection* — um texto malicioso lido pelo assistente o faz, no pior caso, escrever um rascunho ruim, que ninguém publica sem ler |
+| Autorizar exige login **com as duas etapas** e consentimento explícito | Regra 11, sem atalho: o assistente nunca vê a senha nem o código |
+| PKCE obrigatório; cliente por CIMD ou registro dinâmico; token restrito ao PostIt | Código interceptado não vira token, e token vazado não serve em outro serviço |
+| Acesso de 1 h, renovação com rotação até 30 dias, 7 dias sem uso vencem; tudo guardado como hash | Os prazos da sessão. Renovação reusada indica roubo e derruba a autorização inteira |
+| Escopo único, e a API confere `POSTAGEM_EDITAR` a cada chamada | Tirar a permissão da pessoa tira a do assistente na próxima chamada |
+| O assistente edita só os rascunhos que ele criou | Um assistente enganado não alcança o trabalho de outra pessoa |
+| Download de imagem por URL: só https, nunca IP privado ou de loopback — conferido **depois** de resolver o nome e a cada redirecionamento —, teto de 8 MB e de tempo | É o ponto de SSRF: sem isso, a API poderia ser usada para ler o MinIO ou o Postgres por dentro |
+| A imagem baixada passa pela mesma conferência do envio | Regra 10: nada fica público sem validar |
+| `/mcp` e o OAuth não leem cookie | Sem cookie, não há CSRF — é o que permite serem route handlers `POST` (exceção fechada da regra 13) |
+
 ## Validação de entrada
 
 - **Toda entrada da API é validada com zod**, pelos schemas de `packages/shared`. Campo não previsto é
@@ -656,6 +674,7 @@ A URI de retorno é uma página do Next, que só repassa `code` e `state` à API
 - Senha, inclusive a tentada
 - Códigos da verificação em duas etapas e códigos de recuperação
 - Tokens: do Instagram, de sessão, de desafio, de links
+- Tokens e códigos do OAuth do assistente, e a URL de download de imagem que ele manda (parte 1f)
 - Segredos e chaves de qualquer tipo
 
 **Verificação do RNF-06:** buscar por fragmentos desses valores nos logs de uma execução completa — login,
@@ -695,6 +714,17 @@ conexão de conta, publicação — não pode retornar nada. É um teste que se 
 5. **Reconectar** pelo fluxo normal
 6. **Investigar a origem.** Vazamento de token quase sempre significa vazamento de `ENCRYPTION_KEY`, de
    acesso ao banco ou ao servidor
+
+## O acesso do assistente vazou
+
+(parte 1f) Alguém obteve o token do assistente, ou a conta do ChatGPT de uma pessoa foi comprometida.
+
+1. **Revogar** em "Aplicativos conectados", no Perfil da pessoa, ou pela Administração. O acesso cai na hora, e a
+   renovação junto
+2. **Conferir os rascunhos "Compostos pelo assistente"** daquela pessoa e descartar os que ela não reconhecer. O
+   estrago para aí: nenhum rascunho sai sem uma pessoa enviar para revisão
+3. **Auditar** — conceder e revogar ficam em `EventoAuditoria`
+4. Se a conta do ChatGPT foi comprometida, a pessoa troca a senha dela lá antes de conectar de novo
 
 ## Conta de super admin comprometida
 

@@ -558,7 +558,7 @@ saúde, **comenta postagens** (RF-E04; ADR 0026) e gerencia o próprio perfil. *
 
 | Permissão | Requisitos que ela libera |
 |---|---|
-| `POSTAGEM_EDITAR` | RF-B01 a RF-B07, RF-C01 a RF-C12, RF-E01, e voltar para a composição (ADR 0026) |
+| `POSTAGEM_EDITAR` | RF-B01 a RF-B07, RF-C01 a RF-C12, RF-E01, e voltar para a composição (ADR 0026); RF-K01 a RF-K05 — conectar o assistente e compor por ele (ADR 0029) |
 | `POSTAGEM_APROVAR` | RF-E02, RF-E03 — postagens de outros |
 | `POSTAGEM_APROVAR_PROPRIA` | RF-E02 — a própria postagem, junto com `POSTAGEM_APROVAR` |
 | `POSTAGEM_AGENDAR` | RF-D01, RF-D02, RF-D04, RF-D05, RF-D07, e as decisões de RF-F07 |
@@ -662,6 +662,50 @@ aparelho: sem conexão, aparece só a página "sem conexão".
 
 ---
 
+## Módulo K — Assistente (MCP)
+
+Decisão completa em [ADR 0029](adr/0029-assistente-por-mcp.md); ferramentas, fluxo e viabilidade no
+[16](16-assistente-mcp.md). Registrado em 25/09/2026, a construir na parte 1f.
+
+**O assistente só compõe.** Nenhum requisito deste módulo deixa o assistente enviar para revisão, aprovar, agendar,
+publicar, descartar ou mexer em conta: o rascunho segue o fluxo de sempre, pela mão de uma pessoa.
+
+### RF-K01 — Conectar o assistente **[MVP]**
+Quem tem `POSTAGEM_EDITAR` conecta um assistente de IA (o ChatGPT, primeiro) ao PostIt por OAuth.
+
+**Aceite:** conectar abre uma tela do PostIt que exige login **com as duas etapas** e mostra o consentimento
+("Permitir que o ChatGPT componha rascunhos em seu nome?"). O assistente nunca vê a senha. O acesso vale 1 hora e se
+renova sozinho por até 30 dias; 7 dias sem uso também vencem. Quem não tem `POSTAGEM_EDITAR` não consegue autorizar.
+
+### RF-K02 — Compor e editar rascunho pelo assistente **[MVP]**
+**Aceite:** o assistente cria rascunho em qualquer conta ativa, no Feed ou em Stories, com legenda e imagens com
+texto alternativo, e edita **só os rascunhos que ele mesmo criou**, da própria pessoa, com a trava de versão
+(RF-C12). O rascunho nunca sai de `RASCUNHO` pelo assistente.
+
+### RF-K03 — Imagens do acervo e imagem nova pelo assistente **[MVP]**
+**Aceite:** o assistente lista o acervo e usa as imagens dele; e envia imagem nova — anexada na conversa ou por URL
+https —, que passa pela mesma conferência do envio (RF-B02). Arquivo que não é JPEG de até 8 MB volta com o motivo.
+Imagem fora da proporção do formato **entra no rascunho marcada para ajuste**, e a pessoa recorta na tela.
+
+### RF-K04 — Conferir o rascunho **[MVP]**
+**Aceite:** o assistente pergunta o que falta para o rascunho ir à revisão e recebe as mesmas mensagens da tela —
+limites da legenda, proporção, quantidade de imagens.
+
+### RF-K05 — Revogar o acesso do assistente **[MVP]**
+**Aceite:** no Perfil, "Aplicativos conectados" mostra o que está conectado, desde quando e o último uso, e revogar
+derruba o acesso na hora. O super admin vê e revoga os acessos de todos. Conceder e revogar ficam na auditoria.
+Desativar a pessoa derruba os acessos dela.
+
+### RF-K06 — O rascunho diz que veio do assistente **[MVP]**
+**Aceite:** o rascunho composto pelo assistente aparece como **"Composta pelo assistente"** na lista e na
+composição. O autor é a pessoa dona do acesso, e a regra de autoaprovação vale igual. Não gera aviso no sino.
+
+### RF-K07 — O assistente sugere o horário **[Depois]**
+**Aceite:** o assistente propõe dia e hora para o rascunho, que chegam preenchidos na Revisão; quem tem
+`POSTAGEM_AGENDAR` confirma ou troca. Agendar continua sendo decisão humana.
+
+---
+
 ## Requisitos não-funcionais
 
 ### RNF-01 — Pontualidade
@@ -744,7 +788,7 @@ armazenamento; metadados e métricas permanecem.
 
 ### RNF-13 — Superfície mínima e acesso negado por padrão
 A API não é alcançável pela internet, e nenhuma rota dela fica acessível sem uma decisão explícita de
-acesso.
+acesso. O assistente por MCP também entra pelo Next, que só repassa ([ADR 0029](adr/0029-assistente-por-mcp.md)).
 
 **Verificação:** (1) de fora do servidor, nenhum endereço responde como a API — na etapa 1, o serviço da API não
 tem domínio nem porta publicada; (2) de dentro do

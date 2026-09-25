@@ -66,6 +66,7 @@ Não escreva `ecosystem.config.cjs`, configuração do Apache nem `deploy.sh` an
 | Rodar localmente, túnel, apps da Meta, ambientes | [docs/14-ambientes-e-desenvolvimento.md](docs/14-ambientes-e-desenvolvimento.md) |
 | Commits, versão, CI, testes, Playwright | [docs/15-qualidade-e-fluxo-de-trabalho.md](docs/15-qualidade-e-fluxo-de-trabalho.md) |
 | Notificações, push, service worker | [docs/adr/0017-pwa-e-notificacoes-push.md](docs/adr/0017-pwa-e-notificacoes-push.md) |
+| Assistente, MCP, OAuth como servidor | [docs/16-assistente-mcp.md](docs/16-assistente-mcp.md) e [docs/adr/0029-assistente-por-mcp.md](docs/adr/0029-assistente-por-mcp.md) |
 
 Decisões arquiteturais estão em `docs/adr/`. **Não contrarie um ADR sem escrever outro** que o
 substitua.
@@ -128,7 +129,8 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
 3. **Segredo nunca aparece em log, erro, resposta ou tela.** Vale para token do Instagram, sessão,
    desafio, links, senha (inclusive a tentada), códigos de 6 dígitos e códigos de recuperação. Toda
    chamada à Meta passa por `apps/api/src/instagram/client.ts`, o único lugar que anexa o token.
-4. **O navegador só fala com o Next.** A API não tem nome público — serviço sem domínio no Easypanel (etapa 1),
+4. **O navegador só fala com o Next** — e, a partir da parte 1f, **o assistente por MCP também** ([ADR 0029](docs/adr/0029-assistente-por-mcp.md)).
+   A API não tem nome público — serviço sem domínio no Easypanel (etapa 1),
    `127.0.0.1` na etapa 2 — e exige chave interna. Não crie CORS, não exponha URL da API ao navegador, não acesse banco nem MinIO a
    partir de `apps/web`.
 5. **Toda rota da API declara seu acesso** com exatamente uma política: `@Public`,
@@ -168,7 +170,9 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
 12. **Login responde sempre igual.** E-mail inexistente e senha errada: mesma mensagem, mesmo tempo
     (hash isca). Bloqueio conferido antes da senha.
 13. **Toda escrita no Next é Server Action.** Não crie route handler POST em `apps/web`. Route handlers
-    GET não podem causar efeito perigoso.
+    GET não podem causar efeito perigoso. **Exceção fechada, a partir da parte 1f**: `/mcp` e as rotas do OAuth do
+    assistente — rotas de máquina que não leem cookie, só `Authorization: Bearer`, e só repassam à API, com teste
+    conferindo a lista ([ADR 0029](docs/adr/0029-assistente-por-mcp.md)).
 14. **Destino depois do login passa por `safeRedirect()`** de `packages/shared`. Nunca redirecione para
     um valor vindo da URL sem ele.
 15. **O IP do visitante vem só de `X-Real-IP`**, definido pelo proxy. Nunca leia `X-Forwarded-For`.

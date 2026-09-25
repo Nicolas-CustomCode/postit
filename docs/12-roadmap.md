@@ -367,7 +367,34 @@ novo, foi reatada sozinha e o push voltou a chegar. **Falta conferir** no Androi
 celular), o **15** (duas abas salvando) e o **18** e o **19** (ajustar uma foto 3:4 e publicá-la). Os scripts dos testes 6 e 8
 foram temporários, fora do repositório.
 
-**Depois do roteiro de fogo: a estreia em produção.** Marcar a versão, fazer o deploy dela no Easypanel e
+### 1f — Assistente por MCP
+
+**Decidido em 25/09/2026, antes da estreia**: o usuário não tem pressa de subir, e prefere estrear com o assistente.
+Decisão em [ADR 0029](adr/0029-assistente-por-mcp.md); ferramentas, fluxo e viabilidade em
+[16](16-assistente-mcp.md).
+
+**Objetivo:** um assistente de IA — o ChatGPT, primeiro — compõe rascunhos no PostIt, e uma pessoa os valida pelo
+fluxo de sempre. **Só compor**: nada de enviar para revisão, aprovar, agendar ou publicar pelo assistente.
+
+| Entrega | Requisitos |
+|---|---|
+| **Spike de viabilidade, antes de tudo:** plano do ChatGPT com conector de escrita (M-1), OAuth pelo túnel por CIMD ou registro dinâmico (M-2), confiabilidade do arquivo anexado (M-3) e a biblioteca do servidor de autorização (M-4). Resultado registrado no [16](16-assistente-mcp.md), com a data | — |
+| Servidor de autorização OAuth 2.1: descoberta, PKCE, CIMD ou registro dinâmico, tokens de 1 h com renovação até 30 dias, guardados como hash | RF-K01 |
+| Tela de autorização no Next, com login e as duas etapas, e o consentimento | RF-K01 |
+| `/mcp` e o OAuth no Next como route handlers que só repassam à API — a exceção fechada da regra 13, com teste da lista | RF-K01, RNF-13 |
+| Módulo `mcp/` na API: as ferramentas de leitura, criar, editar, ver, listar e conferir rascunho, reaproveitando os serviços de postagem e as regras de `packages/shared` | RF-K02, RF-K04 |
+| Imagens: acervo, arquivo anexado e URL https, baixada pela API com proteção contra SSRF e passando pela conferência do envio; imagem fora da proporção entra marcada para ajuste | RF-K03 |
+| `Postagem.origem` e a marca "Composta pelo assistente" na lista e na composição | RF-K06 |
+| "Aplicativos conectados" no Perfil, revogação pelo super admin, auditoria de conceder e revogar | RF-K05 |
+
+**Marco verificável:** pelo ChatGPT, conectar ao PostIt (login com as duas etapas), compor um carrossel para a conta
+de testes com texto alternativo, usando uma imagem do acervo e uma nova; ver o rascunho **marcado** na tela; a
+pessoa enviar para revisão pelo fluxo normal; revogar no Perfil e ver o ChatGPT perder o acesso.
+
+**Risco da parte:** o M-1 — se o plano do ChatGPT disponível não permitir conector com escrita, a 1f para no spike,
+e o servidor serve primeiro ao Claude, que também usa OAuth.
+
+**Depois da 1f e do roteiro de fogo: a estreia em produção.** Marcar a versão, fazer o deploy dela no Easypanel e
 seguir a [estreia em produção](10-infra-deploy.md#estreia-em-produção) — cabeçalhos, `X-Real-IP`, V-15, V-16,
 login, push, a primeira publicação acompanhada e o teste de dump e restauração — **antes** de conectar as demais contas reais.
 
@@ -541,7 +568,8 @@ Ordenado por valor percebido, não por facilidade:
 | Sugestão de melhor horário | RF-D10 | Depende do painel acima |
 | Modelos de legenda | — | Assinatura, conjuntos de hashtags |
 | Programação recorrente | — | Séries semanais |
-| Geração de legenda por IA | — | Não é o problema que o produto resolve, mas encaixa bem |
+| Geração de legenda por IA | — | Não é o problema que o produto resolve. **O PostIt continua sem gerar texto**: desde a parte 1f, quem escreve é o assistente externo, por MCP ([ADR 0029](adr/0029-assistente-por-mcp.md)) |
+| Assistente sugere o horário | RF-K07 | Sugere dia e hora, que chegam preenchidos na Revisão; quem agenda confirma ([ADR 0029](adr/0029-assistente-por-mcp.md)) |
 
 ### Mudança para a etapa 2 — quando o projeto for aprovado
 
@@ -571,12 +599,12 @@ Para comentários existe a alternativa de consultar periodicamente; para mensage
 | Fase | Requisitos |
 |---|---|
 | 0 | RF-A01 a RF-A04, RF-A06, RF-A08, RF-A09, RF-G06, RF-H01, RF-H04, RF-H05, RF-H06, RF-H07, RF-I01, RF-J05, RNF-05, RNF-06, RNF-13, RNF-14, RNF-15, RNF-16 (infraestrutura de RF-I04 e RF-I09) |
-| 1 | RF-B01 a RF-B05, RF-B06 (imagem), RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-E01 a RF-E05, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
+| 1 | RF-B01 a RF-B05, RF-B06 (imagem), RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-E01 a RF-E05, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RF-K01 a RF-K06 (parte 1f), RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
 | 2 | RF-C05 a RF-C10, RF-F10 (e o que falta de RF-C02: Reels) |
 | 3 | RF-D02, RF-D06 a RF-D08 |
 | 4 | RF-E06, RF-I02 a RF-I09 (RF-E01 a RF-E05 antecipados na 1e) |
 | 5 | RF-A05, RF-A07, RF-G01 a RF-G04, RF-G07, RF-H02, RF-H03, RNF-11, RNF-12 |
-| Depois | RF-B06 (vídeo), RF-D10, RF-G05 |
+| Depois | RF-B06 (vídeo), RF-D10, RF-G05, RF-K07 |
 
 Todos os requisitos do MVP estão cobertos. Conferido contra [02](02-requisitos.md).
 

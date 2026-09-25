@@ -45,6 +45,8 @@ qualquer uso externo.
 14. [11 — Segurança](11-seguranca.md) — **começa explicando cada conceito em linguagem simples**; depois
     login, duas etapas, sessão, CSRF, CORS, CSP, tokens, bucket, push e o que fazer em incidentes
 15. [12 — Roadmap](12-roadmap.md) — as seis fases, com marco verificável em cada uma
+16. [16 — Assistente por MCP](16-assistente-mcp.md) — o ChatGPT compondo rascunhos por MCP, com OAuth: ferramentas,
+    fluxo, viabilidade e o que falta confirmar (parte 1f)
 
 ### Decisões registradas
 - [ADR 0001](adr/0001-instagram-login-em-vez-de-facebook-login.md) — Instagram Login em vez de
@@ -88,6 +90,8 @@ qualquer uso externo.
   do envio; a API continua só com JPEG de até 8 MB
 - [ADR 0028](adr/0028-minio-pela-build-da-comunidade.md) — MinIO pela build da comunidade (pgsty), com versão fixa,
   depois que a MinIO tirou as imagens gratuitas do ar
+- [ADR 0029](adr/0029-assistente-por-mcp.md) — O assistente compõe rascunhos por MCP, com OAuth, e uma pessoa
+  valida
 
 ---
 
@@ -128,6 +132,7 @@ passarem, o projeto está de pé.
 | Como se trabalha no código | Direto na `main`, CI avisa quando quebra, Playwright com Meta falsa | [15](15-qualidade-e-fluxo-de-trabalho.md) |
 | Duas pessoas na mesma postagem | Controle por versão: quem salva depois é avisado e não perde o que digitou | [05](05-arquitetura.md#8-edição-simultânea) |
 | Como se chama | PostIt, provisório; nunca "Insta" ou "gram" no nome | [ADR 0016](adr/0016-nome-do-produto.md) |
+| Onde entra a IA | O PostIt não gera texto; um assistente externo (ChatGPT) compõe rascunhos por MCP, autorizado por OAuth, e uma pessoa valida | [ADR 0029](adr/0029-assistente-por-mcp.md) |
 
 ---
 

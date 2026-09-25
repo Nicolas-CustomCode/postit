@@ -102,7 +102,7 @@ antes de começar essa funcionalidade.
 | Permissões por conta do Instagram | As permissões são globais e todos veem todas as contas. Evolução possível se virar agência com clientes separados |
 | Cobrança, planos, assinatura | Não há cliente pagante |
 | Edição de imagem e vídeo dentro da ferramenta | O conteúdo chega pronto. Editor é outro produto |
-| Geração de legenda por IA | Pode entrar depois; não é o problema que estamos resolvendo |
+| Geração de legenda por IA | O PostIt não gera texto. **Um assistente externo pode compor rascunhos** — o ChatGPT, por MCP —, e uma pessoa valida pela tela ([ADR 0029](adr/0029-assistente-por-mcp.md)); quem escreve é o assistente que a pessoa já usa |
 | Aplicativo nativo (loja da Apple ou do Google) | O sistema web instalável na tela inicial (PWA), com notificação push, atende o uso previsto. Ver [ADR 0017](adr/0017-pwa-e-notificacoes-push.md) |
 | Aviso por WhatsApp ou e-mail | O push resolve sem custo nem serviço externo. Evolução possível |
 | Demografia do público (idade, cidade, gênero) | A versão simples das métricas da conta basta no MVP |

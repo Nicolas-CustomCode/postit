@@ -82,6 +82,8 @@ Next** chama a API em `127.0.0.1`, repassando a sessão do usuário e uma chave 
 Por isso não há CORS, não há endereço de API exposto no navegador, e a API nunca recebe tráfego da
 internet. Detalhes em [ADR 0010](adr/0010-monorepo-next-nest-bff.md).
 
+O assistente por MCP (parte 1f) **entra pela mesma porta**: ver a decisão 9.
+
 ### 2. API e worker são o mesmo código, iniciado de dois jeitos
 
 `apps/api/src/main.ts` sobe o servidor HTTP. `apps/api/src/worker.ts` sobe o mesmo projeto Nest sem
@@ -151,6 +153,25 @@ Duas pessoas podem abrir a mesma postagem. Toda alteração feita por usuário e
 tela carregou; a API grava só se a versão ainda for a mesma e responde 409 caso contrário, dizendo quem alterou e
 quando. A tela preserva o que a pessoa digitou. Mudanças do worker não mexem na versão. Detalhes em
 [07](07-modelo-dados.md) e RF-C12.
+
+### 9. O assistente entra pela mesma porta
+
+A construir na parte 1f; decisão em [ADR 0029](adr/0029-assistente-por-mcp.md). Um assistente de IA — o ChatGPT,
+primeiro — compõe rascunhos por **MCP**, autorizado por **OAuth** em nome da pessoa.
+
+- O Next expõe `/mcp`, `/oauth/*` e os `/.well-known` do OAuth como **route handlers que só repassam** à API, com a
+  chave interna. É a exceção fechada à "toda escrita é Server Action": rotas de máquina, sem cookie, só
+  `Authorization: Bearer` — sem cookie, não há CSRF.
+- A lógica fica na API, num módulo `mcp/` do processo HTTP, reaproveitando os serviços de postagem e de mídia. Nada
+  do MCP publica, e ele não importa fila (regra 1). A edição pelo assistente usa a mesma trava de versão da decisão 8.
+- A API continua sem nome público: o caminho até ela segue sendo um só.
+
+```mermaid
+flowchart LR
+    CHAT([ChatGPT]) -->|Bearer| WEB[Next<br/>/mcp e /oauth]
+    NAV([Navegador]) -->|cookie| WEB
+    WEB -->|127.0.0.1 com chave interna| API[API Nest<br/>modulo mcp]
+```
 
 ## Uma requisição do começo ao fim
 
@@ -390,10 +411,10 @@ Só se não encontrar é que se tenta de novo. Procedimento em
 
 | Ausente | Por quê |
 |---|---|
-| API exposta na internet | O Next é o único cliente. Expor a API só aumentaria a superfície de ataque. Ver [ADR 0010](adr/0010-monorepo-next-nest-bff.md) |
+| API exposta na internet | O Next é o único caminho até ela — inclusive o do assistente por MCP, que ele só repassa. Expor a API só aumentaria a superfície de ataque. Ver [ADR 0010](adr/0010-monorepo-next-nest-bff.md) e [ADR 0029](adr/0029-assistente-por-mcp.md) |
 | CORS | O navegador nunca chama a API diretamente |
 | Token no navegador (JWT) | Sessão opaca em cookie `httpOnly`, com verificação em duas etapas. Ver [ADR 0013](adr/0013-autenticacao-com-duas-etapas.md) |
-| Rotas POST próprias no Next | Toda escrita é Server Action, que confere a origem. Ver [11 — CSRF](11-seguranca.md#csrf) |
+| Rotas POST próprias no Next | Toda escrita é Server Action, que confere a origem. Ver [11 — CSRF](11-seguranca.md#csrf). **Exceção fechada**: `/mcp` e o OAuth, rotas de máquina sem cookie que só repassam à API ([ADR 0029](adr/0029-assistente-por-mcp.md)) |
 | Recursos de terceiros nas páginas | CSP restrita ao próprio app e ao domínio de mídia. Ver [ADR 0014](adr/0014-csp-e-cabecalhos-de-seguranca.md) |
 | TanStack Query | Leituras em Server Components e escritas em Server Actions cobrem o MVP. O arrastar do calendário usa atualização otimista do React. Reavaliar se a interatividade pedir |
 | App de worker separado | Worker e API compartilham o código. Separar é mecânico se um dia fizer sentido |

@@ -687,6 +687,20 @@ apagada; `falhasSeguidas` apaga inscrições que falham repetidamente por outros
 ### `PreferenciaNotificacao`
 Por usuário e tipo, se quer push. Sem linha, vale o padrão: push ligado. O sino recebe sempre.
 
+### O assistente por MCP — a construir na parte 1f
+Previsto pelo [ADR 0029](adr/0029-assistente-por-mcp.md); os nomes finais saem do spike (a biblioteca do servidor
+OAuth pode trazer as próprias tabelas).
+
+| Entidade | Para quê |
+|---|---|
+| `ClienteOAuth` | O aplicativo que pede acesso — o ChatGPT —, apresentado por documento de metadados (CIMD) ou registro dinâmico: nome, endereços de retorno |
+| `AutorizacaoOAuth` | O que a pessoa concedeu a um cliente: usuário, cliente, escopo (`postagens:compor`), quando, último uso, `revogadaEm`. É a linha que o Perfil mostra em "Aplicativos conectados" |
+| `CodigoOAuth` | O código temporário do fluxo, com o desafio do PKCE. Uso único, vida de minutos |
+| `TokenOAuth` | Acesso (1 h) e renovação (rotação, até 30 dias; 7 sem uso vencem). **Só o hash**, como a `Sessao` |
+| `Postagem.origem` | `TELA` ou `ASSISTENTE`. Decide a marca "Composta pelo assistente" e que o assistente edita só o que criou |
+
+Conceder e revogar gravam `EventoAuditoria`, sem token nem código.
+
 ### `Aprovacao` e `ComentarioInterno`
 Trilha do fluxo de revisão. `Aprovacao` registra as transições, com quem e por quê;
 `ComentarioInterno` é a conversa da equipe. Separadas porque uma é evento de estado e a outra é
