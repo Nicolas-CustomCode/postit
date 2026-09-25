@@ -366,7 +366,7 @@ teste chegou ao ativar e "Uma publicação falhou" chegou ao celular e ao comput
 | 14 | ✅ | Push ativado no celular (Chrome no Android, pelo túnel): "Uma publicação falhou" chegou sem nome de conta nem motivo, e tocar abriu a postagem com a causa |
 | 15 | ✅ | A mesma postagem em duas abas, salva nas duas: a segunda recebeu o aviso de conflito e não perdeu o que foi digitado |
 | 16 | ✅ | Compor e agendar pelo celular, conferido pelo usuário |
-| 18 | ✅ | Foto fora da faixa do Feed ajustada nos dois modos — recorte e imagem inteira com faixas brancas —; as duas entraram na postagem, e nenhuma apareceu no acervo |
+| 18 | ✅ | Foto fora da faixa do Feed ajustada nos dois modos — recorte e imagem inteira com faixas brancas —; as duas entraram na postagem, e nenhuma apareceu no acervo. O carrossel com as duas foi publicado **igual à prévia**. Antes, a primeira tentativa foi interrompida por um commit que reiniciou o worker, e a retomada terminou em `FALHOU` com o pai `ERROR` — registrado como V-31 no [08](08-integracao-instagram.md) |
 | 19 | ✅ | A imagem recortada para o Feed foi publicada, e a Meta aceitou sem o erro de proporção |
 
 O **12** e o **13** estão conferidos desde 18/09 (acima). **Faltam três:**
