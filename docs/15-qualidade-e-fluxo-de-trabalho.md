@@ -146,6 +146,37 @@ paralelo um arquivo mudaria os dados de outro no meio do teste.
 motivo de cada uma no comentário ao lado, e retiradas quando a dependência de origem publicar a correção. Nada de
 `npm audit fix --force`, que troca versão principal do Prisma e do NestJS.
 
+#### Avisos conhecidos e aceitos — 25/09/2026
+
+O `npm audit` mostra **4 avisos moderados**, todos dentro do cliente `minio` 8.0.7 (a versão mais recente), que a
+API usa para falar com o armazenamento. A CI não quebra por eles (ela barra só alto e crítico), e eles ficam **de
+propósito**, até o `minio` publicar versão com as dependências atualizadas — o Dependabot traz o PR.
+
+| Aviso | Caminho | O que permite |
+|---|---|---|
+| [GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr) | `minio` → `query-string` 7 → `decode-uri-component` 0.2.2 | Travar o processo decodificando um texto percent-encoded malformado |
+| [GHSA-528h-pc64-c93x](https://github.com/advisories/GHSA-528h-pc64-c93x) | `minio` → `stream-json` 1.9 | Travar o processo com um JSON muito aninhado |
+
+**Por que não se corrige agora:**
+
+- **`npm audit fix --force` rebaixa o `minio` para a 7.1.3** — versão antiga, com quebra de API, justamente no envio e
+  na publicação de mídia.
+- **`overrides` não servem aqui**: a correção de cada uma está em outra versão principal. O `query-string` corrigido
+  (9.5) só existe como módulo ES, e o `minio` o carrega como CommonJS; o `stream-json` corrigido (3.5) está duas
+  versões principais acima da que o `minio` espera. Forçar arriscaria quebrar o armazenamento para fechar um risco
+  que, aqui, não tem por onde entrar.
+
+**Por que o risco é baixo:** as duas falhas são **só negação de serviço** — sem vazamento de dado nem execução de
+código — e exigem que o atacante controle o texto que o cliente `minio` lê. No PostIt ele só lê o que o próprio
+código monta (chaves de objeto geradas em hexadecimal, bucket fixo, nada vindo do usuário) e o que o **nosso** MinIO
+responde, que não tem nome público e só é alcançado pela API na rede interna. Para explorar, seria preciso controlar
+o armazenamento antes — e aí os arquivos já estariam expostos por outro caminho. O pior caso seria um processo
+travado até reiniciar: a tela sem responder, ou publicações atrasadas, que a trava dos 15 minutos manda para
+`FALHOU` com aviso em vez de publicar tarde.
+
+**Reavaliar se** o PostIt passar a ler do armazenamento algo vindo de fora — por exemplo, listar objetos cujos nomes
+o usuário escolhe —, ou se aparecer aviso **alto** em qualquer das duas.
+
 ### Playwright
 
 Testes que abrem o navegador e usam o PostIt como uma pessoa usaria. Rodam com `npm run test:e2e`.
