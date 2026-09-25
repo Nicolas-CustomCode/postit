@@ -354,6 +354,7 @@ novo, foi reatada sozinha e o push voltou a chegar. **Falta conferir** no Androi
 | # | Resultado | Como |
 |---|---|---|
 | 1 | ✅ | 10 publicações reais no Feed (imagem única e carrosséis de 2 a 4 fotos); 8 saíram entre 0,4 e 1,7 min do horário, e as duas mais lentas foram induzidas (itens 10 e 7) |
+| 2 | ✅ | Legenda e texto alternativo conferidos no perfil pelo usuário em 25/09 — o texto alternativo substitui a descrição automática do Instagram (docs/08) |
 | 6 | ✅ | **Nos dois modos, uma publicação só.** Duas execuções simultâneas do publicador para a mesma postagem: a segunda perdeu o `UPDATE` condicionado e parou sem chamar a Meta. E dois workers no ar ao mesmo tempo, como num deploy: um despachou, o outro publicou — um contêiner, um `PUBLICAR` |
 | 7 | ✅ | Worker parado de verdade (só web e API no ar) e religado 18 min depois: `FALHOU` com `SYSTEM_UNAVAILABLE`, nenhum contêiner, nenhuma chamada à Meta, aviso e push |
 | 8 | ✅ | Token trocado por um inválido, cifrado como o sistema cifra: `FALHOU` com `TOKEN_INVALID` (meta 190), conta sinalizada, avisos "publicação falhou" e "conta sem acesso" com push. O token original foi restaurado em seguida |
@@ -362,7 +363,7 @@ novo, foi reatada sozinha e o push voltou a chegar. **Falta conferir** no Androi
 | 11 | ✅ | Nenhum token (`IGAA…`, `EAA…`, `access_token=`) nos 56 logs da sessão nem nas respostas da Meta gravadas no banco. A busca é pelo formato, porque o token real não é legível |
 | 16 | ✅ | Compor e agendar pelo celular, conferido pelo usuário |
 
-**Faltam:** o **2** (legenda e texto alternativo no perfil), a metade da composição do **5**, o **14** (push no
+**Faltam:** a metade da composição do **5**, o **14** (push no
 celular), o **15** (duas abas salvando) e o **18** e o **19** (ajustar uma foto 3:4 e publicá-la). Os scripts dos testes 6 e 8
 foram temporários, fora do repositório.
 

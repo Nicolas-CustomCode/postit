@@ -431,6 +431,10 @@ Quais campos valem em cada formato, na criação do container. Fonte:
 **`caption`** — *"Maximum 2200 characters, 30 hashtags, and 20 @ tags."* Estes três limites viram
 os contadores do RF-C03.
 
+**`alt_text`** — **confirmado em 25/09/2026**, publicando de verdade na conta de testes: o texto enviado pelo
+PostIt aparece como texto alternativo da imagem no Instagram (no `alt` da imagem na web e em "Editar texto
+alternativo" no aplicativo), no lugar da descrição automática. A legenda saiu igual à enviada.
+
 **`cover_url` e `thumb_offset`** — se os dois forem enviados, **`cover_url` prevalece**. Se a capa
 não tiver proporção 9:16, ela é cortada no retângulo 9:16 central. O `thumb_offset` é em
 milissegundos, padrão zero. Na interface (RF-C07), os dois são mutuamente exclusivos justamente
