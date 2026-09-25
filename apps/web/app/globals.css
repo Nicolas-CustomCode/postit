@@ -11,6 +11,14 @@
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
 :root {
+  /*
+   * Diz ao navegador em que tema a página está, para ele desenhar os controles
+   * nativos — o calendário e o relógio dos campos de data e hora, a janela que
+   * eles abrem — na cor certa. Sem isto os ícones saíam pretos no tema escuro,
+   * quase invisíveis (25/09/2026). O par escuro está no bloco de baixo.
+   */
+  color-scheme: light;
+
   /* 12px de base: dá 10px em botões e campos (md) e 16px em cartões (xl). */
   --radius: 0.75rem;
 
@@ -85,6 +93,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    color-scheme: dark;
+
     --background: #0c0e16;
     --foreground: #eef0f8;
     --card: #151826;
