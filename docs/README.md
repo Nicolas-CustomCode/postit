@@ -4,7 +4,9 @@ Agendador de postagens para Instagram. Ferramenta interna que conecta contas pro
 o conteúdo preparado com antecedência, publica automaticamente no horário marcado e coleta as
 métricas depois.
 
-**Estado:** arquitetura definida, implementação não iniciada.
+**Estado (25/09/2026):** Fase 1 no fechamento — publicar imagem e carrossel no Feed, com revisão e aprovação, sino
+e push, funciona de ponta a ponta (Stories está implementado, ainda sem publicação real conferida); o roteiro de fogo está quase todo conferido. Antes da estreia em
+produção entra a parte 1f, o assistente por MCP ([16](16-assistente-mcp.md)). Detalhes em [12 — Roadmap](12-roadmap.md).
 
 **Forma:** monorepo com três processos — telas em Next.js, API em NestJS escondida atrás do Next, e um
 worker que usa o mesmo código da API para publicar. Ver [05 — Arquitetura](05-arquitetura.md).
