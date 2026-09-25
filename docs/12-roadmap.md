@@ -349,10 +349,22 @@ chegou com o PostIt fechado, 1 s depois da falha; depois de sair, a inscrição 
 novo, foi reatada sozinha e o push voltou a chegar. **Falta conferir** no Android pelo túnel e no iPhone instalado
 (V-21) — a entrega real não roda em teste automático.
 
-**Falta desta fase:** o roteiro de fogo.
+**Roteiro de fogo — conferidos em 23 a 25/09/2026**, na conta de testes, pelo túnel:
 
-Sobraram para o roteiro de fogo, quando houver publicação: os testes **1**, **2**, a segunda metade do
-**5**, **6** a **11**, **14**, **15** e **16**.
+| # | Resultado | Como |
+|---|---|---|
+| 1 | ✅ | 10 publicações reais no Feed (imagem única e carrosséis de 2 a 4 fotos); 8 saíram entre 0,4 e 1,7 min do horário, e as duas mais lentas foram induzidas (itens 10 e 7) |
+| 6 | ✅ | **Nos dois modos, uma publicação só.** Duas execuções simultâneas do publicador para a mesma postagem: a segunda perdeu o `UPDATE` condicionado e parou sem chamar a Meta. E dois workers no ar ao mesmo tempo, como num deploy: um despachou, o outro publicou — um contêiner, um `PUBLICAR` |
+| 7 | ✅ | Worker parado de verdade (só web e API no ar) e religado 18 min depois: `FALHOU` com `SYSTEM_UNAVAILABLE`, nenhum contêiner, nenhuma chamada à Meta, aviso e push |
+| 8 | ✅ | Token trocado por um inválido, cifrado como o sistema cifra: `FALHOU` com `TOKEN_INVALID` (meta 190), conta sinalizada, avisos "publicação falhou" e "conta sem acesso" com push. O token original foi restaurado em seguida |
+| 9 | ✅ | Imagem com chave inexistente no bucket: `MEDIA_DOWNLOAD_FAILED`, com a mensagem de download |
+| 10 | ✅ | Sem querer, em 23/09: um commit reiniciou o worker no meio de um carrossel; o motor retomou, reaproveitou os contêineres e publicou uma vez |
+| 11 | ✅ | Nenhum token (`IGAA…`, `EAA…`, `access_token=`) nos 56 logs da sessão nem nas respostas da Meta gravadas no banco. A busca é pelo formato, porque o token real não é legível |
+| 16 | ✅ | Compor e agendar pelo celular, conferido pelo usuário |
+
+**Faltam:** o **2** (legenda e texto alternativo no perfil), a metade da composição do **5**, o **14** (push no
+celular), o **15** (duas abas salvando) e o **18** e o **19** (ajustar uma foto 3:4 e publicá-la). Os scripts dos testes 6 e 8
+foram temporários, fora do repositório.
 
 **Depois do roteiro de fogo: a estreia em produção.** Marcar a versão, fazer o deploy dela no Easypanel e
 seguir a [estreia em produção](10-infra-deploy.md#estreia-em-produção) — cabeçalhos, `X-Real-IP`, V-15, V-16,
