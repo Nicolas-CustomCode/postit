@@ -356,6 +356,8 @@ teste chegou ao ativar e "Uma publicação falhou" chegou ao celular e ao comput
 |---|---|---|
 | 1 | ✅ | 10 publicações reais no Feed (imagem única e carrosséis de 2 a 4 fotos); 8 saíram entre 0,4 e 1,7 min do horário, e as duas mais lentas foram induzidas (itens 10 e 7) |
 | 2 | ✅ | Legenda e texto alternativo conferidos no perfil pelo usuário em 25/09 — o texto alternativo substitui a descrição automática do Instagram (docs/08) |
+| 3 | ✅ | Um print de tela em PNG foi convertido para JPEG no navegador e aceito, com o aviso "Convertida de PNG para JPEG" |
+| 4 | ✅ | Um JPEG acima de 8 MB foi reduzido no navegador e aceito, com o aviso das medidas de antes e de depois. Um arquivo de 74,9 MB foi recusado já na escolha, pelo teto de 50 MB do que a tela abre para converter (ADR 0027) |
 | 5 | ✅ | A imagem 9:16 no Feed é recusada com a faixa, e o recorte oferecido cabe. **Achou um defeito**: o recorte arredondava a altura para cima e saía um pixel fora de 4:5 (1215 × 1519), e o Feed recusava a própria imagem recortada. Corrigido em 25/09, com teste que varre todas as larguras |
 | 6 | ✅ | **Nos dois modos, uma publicação só.** Duas execuções simultâneas do publicador para a mesma postagem: a segunda perdeu o `UPDATE` condicionado e parou sem chamar a Meta. E dois workers no ar ao mesmo tempo, como num deploy: um despachou, o outro publicou — um contêiner, um `PUBLICAR` |
 | 7 | ✅ | Worker parado de verdade (só web e API no ar) e religado 18 min depois: `FALHOU` com `SYSTEM_UNAVAILABLE`, nenhum contêiner, nenhuma chamada à Meta, aviso e push |
@@ -366,15 +368,15 @@ teste chegou ao ativar e "Uma publicação falhou" chegou ao celular e ao comput
 | 14 | ✅ | Push ativado no celular (Chrome no Android, pelo túnel): "Uma publicação falhou" chegou sem nome de conta nem motivo, e tocar abriu a postagem com a causa |
 | 15 | ✅ | A mesma postagem em duas abas, salva nas duas: a segunda recebeu o aviso de conflito e não perdeu o que foi digitado |
 | 16 | ✅ | Compor e agendar pelo celular, conferido pelo usuário |
+| 17 | ✅ | Uma imagem enviada de verdade, excluída do acervo: o endereço dela passou a responder 404 do MinIO (`NoSuchKey`) — o arquivo saiu do armazenamento, não só do banco |
 | 18 | ✅ | Foto fora da faixa do Feed ajustada nos dois modos — recorte e imagem inteira com faixas brancas —; as duas entraram na postagem, e nenhuma apareceu no acervo. O carrossel com as duas foi publicado **igual à prévia**. Antes, a primeira tentativa foi interrompida por um commit que reiniciou o worker, e a retomada terminou em `FALHOU` com o pai `ERROR` — registrado como V-31 no [08](08-integracao-instagram.md) |
 | 19 | ✅ | A imagem recortada para o Feed foi publicada, e a Meta aceitou sem o erro de proporção |
 
-O **12** e o **13** estão conferidos desde 18/09 (acima). **Faltam três:**
+O **12** e o **13** estão conferidos desde 18/09 (acima).
 
-- **3 e 4**, no sinal novo de 24/09: enviar à mão um **PNG** (um print de tela) e um **JPEG acima de 8 MB** (uma foto
-  grande de câmera), e ver os dois convertidos ou reduzidos, com o aviso. Têm teste automático; falta a conferência
-  real, de preferência também com uma foto do iPhone.
-- **17**: excluir do acervo uma imagem **enviada de verdade** e abrir o endereço dela — tem que dar 404.
+**O roteiro de fogo está completo em 25/09/2026: os 19 itens conferidos.** Dois defeitos apareceram e foram
+corrigidos no caminho — o recorte um pixel fora de 4:5 (item 5) e os ícones do tema escuro nos campos de data e hora
+—, e um comportamento da Meta ficou registrado como V-31 (item 18).
 
 **Fora do roteiro**, falta conferir uma publicação real de **Stories** e o push no iPhone instalado (V-21). Os
 scripts dos testes 6 e 8 foram temporários, fora do repositório.
