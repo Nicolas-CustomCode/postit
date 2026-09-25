@@ -364,12 +364,20 @@ teste chegou ao ativar e "Uma publicação falhou" chegou ao celular e ao comput
 | 10 | ✅ | Sem querer, em 23/09: um commit reiniciou o worker no meio de um carrossel; o motor retomou, reaproveitou os contêineres e publicou uma vez |
 | 11 | ✅ | Nenhum token (`IGAA…`, `EAA…`, `access_token=`) nos 56 logs da sessão nem nas respostas da Meta gravadas no banco. A busca é pelo formato, porque o token real não é legível |
 | 14 | ✅ | Push ativado no celular (Chrome no Android, pelo túnel): "Uma publicação falhou" chegou sem nome de conta nem motivo, e tocar abriu a postagem com a causa |
+| 15 | ✅ | A mesma postagem em duas abas, salva nas duas: a segunda recebeu o aviso de conflito e não perdeu o que foi digitado |
 | 16 | ✅ | Compor e agendar pelo celular, conferido pelo usuário |
+| 18 | ✅ | Foto fora da faixa do Feed ajustada nos dois modos — recorte e imagem inteira com faixas brancas —; as duas entraram na postagem, e nenhuma apareceu no acervo |
 | 19 | ✅ | A imagem recortada para o Feed foi publicada, e a Meta aceitou sem o erro de proporção |
 
-**Faltam:** o **15** (duas abas salvando) e o **18** (ajustar uma foto 3:4 nos dois modos, recorte e moldura) —
-com o usuário. Fora do roteiro, falta conferir uma publicação real de **Stories**. Os scripts dos testes 6 e 8 foram
-temporários, fora do repositório.
+O **12** e o **13** estão conferidos desde 18/09 (acima). **Faltam três:**
+
+- **3 e 4**, no sinal novo de 24/09: enviar à mão um **PNG** (um print de tela) e um **JPEG acima de 8 MB** (uma foto
+  grande de câmera), e ver os dois convertidos ou reduzidos, com o aviso. Têm teste automático; falta a conferência
+  real, de preferência também com uma foto do iPhone.
+- **17**: excluir do acervo uma imagem **enviada de verdade** e abrir o endereço dela — tem que dar 404.
+
+**Fora do roteiro**, falta conferir uma publicação real de **Stories** e o push no iPhone instalado (V-21). Os
+scripts dos testes 6 e 8 foram temporários, fora do repositório.
 
 ### 1f — Assistente por MCP
 
