@@ -346,8 +346,9 @@ o link `/notificacoes/<id>`; o Perfil ativa, testa e desativa neste aparelho, li
 como instalar. A inscrição morre com a sessão: sair do PostIt para o push daquele aparelho (ADR 0017, acréscimos).
 **Conferido no computador em 24/09/2026**, pelo `localhost`: o teste chegou ao ativar; "Uma publicação falhou"
 chegou com o PostIt fechado, 1 s depois da falha; depois de sair, a inscrição foi apagada sem envio; ao entrar de
-novo, foi reatada sozinha e o push voltou a chegar. **Falta conferir** no Android pelo túnel e no iPhone instalado
-(V-21) — a entrega real não roda em teste automático.
+novo, foi reatada sozinha e o push voltou a chegar. **Conferido no Android em 25/09/2026** (Chrome, pelo túnel): o
+teste chegou ao ativar e "Uma publicação falhou" chegou ao celular e ao computador ao mesmo tempo (roteiro, item 14).
+**Falta conferir** no iPhone instalado (V-21) — a entrega real não roda em teste automático.
 
 **Roteiro de fogo — conferidos em 23 a 25/09/2026**, na conta de testes, pelo túnel:
 
@@ -355,17 +356,20 @@ novo, foi reatada sozinha e o push voltou a chegar. **Falta conferir** no Androi
 |---|---|---|
 | 1 | ✅ | 10 publicações reais no Feed (imagem única e carrosséis de 2 a 4 fotos); 8 saíram entre 0,4 e 1,7 min do horário, e as duas mais lentas foram induzidas (itens 10 e 7) |
 | 2 | ✅ | Legenda e texto alternativo conferidos no perfil pelo usuário em 25/09 — o texto alternativo substitui a descrição automática do Instagram (docs/08) |
+| 5 | ✅ | A imagem 9:16 no Feed é recusada com a faixa, e o recorte oferecido cabe. **Achou um defeito**: o recorte arredondava a altura para cima e saía um pixel fora de 4:5 (1215 × 1519), e o Feed recusava a própria imagem recortada. Corrigido em 25/09, com teste que varre todas as larguras |
 | 6 | ✅ | **Nos dois modos, uma publicação só.** Duas execuções simultâneas do publicador para a mesma postagem: a segunda perdeu o `UPDATE` condicionado e parou sem chamar a Meta. E dois workers no ar ao mesmo tempo, como num deploy: um despachou, o outro publicou — um contêiner, um `PUBLICAR` |
 | 7 | ✅ | Worker parado de verdade (só web e API no ar) e religado 18 min depois: `FALHOU` com `SYSTEM_UNAVAILABLE`, nenhum contêiner, nenhuma chamada à Meta, aviso e push |
 | 8 | ✅ | Token trocado por um inválido, cifrado como o sistema cifra: `FALHOU` com `TOKEN_INVALID` (meta 190), conta sinalizada, avisos "publicação falhou" e "conta sem acesso" com push. O token original foi restaurado em seguida |
 | 9 | ✅ | Imagem com chave inexistente no bucket: `MEDIA_DOWNLOAD_FAILED`, com a mensagem de download |
 | 10 | ✅ | Sem querer, em 23/09: um commit reiniciou o worker no meio de um carrossel; o motor retomou, reaproveitou os contêineres e publicou uma vez |
 | 11 | ✅ | Nenhum token (`IGAA…`, `EAA…`, `access_token=`) nos 56 logs da sessão nem nas respostas da Meta gravadas no banco. A busca é pelo formato, porque o token real não é legível |
+| 14 | ✅ | Push ativado no celular (Chrome no Android, pelo túnel): "Uma publicação falhou" chegou sem nome de conta nem motivo, e tocar abriu a postagem com a causa |
 | 16 | ✅ | Compor e agendar pelo celular, conferido pelo usuário |
+| 19 | ✅ | A imagem recortada para o Feed foi publicada, e a Meta aceitou sem o erro de proporção |
 
-**Faltam:** a metade da composição do **5**, o **14** (push no
-celular), o **15** (duas abas salvando) e o **18** e o **19** (ajustar uma foto 3:4 e publicá-la). Os scripts dos testes 6 e 8
-foram temporários, fora do repositório.
+**Faltam:** o **15** (duas abas salvando) e o **18** (ajustar uma foto 3:4 nos dois modos, recorte e moldura) —
+com o usuário. Fora do roteiro, falta conferir uma publicação real de **Stories**. Os scripts dos testes 6 e 8 foram
+temporários, fora do repositório.
 
 ### 1f — Assistente por MCP
 
