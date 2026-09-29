@@ -5,7 +5,9 @@ valida pela tela. Este documento diz **o que** o assistente pode fazer, **como**
 precisa ser confirmado**. As decisões e o porquê estão no [ADR 0029](adr/0029-assistente-por-mcp.md); os requisitos,
 no [Módulo K do 02](02-requisitos.md#módulo-k--assistente-mcp); a construção, na parte 1f do [12](12-roadmap.md).
 
-**Estado: registrado em 25/09/2026, a construir na parte 1f.**
+**Estado (29/09/2026): em construção na parte 1f.** A parte A está pronta — o servidor OAuth, o `/mcp` com
+`listar_contas` e `ver_regras`, e a tela de permissão em `/oauth/autorizar`. Faltam compor (B), imagem nova (C) e
+revogar (D).
 
 ---
 
@@ -105,7 +107,7 @@ confirma na prática — e o resultado entra aqui, com a data, como o [08](08-in
 | **M-1** | Que planos do ChatGPT permitem conector MCP próprio **com ações de escrita** (modo desenvolvedor), e a conta do usuário tem acesso? | Sem isso, nada funciona — é a primeira coisa a conferir |
 | **M-2** | O ChatGPT completa o OAuth com o PostIt pelo túnel local, por CIMD ou por registro dinâmico? | Decide quais dos dois o servidor precisa implementar |
 | **M-3** | Com que frequência o `openai/fileParams` chega vazio, no computador e no celular? | Se for frequente, a URL vira o caminho principal |
-| **M-4** | `oidc-provider` ou um servidor mínimo próprio? | A recomendação é a biblioteca certificada; o spike confere se ela convive com o login e as duas etapas do PostIt |
+| **M-4** | `oidc-provider` ou um servidor mínimo próprio? | **Decidido em 29/09/2026: servidor mínimo próprio** — o `oidc-provider` não convive com o login do PostIt sem repassar cookies pelo Next. O porquê está no acréscimo do [ADR 0029](adr/0029-assistente-por-mcp.md) |
 
 ---
 

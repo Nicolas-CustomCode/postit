@@ -69,7 +69,8 @@ chave interna. A internet continua vendo um serviço só; a API continua sem nom
 - **PKCE obrigatório.** O cliente se apresenta por **CIMD** ou **registro dinâmico** (RFC 7591), e o token sai
   restrito ao PostIt (indicador de recurso).
 - A biblioteca do servidor de autorização é escolhida no spike (M-4): **a recomendação é `oidc-provider`**, que é
-  certificado e traz tudo acima, em vez de escrever OAuth à mão.
+  certificado e traz tudo acima, em vez de escrever OAuth à mão. **Decidido em 29/09/2026: servidor mínimo próprio**
+  — ver o acréscimo abaixo.
 
 ### 5. Imagens pelo mesmo caminho validado
 
@@ -120,3 +121,22 @@ pessoa já usa. O PostIt só dá as ferramentas.
 - **Definir o horário fica para depois** (RF-K07): quando vier, o assistente **sugere** dia e hora, que chegam
   preenchidos na Revisão, e a pessoa com `POSTAGEM_AGENDAR` confirma — agendar continua sendo decisão humana, como
   todo o resto deste ADR.
+
+## Acréscimos de 29/09/2026, na construção (parte 1f)
+
+- **M-4: servidor OAuth mínimo próprio, e não `oidc-provider`.** A tela de permissão é **página do Next com Server
+  Action**, que reaproveita a sessão e as duas etapas como estão; o cliente OAuth só chama rotas de máquina sem
+  cookie (`/oauth/token`, `/oauth/register`). O `oidc-provider` traz a própria "interação" de login, com cookies
+  dele, que o Next teria de repassar — contra a regra 13 — e amarraria o login do PostIt a ela. O que ele traria de
+  graça (PKCE, rotação, registro) cabe em poucas regras puras, testadas (`apps/api/src/domain/oauth/`).
+- **CIMD primeiro, registro dinâmico aceito.** A especificação de autorização do MCP de 2026-07-28 prefere o CIMD e
+  marca o registro dinâmico como obsoleto; o ChatGPT ainda usa os dois. A ficha do CIMD é lida pela busca segura
+  (`safe-fetch`) e relida depois de 1 hora.
+- **Só cliente público**, sem segredo, com PKCE S256. O retorno leva `iss` (RFC 9207).
+- **Autorizar de novo o mesmo cliente substitui a autorização anterior**, em vez de acumular linhas no Perfil.
+- **SDK do MCP: `@modelcontextprotocol/server` (v2)**, sem estado, uma instância de servidor por chamada, presa ao dono
+  do token. Atende o protocolo de 2026-07-28 (JSON) e o de 2025 (SSE de um evento só).
+- **O super admin revoga pelo terminal** na 1f (`admin:assistants`); a tela vem com a Administração, na Fase 4.
+  Cada pessoa revoga a própria no Perfil.
+- **Proporção que não serve não barra rascunho de origem `ASSISTENTE`** na API — hoje `setMedia` e `setFormat`
+  recusam com `MEDIA_RATIO_UNSUPPORTED`. A prontidão continua barrando a revisão (parte B).

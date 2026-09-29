@@ -25,3 +25,4 @@ export * from "./device-name";
 export * from "./publish-failures";
 export * from "./notification-types";
 export * from "./push";
+export * from "./oauth-types";

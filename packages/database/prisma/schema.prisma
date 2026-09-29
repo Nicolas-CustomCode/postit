@@ -218,8 +218,37 @@ enum AuditAction {
   TOKENS_REFRESHED     @map("TOKENS_RENOVADOS")
   // Idem para a coleta de métricas da conta. O resultado fica em MetricaConta.
   METRICS_COLLECTED    @map("METRICAS_COLETADAS")
+  // Uma pessoa autorizou um assistente (ChatGPT) a compor em nome dela, ou o acesso
+  // foi revogado — pela pessoa, pelo super admin ou por renovação reusada (ADR 0029).
+  ASSISTANT_AUTHORIZED @map("ASSISTENTE_AUTORIZADO")
+  ASSISTANT_REVOKED    @map("ASSISTENTE_REVOGADO")
 
   @@map("AcaoAuditoria")
+}
+
+// De onde veio a ficha do cliente OAuth (ADR 0029): lida do endereço que ele usa
+// como identificação (CIMD), ou cadastrada por ele mesmo (registro dinâmico).
+enum OAuthClientSource {
+  CIMD
+  REGISTERED @map("REGISTRO")
+
+  @@map("OrigemClienteOAuth")
+}
+
+enum OAuthTokenKind {
+  ACCESS  @map("ACESSO")
+  REFRESH @map("RENOVACAO")
+
+  @@map("TipoTokenOAuth")
+}
+
+enum OAuthRevocationReason {
+  BY_USER        @map("PELA_PESSOA")
+  BY_ADMIN       @map("PELO_SUPER_ADMIN")
+  // A mesma renovação usada duas vezes: alguém tem uma cópia. Derruba tudo.
+  REFRESH_REUSED @map("RENOVACAO_REUSADA")
+
+  @@map("MotivoRevogacaoOAuth")
 }
 
 // ============================================================================
@@ -264,6 +293,7 @@ model User {
   notificationDeliveries  NotificationDelivery[]
   pushSubscriptions       PushSubscription[]
   notificationPreferences NotificationPreference[]
+  oauthGrants             OAuthGrant[]
 
   // Contagem de super admins ativos da invariante I-10.
   @@index([superAdmin, deactivatedAt])
@@ -765,4 +795,80 @@ model NotificationPreference {
 
   @@unique([userId, type])
   @@map("PreferenciaNotificacao")
+}
+
+// ============================================================================
+// Assistente por MCP — docs/adr/0029 e docs/16
+// O PostIt é o servidor OAuth; código e tokens são guardados só como sha256.
+// ============================================================================
+
+model OAuthClient {
+  id           String            @id @default(uuid(7)) @db.Uuid
+  // No CIMD, a própria URL da ficha; no registro dinâmico, um valor sorteado aqui.
+  clientId     String            @unique @map("identificador")
+  source      OAuthClientSource @map("origem")
+  name         String            @map("nome")
+  redirectUris String[]          @map("enderecosRetorno")
+  // Quando a ficha do CIMD foi lida pela última vez; a leitura vale por pouco tempo.
+  fetchedAt    DateTime?         @map("lidaEm") @db.Timestamptz(3)
+  createdAt    DateTime          @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  grants OAuthGrant[]
+
+  @@map("ClienteOAuth")
+}
+
+// A permissão que uma pessoa deu a um cliente. Revogar aqui derruba códigos e tokens.
+model OAuthGrant {
+  id               String                 @id @default(uuid(7)) @db.Uuid
+  userId           String                 @map("usuarioId") @db.Uuid
+  clientId         String                 @map("clienteId") @db.Uuid
+  scope            String                 @map("escopo")
+  // Teto absoluto da renovação: criação + 30 dias, como a sessão. Nunca estendido.
+  expiresAt        DateTime               @map("expiraEm") @db.Timestamptz(3)
+  lastUsedAt       DateTime               @map("ultimoUsoEm") @db.Timestamptz(3)
+  revokedAt        DateTime?              @map("revogadaEm") @db.Timestamptz(3)
+  revocationReason OAuthRevocationReason? @map("motivoRevogacao")
+  createdAt        DateTime               @default(now()) @map("criadaEm") @db.Timestamptz(3)
+
+  user   User         @relation(fields: [userId], references: [id])
+  client OAuthClient  @relation(fields: [clientId], references: [id])
+  codes  OAuthCode[]
+  tokens OAuthToken[]
+
+  @@index([userId, revokedAt])
+  @@map("AutorizacaoOAuth")
+}
+
+model OAuthCode {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  grantId       String    @map("autorizacaoId") @db.Uuid
+  codeHash      String    @unique @map("codigoHash")
+  codeChallenge String    @map("desafioPkce")
+  redirectUri   String    @map("enderecoRetorno")
+  resource      String    @map("recurso")
+  expiresAt     DateTime  @map("expiraEm") @db.Timestamptz(3)
+  usedAt        DateTime? @map("usadoEm") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  grant OAuthGrant @relation(fields: [grantId], references: [id])
+
+  @@map("CodigoOAuth")
+}
+
+model OAuthToken {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  grantId   String         @map("autorizacaoId") @db.Uuid
+  tokenHash String         @unique
+  kind      OAuthTokenKind @map("tipo")
+  expiresAt DateTime       @map("expiraEm") @db.Timestamptz(3)
+  // Renovação usada é trocada por outra; usada de novo, derruba a autorização.
+  usedAt    DateTime?      @map("usadoEm") @db.Timestamptz(3)
+  revokedAt DateTime?      @map("revogadoEm") @db.Timestamptz(3)
+  createdAt DateTime       @default(now()) @map("criadoEm") @db.Timestamptz(3)
+
+  grant OAuthGrant @relation(fields: [grantId], references: [id])
+
+  @@index([grantId])
+  @@map("TokenOAuth")
 }

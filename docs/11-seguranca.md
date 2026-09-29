@@ -642,8 +642,9 @@ A URI de retorno é uma página do Next, que só repassa `code` e `state` à API
 
 ## O assistente por MCP
 
-A construir na parte 1f ([ADR 0029](adr/0029-assistente-por-mcp.md), [16](16-assistente-mcp.md)). Aqui o PostIt é o
-**servidor** de OAuth — o contrário do Instagram, onde ele é o cliente.
+Parte 1f ([ADR 0029](adr/0029-assistente-por-mcp.md), [16](16-assistente-mcp.md)). Aqui o PostIt é o
+**servidor** de OAuth — o contrário do Instagram, onde ele é o cliente. O servidor é mínimo e nosso
+(`apps/api/src/oauth/`), com as regras puras em `apps/api/src/domain/oauth/`.
 
 | Cuidado | Por quê |
 |---|---|
@@ -653,7 +654,8 @@ A construir na parte 1f ([ADR 0029](adr/0029-assistente-por-mcp.md), [16](16-ass
 | Acesso de 1 h, renovação com rotação até 30 dias, 7 dias sem uso vencem; tudo guardado como hash | Os prazos da sessão. Renovação reusada indica roubo e derruba a autorização inteira |
 | Escopo único, e a API confere `POSTAGEM_EDITAR` a cada chamada | Tirar a permissão da pessoa tira a do assistente na próxima chamada |
 | O assistente edita só os rascunhos que ele criou | Um assistente enganado não alcança o trabalho de outra pessoa |
-| Download de imagem por URL: só https, nunca IP privado ou de loopback — conferido **depois** de resolver o nome e a cada redirecionamento —, teto de 8 MB e de tempo | É o ponto de SSRF: sem isso, a API poderia ser usada para ler o MinIO ou o Postgres por dentro |
+| Endereço de retorno que não é do cliente **não redireciona**: a tela mostra o erro e para | Seria um redirecionamento aberto a serviço de quem forjou o link. A tela também mostra o domínio para onde a pessoa volta |
+| Busca de endereço vindo de fora — a ficha do CIMD e a imagem por URL — só pela `safe-fetch` (`apps/api/src/common/safe-fetch.ts`): só https, nunca IP privado, de loopback, link-local ou IPv4 escondido em IPv6, **conferido no momento da conexão** (o `lookup` do próprio pedido, contra DNS que troca de IP entre a conferência e a conexão), sem seguir redirecionamento, teto de tamanho e de tempo | É o ponto de SSRF: sem isso, a API poderia ser usada para ler o MinIO ou o Postgres por dentro |
 | A imagem baixada passa pela mesma conferência do envio | Regra 10: nada fica público sem validar |
 | `/mcp` e o OAuth não leem cookie | Sem cookie, não há CSRF — é o que permite serem route handlers `POST` (exceção fechada da regra 13) |
 

@@ -171,4 +171,35 @@ describe("arquitetura", () => {
       ].sort());
     });
   });
+
+  /**
+   * Regra 13: toda escrita no Next é Server Action. A exceção é fechada (ADR 0029): as
+   * rotas de máquina do assistente, que não leem cookie e só repassam à API. Rota nova
+   * com método de escrita reprova aqui — e é para reprovar, até alguém escrever o ADR.
+   */
+  describe("regra 13: route handlers de escrita no Next", () => {
+    const APP = join(SRC, "../../web/app");
+    const ESCRITA = /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\b|\bas\s+(?:POST|PUT|PATCH|DELETE)\b/;
+
+    const handlers = readdirSync(APP, { recursive: true, encoding: "utf8" })
+      .map((file) => file.replace(/\\/g, "/"))
+      .filter((file) => file.endsWith("/route.ts"));
+    const deEscrita = handlers.filter((file) => ESCRITA.test(readFileSync(join(APP, file), "utf8")));
+
+    it("a varredura encontra os route handlers", () => {
+      expect(handlers).toContain("sessao-expirada/route.ts");
+    });
+
+    it("só as rotas de máquina do assistente aceitam escrita", () => {
+      expect(deEscrita.sort()).toEqual(["mcp/route.ts", "oauth/register/route.ts", "oauth/token/route.ts"]);
+    });
+
+    it("elas não leem cookie e só repassam à API", () => {
+      for (const file of deEscrita) {
+        const fonte = readFileSync(join(APP, file), "utf8");
+        expect({ file, cookie: /cookies\(|next\/headers|\.cookies\b/.test(fonte) }).toEqual({ file, cookie: false });
+        expect({ file, repassa: fonte.includes("apiForward(") }).toEqual({ file, repassa: true });
+      }
+    });
+  });
 });

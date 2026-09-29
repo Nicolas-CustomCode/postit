@@ -687,17 +687,17 @@ apagada; `falhasSeguidas` apaga inscrições que falham repetidamente por outros
 ### `PreferenciaNotificacao`
 Por usuário e tipo, se quer push. Sem linha, vale o padrão: push ligado. O sino recebe sempre.
 
-### O assistente por MCP — a construir na parte 1f
-Previsto pelo [ADR 0029](adr/0029-assistente-por-mcp.md); os nomes finais saem do spike (a biblioteca do servidor
-OAuth pode trazer as próprias tabelas).
+### O assistente por MCP — parte 1f
+O [ADR 0029](adr/0029-assistente-por-mcp.md) com servidor OAuth mínimo próprio: as tabelas são nossas
+(migração `20260929120000_assistente_oauth`).
 
 | Entidade | Para quê |
 |---|---|
-| `ClienteOAuth` | O aplicativo que pede acesso — o ChatGPT —, apresentado por documento de metadados (CIMD) ou registro dinâmico: nome, endereços de retorno |
-| `AutorizacaoOAuth` | O que a pessoa concedeu a um cliente: usuário, cliente, escopo (`postagens:compor`), quando, último uso, `revogadaEm`. É a linha que o Perfil mostra em "Aplicativos conectados" |
-| `CodigoOAuth` | O código temporário do fluxo, com o desafio do PKCE. Uso único, vida de minutos |
-| `TokenOAuth` | Acesso (1 h) e renovação (rotação, até 30 dias; 7 sem uso vencem). **Só o hash**, como a `Sessao` |
-| `Postagem.origem` | `TELA` ou `ASSISTENTE`. Decide a marca "Composta pelo assistente" e que o assistente edita só o que criou |
+| `ClienteOAuth` | O aplicativo que pede acesso — o ChatGPT. `identificador` é o `client_id`: no CIMD, a própria URL da ficha; no registro dinâmico, sorteado aqui. `origem` (`CIMD` \| `REGISTRO`), `nome`, `enderecosRetorno`; `lidaEm` diz quando a ficha do CIMD foi lida (relida depois de 1 hora) |
+| `AutorizacaoOAuth` | O que a pessoa concedeu a um cliente: usuário, cliente, `escopo` (`postagens:compor`), `expiraEm` (criação + 30 dias, nunca estendido), `ultimoUsoEm` (7 dias sem uso vencem), `revogadaEm` e `motivoRevogacao` (`PELA_PESSOA`, `PELO_SUPER_ADMIN`, `RENOVACAO_REUSADA`). Autorizar de novo o mesmo cliente revoga a anterior. É a linha que o Perfil mostra em "Aplicativos conectados" |
+| `CodigoOAuth` | O código temporário do fluxo: `codigoHash`, `desafioPkce`, `enderecoRetorno`, `recurso`, `expiraEm` (1 minuto), `usadoEm`. Uso único |
+| `TokenOAuth` | `tipo` `ACESSO` (1 h) ou `RENOVACAO` (até o `expiraEm` da autorização). **Só o `tokenHash`**, como a `Sessao`. `usadoEm` marca a renovação trocada; ela aparecer de novo derruba a autorização |
+| `Postagem.origem` | `TELA` ou `ASSISTENTE` (parte B). Decide a marca "Composta pelo assistente" e que o assistente edita só o que criou |
 
 Conceder e revogar gravam `EventoAuditoria`, sem token nem código.
 

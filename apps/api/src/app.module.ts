@@ -7,8 +7,10 @@ import { PolicyGuard } from "./authorization/policy.guard";
 import { InternalKeyGuard } from "./common/guards/internal-key.guard";
 import type { ApiEnv } from "./config/env";
 import { HealthController } from "./health/health.controller";
+import { McpModule } from "./mcp/mcp.module";
 import { MediaModule } from "./media/media.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { OAuthModule } from "./oauth/oauth.module";
 import { PostsModule } from "./posts/posts.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { StorageModule } from "./storage/storage.module";
@@ -22,6 +24,12 @@ import { StorageModule } from "./storage/storage.module";
 @Module({})
 export class AppModule {
   static forEnv(env: ApiEnv): DynamicModule {
+    // Montados uma vez só e passados adiante: `forEnv` devolve um módulo novo a cada
+    // chamada, e importar dois registraria as mesmas rotas duas vezes.
+    const auth = AuthModule.forEnv(env);
+    const accounts = AccountsModule.forEnv(env);
+    const oauth = OAuthModule.forEnv(env, auth);
+
     return {
       module: AppModule,
       // DiscoveryModule: é o que permite ao teste de política percorrer as rotas
@@ -30,11 +38,13 @@ export class AppModule {
         DiscoveryModule,
         PrismaModule.forUrl(env.DATABASE_URL),
         StorageModule.forEnv(env),
-        AuthModule.forEnv(env),
-        AccountsModule.forEnv(env),
+        auth,
+        accounts,
         MediaModule.forEnv(env),
         PostsModule.forEnv(env),
         NotificationsModule,
+        oauth,
+        McpModule.with({ oauth, accounts }),
       ],
       controllers: [HealthController],
       providers: [

@@ -16,6 +16,11 @@ import type { PrismaClient } from "@repo/database";
  * CASCADE; a lista é explícita para nunca apagar o esquema do pg-boss por engano.
  */
 const AUTH_TABLES = [
+  // O assistente por MCP (parte 1f).
+  "TokenOAuth",
+  "CodigoOAuth",
+  "AutorizacaoOAuth",
+  "ClienteOAuth",
   // O motor de publicação e as notificações (Fase 1d).
   "EventoPublicacao",
   "MetricaPostagem",

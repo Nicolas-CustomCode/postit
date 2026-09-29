@@ -78,9 +78,14 @@ export function proxy(request: NextRequest): NextResponse {
 /**
  * Fora do proxy: arquivos estáticos, ícones e o service worker. Um service
  * worker desviado pelo proxy deixaria de ser service worker.
+ *
+ * E as rotas de máquina do assistente (ADR 0029) — `/mcp`, `/oauth/token`,
+ * `/oauth/register` e os `/.well-known`: não servem página, não têm o que fazer com
+ * nonce, e não devem gravar cookie numa resposta ao ChatGPT. A tela de permissão,
+ * `/oauth/autorizar`, é página e continua passando por aqui.
  */
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icons|serwist|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icons|serwist|manifest.webmanifest|mcp(?:/|$)|oauth/(?:token|register)(?:/|$)|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)$).*)",
   ],
 };
