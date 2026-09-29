@@ -10,6 +10,8 @@ import {
   COMPOSABLE_FORMATS,
   formatsFor,
   IMAGE_FORMATS,
+  IMAGE_MAX_BYTES,
+  IMAGE_MIN_WIDTH,
   IMAGE_SPECS,
   isImageFormat,
   POST_FORMAT_LABELS,
@@ -44,6 +46,18 @@ const INSTRUCTIONS = [
   "Antes de compor, consulte ver_regras — os limites são os que a tela confere.",
   "As imagens vêm do acervo (listar_acervo); imagem nova entra por enviar_imagem.",
   "Escreva texto alternativo para cada uma.",
+].join(" ");
+
+/**
+ * As regras de imagem em frase, para quem **gera** a imagem acertar de primeira. O
+ * gerador do ChatGPT entrega PNG e oferece retrato 2:3, que o Feed recusa (a faixa
+ * vai de 4:5 a 1.91:1) — dizer isso na descrição evita a ida e volta.
+ */
+const IMAGE_GUIDANCE = [
+  `Só JPEG, até ${IMAGE_MAX_BYTES / 1_000_000} MB, com ${IMAGE_MIN_WIDTH} px de largura ou mais.`,
+  "Se a imagem for PNG, WebP ou outro formato — inclusive a que você gerou —, converta para JPEG antes de enviar.",
+  `Feed aceita proporção de ${IMAGE_SPECS.FEED.ratioLabel ?? ""}: gere quadrada (1:1) ou paisagem;`,
+  "retrato vertical 2:3 não serve ao Feed. Stories aceita qualquer proporção; 9:16 é o ideal.",
 ].join(" ");
 
 const imagesInput = z
@@ -145,6 +159,7 @@ export class McpToolsService {
               "No Feed, de 2 a 10 imagens viram um carrossel.",
               "Toda imagem deve ter texto alternativo, que descreve a foto para quem usa leitor de tela.",
               "Imagem fora da proporção do formato entra no rascunho marcada para ajuste; o recorte é feito por uma pessoa, na tela.",
+              IMAGE_GUIDANCE,
             ],
           });
         }),
@@ -178,8 +193,7 @@ export class McpToolsService {
       "enviar_imagem",
       {
         title: "Enviar imagem",
-        description:
-          "Põe no acervo do PostIt uma imagem nova: a que a pessoa anexou na conversa, ou uma URL https. Só JPEG até 8 MB, com 320 px de largura ou mais. Devolve o id para usar em criar_rascunho ou editar_rascunho.",
+        description: `Põe no acervo do PostIt uma imagem nova: a que a pessoa anexou na conversa, ou uma URL https. Devolve o id para usar em criar_rascunho ou editar_rascunho. ${IMAGE_GUIDANCE}`,
         inputSchema: z.object({
           arquivo: z
             .object({
@@ -203,8 +217,7 @@ export class McpToolsService {
       "criar_rascunho",
       {
         title: "Criar rascunho",
-        description:
-          "Cria um rascunho numa conta, com legenda e imagens do acervo. Ele fica marcado como composto pelo assistente, e uma pessoa o confere e envia para revisão pela tela.",
+        description: `Cria um rascunho numa conta, com legenda e imagens do acervo. Ele fica marcado como composto pelo assistente, e uma pessoa o confere e envia para revisão pela tela. Imagem fora da proporção do formato entra marcada para ajuste na tela. Feed aceita de ${IMAGE_SPECS.FEED.ratioLabel ?? ""} (retrato 2:3 não serve); Stories, qualquer proporção.`,
         inputSchema: z.object({
           conta: z.string().min(1).max(64).describe("o @ da conta, como listar_contas devolve"),
           formato: z.enum(COMPOSABLE_FORMATS).describe("FEED (imagem ou carrossel) ou STORIES"),
