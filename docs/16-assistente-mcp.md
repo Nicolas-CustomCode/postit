@@ -104,10 +104,28 @@ confirma na prática — e o resultado entra aqui, com a data, como o [08](08-in
 
 | # | Pergunta | Por que importa |
 |---|---|---|
-| **M-1** | Que planos do ChatGPT permitem conector MCP próprio **com ações de escrita** (modo desenvolvedor), e a conta do usuário tem acesso? | Sem isso, nada funciona — é a primeira coisa a conferir |
-| **M-2** | O ChatGPT completa o OAuth com o PostIt pelo túnel local, por CIMD ou por registro dinâmico? | Decide quais dos dois o servidor precisa implementar |
+| **M-1** | Que planos do ChatGPT permitem conector MCP próprio **com ações de escrita** (modo desenvolvedor), e a conta do usuário tem acesso? | **Em 29/09/2026: a conta do usuário cria o conector e usa as ferramentas.** Falta confirmar a escrita, com as ferramentas da parte B |
+| **M-2** | O ChatGPT completa o OAuth com o PostIt pelo túnel local, por CIMD ou por registro dinâmico? | **Confirmado em 29/09/2026, pelo túnel: por CIMD.** Detalhes logo abaixo |
 | **M-3** | Com que frequência o `openai/fileParams` chega vazio, no computador e no celular? | Se for frequente, a URL vira o caminho principal |
 | **M-4** | `oidc-provider` ou um servidor mínimo próprio? | **Decidido em 29/09/2026: servidor mínimo próprio** — o `oidc-provider` não convive com o login do PostIt sem repassar cookies pelo Next. O porquê está no acréscimo do [ADR 0029](adr/0029-assistente-por-mcp.md) |
+
+### O que o spike mostrou — 29/09/2026
+
+Conector do ChatGPT apontando para o túnel, login com as duas etapas, "Permitir", e `listar_contas` respondendo na
+conversa. Três achados, todos já corrigidos e com teste:
+
+- **O ChatGPT se apresenta por CIMD**, com `client_id` `https://chatgpt.com/oauth/client.json`. O registro dinâmico
+  não foi usado. A ficha dele declara `token_endpoint_auth_method: private_key_jwt`, mas lista `none` em
+  `token_endpoint_auth_methods_supported`; como o PostIt anuncia só `none`, é com ele que o ChatGPT troca o código.
+  A regra passou a aceitar `none` na lista, e não só no campo principal.
+- **O ChatGPT fala o protocolo de 2026-07-28**: começa por `server/discover`, com o envelope `_meta` no corpo e o
+  método repetido no cabeçalho `Mcp-Method`. O repasse tinha lista fixa de cabeçalhos e descartava esse — o ChatGPT
+  dizia "Authentication succeeded, discovery failed" e ficava sem ferramentas. Hoje todo `mcp-*` atravessa, no Next
+  e na API.
+- **Antes de tudo ele manda um `POST /mcp` vazio**, como `application/octet-stream`, para achar o 401 que aponta a
+  descoberta. O repasse tira o tipo do corpo vazio, e a sondagem recebe o 401 em vez de um 415.
+
+Ele também procura `/.well-known/openid-configuration` (404) e segue sem ele.
 
 ---
 

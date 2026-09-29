@@ -104,6 +104,25 @@ describe("clientes", () => {
     expect(isClientProblem(parseClientMetadataDocument(URL_FICHA, trocada))).toBe(true);
   });
 
+  it("a ficha real do ChatGPT passa: prefere private_key_jwt, mas aceita none", () => {
+    const URL_CHATGPT = "https://chatgpt.com/oauth/client.json";
+    // Lida em 29/09/2026, do próprio endereço.
+    const ficha = {
+      client_id: URL_CHATGPT,
+      client_uri: "https://chatgpt.com/",
+      redirect_uris: [RETORNO],
+      token_endpoint_auth_method: "private_key_jwt",
+      token_endpoint_auth_methods_supported: ["none", "private_key_jwt"],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      client_name: "ChatGPT",
+    };
+    expect(parseClientMetadataDocument(URL_CHATGPT, ficha)).toEqual({ name: "ChatGPT", redirectUris: [RETORNO] });
+
+    const soComChave = { ...ficha, token_endpoint_auth_methods_supported: ["private_key_jwt"] };
+    expect(isClientProblem(parseClientMetadataDocument(URL_CHATGPT, soComChave))).toBe(true);
+  });
+
   it("sem nome, a ficha do CIMD usa o domínio", () => {
     expect(parseClientMetadataDocument(URL_FICHA, { client_id: URL_FICHA, redirect_uris: [RETORNO] })).toMatchObject({
       name: "openai.com",

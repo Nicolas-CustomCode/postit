@@ -13,18 +13,28 @@ import "server-only";
  * transformaria o `/mcp` numa porta de CSRF para quem está logado no navegador.
  */
 
-/** O que atravessa na ida: o necessário ao protocolo, e nada da sessão do navegador. */
-const REQUEST_HEADERS = ["accept", "authorization", "content-type", "mcp-protocol-version", "mcp-session-id", "last-event-id"];
+/**
+ * O que atravessa na ida: o necessário ao protocolo, e nada da sessão do navegador.
+ * Mais **todo `mcp-*`**: o protocolo de 2026-07-28 repete o método num cabeçalho
+ * (`Mcp-Method`) e recusa a chamada sem ele — uma lista fixa o descartava, e o
+ * ChatGPT ficava sem ferramentas (29/09/2026).
+ */
+const REQUEST_HEADERS = ["accept", "authorization", "content-type", "last-event-id"];
 
-/** O que volta ao cliente. `www-authenticate` é o que leva o ChatGPT à descoberta do OAuth. */
-const RESPONSE_HEADERS = ["content-type", "cache-control", "www-authenticate", "retry-after", "mcp-session-id"];
+/** O que volta ao cliente, mais todo `mcp-*`. `www-authenticate` leva o ChatGPT à descoberta do OAuth. */
+const RESPONSE_HEADERS = ["content-type", "cache-control", "www-authenticate", "retry-after"];
+
+const isMcpHeader = (name: string) => name.toLowerCase().startsWith("mcp-");
 
 export async function apiForward(request: Request, path: string): Promise<Response> {
+  const body = await request.arrayBuffer();
   const headers = new Headers({ "x-internal-key": process.env.INTERNAL_API_KEY ?? "" });
-  for (const name of REQUEST_HEADERS) {
-    const value = request.headers.get(name);
-    if (value !== null) headers.set(name, value);
-  }
+  request.headers.forEach((value, name) => {
+    if (REQUEST_HEADERS.includes(name) || isMcpHeader(name)) headers.set(name, value);
+  });
+  // Sondagem sem corpo (o ChatGPT manda uma, como octet-stream): sem o tipo, ela chega
+  // à API e recebe o 401 que aponta a descoberta, e não um 415 do Fastify.
+  if (body.byteLength === 0) headers.delete("content-type");
   // O IP do visitante vem só do X-Real-IP, definido pelo proxy (regra 15).
   const ip = request.headers.get("x-real-ip");
   if (ip !== null) headers.set("x-real-ip", ip);
@@ -32,15 +42,14 @@ export async function apiForward(request: Request, path: string): Promise<Respon
   const response = await fetch(`${process.env.INTERNAL_API_URL ?? ""}${path}`, {
     method: request.method,
     headers,
-    body: await request.arrayBuffer(),
+    body,
     redirect: "manual",
     cache: "no-store",
   });
 
   const back = new Headers();
-  for (const name of RESPONSE_HEADERS) {
-    const value = response.headers.get(name);
-    if (value !== null) back.set(name, value);
-  }
+  response.headers.forEach((value, name) => {
+    if (RESPONSE_HEADERS.includes(name) || isMcpHeader(name)) back.set(name, value);
+  });
   return new Response(await response.arrayBuffer(), { status: response.status, headers: back });
 }

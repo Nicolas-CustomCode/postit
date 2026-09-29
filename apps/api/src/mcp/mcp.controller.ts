@@ -9,8 +9,13 @@ import { OAUTH_CONFIG, type OAuthConfig } from "../oauth/oauth.config";
 import { McpRateLimiter } from "./mcp-rate-limiter";
 import { McpToolsService } from "./mcp-tools.service";
 
-/** Os cabeçalhos do protocolo que atravessam, nos dois sentidos. Nada de cookie. */
-const FORWARDED_HEADERS = ["accept", "content-type", "mcp-protocol-version", "mcp-session-id", "last-event-id"];
+/**
+ * Os cabeçalhos do protocolo que atravessam, nos dois sentidos, mais todo `mcp-*` — o
+ * protocolo de 2026-07-28 exige o `Mcp-Method` em toda chamada, e novos podem vir.
+ * Nada de cookie nem do `Authorization`, que já foi conferido aqui.
+ */
+const FORWARDED_HEADERS = ["accept", "content-type", "last-event-id"];
+const forwarded = (name: string) => FORWARDED_HEADERS.includes(name) || name.toLowerCase().startsWith("mcp-");
 
 /**
  * O servidor MCP do assistente (ADR 0029, docs/16), sem estado: cada chamada é um
@@ -73,9 +78,8 @@ export class McpController implements OnModuleDestroy {
     }
 
     const headers = new Headers();
-    for (const name of FORWARDED_HEADERS) {
-      const value = request.headers[name];
-      if (typeof value === "string") headers.set(name, value);
+    for (const [name, value] of Object.entries(request.headers)) {
+      if (forwarded(name) && typeof value === "string") headers.set(name, value);
     }
     const response = await this.handler.fetch(
       new Request(this.config.resource, { method: "POST", headers, body: JSON.stringify(request.body ?? null) }),
@@ -86,10 +90,9 @@ export class McpController implements OnModuleDestroy {
     );
 
     reply.status(response.status);
-    for (const name of FORWARDED_HEADERS) {
-      const value = response.headers.get(name);
-      if (value !== null) reply.header(name, value);
-    }
+    response.headers.forEach((value, name) => {
+      if (forwarded(name)) reply.header(name, value);
+    });
     await reply.send(Buffer.from(await response.arrayBuffer()));
   }
 }

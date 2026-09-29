@@ -126,7 +126,7 @@ describe("OAuth do assistente", () => {
    * Chamada no protocolo de 2025, sem envelope. A resposta vem em SSE de um evento
    * só — o transporte sem estado do SDK responde assim —, e aqui ela vira JSON.
    */
-  async function chamarMcp(token: string | undefined, corpo: object) {
+  async function chamarMcp(token: string | undefined, corpo: object, extras: Record<string, string> = {}) {
     const resposta = await api.app.inject({
       method: "POST",
       url: "/mcp",
@@ -136,6 +136,7 @@ describe("OAuth do assistente", () => {
         accept: "application/json, text/event-stream",
         "content-type": "application/json",
         ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
+        ...extras,
       },
     });
     const dados = resposta.body.split("\n").find((linha) => linha.startsWith("data: "));
@@ -382,6 +383,40 @@ describe("OAuth do assistente", () => {
       const { access } = await conectar();
       const resposta = await chamarMcp(access, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
       const nomes = (resposta.body["result"] as { tools: { name: string }[] }).tools.map((tool) => tool.name);
+      expect(nomes.sort()).toEqual(["listar_contas", "ver_regras"]);
+    });
+
+    /*
+     * O protocolo de 2026-07-28, como o ChatGPT o fala (29/09/2026): o método vai
+     * também no cabeçalho `Mcp-Method`, e sem ele o SDK recusa. O repasse descartava o
+     * cabeçalho, e o ChatGPT conectava sem ferramenta nenhuma.
+     */
+    it("atende o protocolo de 2026-07-28, com os cabeçalhos mcp-* repassados", async () => {
+      const { access } = await conectar();
+      const descoberta = {
+        jsonrpc: "2.0",
+        id: "openai-mcp-discover",
+        method: "server/discover",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": { name: "openai-mcp", version: "1.0.0" },
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      };
+      const cabecalhos = { "mcp-protocol-version": "2026-07-28", "mcp-method": "server/discover" };
+
+      const resposta = await chamarMcp(access, descoberta, cabecalhos);
+      expect(resposta.statusCode).toBe(200);
+      expect(resposta.body["error"]).toBeUndefined();
+
+      const lista = await chamarMcp(
+        access,
+        { ...descoberta, id: 2, method: "tools/list" },
+        { ...cabecalhos, "mcp-method": "tools/list" },
+      );
+      const nomes = (lista.body["result"] as { tools: { name: string }[] }).tools.map((tool) => tool.name);
       expect(nomes.sort()).toEqual(["listar_contas", "ver_regras"]);
     });
 

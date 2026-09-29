@@ -82,10 +82,15 @@ function parseMetadata(doc: Record<string, unknown>, fallbackName: string): Clie
   }
 
   // Ausente, o RFC 7591 presume client_secret_basic — mas sem segredo nenhum a
-  // presunção não se aplica. Só não aceitamos um método que peça segredo.
+  // presunção não se aplica. O cliente precisa conseguir trocar o código sem
+  // autenticar: `none` declarado, ou na lista dos que ele aceita. A ficha do
+  // ChatGPT (29/09/2026) prefere private_key_jwt e lista none; como o PostIt anuncia
+  // só none, é com ele que o ChatGPT troca.
   const authMethod = doc["token_endpoint_auth_method"];
-  if (authMethod !== undefined && authMethod !== "none") {
-    return { problem: "só cliente público: token_endpoint_auth_method deve ser none" };
+  const supported = doc["token_endpoint_auth_methods_supported"];
+  const acceptsNone = Array.isArray(supported) && supported.includes("none");
+  if (authMethod !== undefined && authMethod !== "none" && !acceptsNone) {
+    return { problem: "só cliente público: o cliente precisa aceitar token_endpoint_auth_method none" };
   }
 
   const grantTypes = doc["grant_types"];
