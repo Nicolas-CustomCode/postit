@@ -111,7 +111,7 @@ confirma na prática — e o resultado entra aqui, com a data, como o [08](08-in
 
 | # | Pergunta | Por que importa |
 |---|---|---|
-| **M-1** | Que planos do ChatGPT permitem conector MCP próprio **com ações de escrita** (modo desenvolvedor), e a conta do usuário tem acesso? | **Em 29/09/2026: a conta do usuário cria o conector e usa as ferramentas.** Falta confirmar a escrita, com as ferramentas da parte B |
+| **M-1** | Que planos do ChatGPT permitem conector MCP próprio **com ações de escrita** (modo desenvolvedor), e a conta do usuário tem acesso? | **Confirmado em 29/09/2026:** a conta do usuário cria o conector e usa ferramenta de escrita — o ChatGPT compôs um carrossel de 3 imagens do acervo com `criar_rascunho` |
 | **M-2** | O ChatGPT completa o OAuth com o PostIt pelo túnel local, por CIMD ou por registro dinâmico? | **Confirmado em 29/09/2026, pelo túnel: por CIMD.** Detalhes logo abaixo |
 | **M-3** | Com que frequência o `openai/fileParams` chega vazio, no computador e no celular? | Se for frequente, a URL vira o caminho principal |
 | **M-4** | `oidc-provider` ou um servidor mínimo próprio? | **Decidido em 29/09/2026: servidor mínimo próprio** — o `oidc-provider` não convive com o login do PostIt sem repassar cookies pelo Next. O porquê está no acréscimo do [ADR 0029](adr/0029-assistente-por-mcp.md) |
