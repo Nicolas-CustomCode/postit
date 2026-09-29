@@ -24,12 +24,15 @@ import {
 import { z } from "zod";
 import { AccountsQueryService } from "../accounts/accounts.query.service";
 import { AppError } from "../common/errors";
+import { SafeFetchError } from "../common/safe-fetch";
 import { postProblems } from "../domain/post/post-readiness";
+import { MediaDomainService } from "../media/media.domain.service";
 import { MediaQueryService } from "../media/media.query.service";
 import type { AssistantAccess } from "../oauth/oauth.service";
 import { OAUTH_CONFIG, type OAuthConfig } from "../oauth/oauth.config";
 import { PostsDomainService } from "../posts/posts.domain.service";
 import { PostsQueryService } from "../posts/posts.query.service";
+import { ImageDownloader } from "./image-downloader";
 
 /**
  * O que o assistente lê antes de chamar qualquer ferramenta. Nome PostIt, nunca
@@ -39,7 +42,8 @@ const INSTRUCTIONS = [
   "PostIt é o agendador de postagens da equipe. Por aqui você só compõe rascunhos:",
   "quem envia para revisão, aprova e agenda é uma pessoa, pela tela do PostIt.",
   "Antes de compor, consulte ver_regras — os limites são os que a tela confere.",
-  "As imagens vêm do acervo (listar_acervo). Escreva texto alternativo para cada uma.",
+  "As imagens vêm do acervo (listar_acervo); imagem nova entra por enviar_imagem.",
+  "Escreva texto alternativo para cada uma.",
 ].join(" ");
 
 const imagesInput = z
@@ -77,6 +81,8 @@ export class McpToolsService {
   constructor(
     private readonly accounts: AccountsQueryService,
     private readonly media: MediaQueryService,
+    private readonly mediaDomain: MediaDomainService,
+    private readonly downloader: ImageDownloader,
     private readonly posts: PostsDomainService,
     private readonly postsQuery: PostsQueryService,
     @Inject(OAUTH_CONFIG) private readonly config: OAuthConfig,
@@ -166,6 +172,31 @@ export class McpToolsService {
             })),
           };
         }),
+    );
+
+    server.registerTool(
+      "enviar_imagem",
+      {
+        title: "Enviar imagem",
+        description:
+          "Põe no acervo do PostIt uma imagem nova: a que a pessoa anexou na conversa, ou uma URL https. Só JPEG até 8 MB, com 320 px de largura ou mais. Devolve o id para usar em criar_rascunho ou editar_rascunho.",
+        inputSchema: z.object({
+          arquivo: z
+            .object({
+              download_url: z.string().max(4096),
+              file_id: z.string().max(512),
+              mime_type: z.string().max(128).optional(),
+              file_name: z.string().max(512).optional(),
+            })
+            .optional()
+            .describe("a imagem anexada na conversa"),
+          url: z.string().max(4096).optional().describe("ou o endereço https da imagem"),
+        }),
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        // O ChatGPT troca o anexo por um link de download neste campo (referência do Apps SDK).
+        _meta: { "openai/fileParams": ["arquivo"] },
+      },
+      (input) => run("enviar_imagem", () => this.uploadImage(input)),
     );
 
     server.registerTool(
@@ -267,6 +298,63 @@ export class McpToolsService {
     );
 
     return server;
+  }
+
+  /**
+   * A imagem nova do assistente (ADR 0029, decisão 5): a API baixa com a busca segura
+   * e ela entra pelo mesmo ingresso do envio da tela — `recebidos/`, conferência,
+   * `publicas/`.
+   *
+   * Uma linha de log por chamada, para o M-3 (docs/16): de onde veio e como terminou,
+   * **nunca a URL** — a de download do ChatGPT carrega credencial (regra 3).
+   */
+  private async uploadImage(input: {
+    arquivo?: { download_url: string; file_id: string } | undefined;
+    url?: string | undefined;
+  }): Promise<unknown> {
+    const origem = input.arquivo !== undefined ? "anexo" : "url";
+    if ((input.arquivo === undefined) === (input.url === undefined)) {
+      throw new ToolRefusal("Informe a imagem de um jeito só: anexada na conversa, ou por uma URL https.");
+    }
+    const endereco = input.arquivo?.download_url ?? input.url ?? "";
+    if (endereco.trim() === "") {
+      this.logger.warn(`enviar_imagem: ${origem} sem endereço — o arquivo não chegou`);
+      throw new ToolRefusal("O arquivo não chegou até o PostIt. Anexe a imagem de novo na conversa.");
+    }
+
+    let bytes: Buffer;
+    try {
+      bytes = await this.downloader.download(endereco);
+    } catch (error) {
+      const motivo = error instanceof SafeFetchError ? error.message : "falha";
+      this.logger.warn(`enviar_imagem: ${origem} não baixou (${motivo})`);
+      if (motivo === "maior que o limite") throw new ToolRefusal(AUTH_ERROR_MESSAGES.MEDIA_TOO_LARGE);
+      throw new ToolRefusal(
+        "Não consegui baixar a imagem. Anexe de novo na conversa, ou envie pela tela do PostIt.",
+      );
+    }
+
+    try {
+      const imagem = await this.mediaDomain.ingestBytes(bytes);
+      this.logger.log(`enviar_imagem: ${origem} aceita (${bytes.length} bytes)`);
+      return {
+        id: imagem.id,
+        largura: imagem.width,
+        altura: imagem.height,
+        serveA: formatsFor(imagem.width, imagem.height),
+        previa: imagem.url,
+      };
+    } catch (error) {
+      if (error instanceof AppError) {
+        this.logger.warn(`enviar_imagem: ${origem} recusada (${error.code})`);
+        if (error.code === "MEDIA_WRONG_TYPE") {
+          throw new ToolRefusal(
+            "Só JPEG. PNG, WebP e HEIC precisam ser convertidos antes — ou enviados pela tela do PostIt, que converte sozinha.",
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   private async createDraft(

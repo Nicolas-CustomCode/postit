@@ -101,14 +101,8 @@ export class MediaDomainService {
   }
 
   /**
-   * Confere o que foi enviado e, se prestar, publica.
-   *
-   * **A ordem importa em dois lugares.** A `Midia` é gravada **antes** de o
-   * arquivo ir para `publicas/`: se a cópia falhasse depois de publicar,
-   * sobraria um objeto público sem registro — órfão invisível, que é justamente
-   * a fraqueza que o ADR 0012 veio corrigir. E `recebidos/` é limpo **em
-   * qualquer desfecho**, no `finally`, porque o arquivo recusado não pode ficar
-   * ocupando espaço nem esperando alguém achá-lo.
+   * Confere o que o navegador enviou e, se prestar, publica. O comprovante diz qual
+   * arquivo é, de quem, e se é derivado; o resto é o `admit`.
    */
   async confirmUpload(input: { userId: string; ticket: string; now: Date }): Promise<MediaSummary> {
     const ticket = readUploadTicket(input.ticket, input.userId, this.config.uploadSecret, input.now);
@@ -122,10 +116,50 @@ export class MediaDomainService {
     const jaExiste = await this.prisma.db.media.findUnique({ where: { objectKey: publicKey } });
     if (jaExiste !== null) throw new MediaAlreadyConfirmedError();
 
+    let bytes: Buffer;
+    try {
+      bytes = await this.readReceived(ticket.objectKey);
+    } catch (error) {
+      await this.storage.removeReceived(ticket.objectKey).catch(() => undefined);
+      throw error;
+    }
+    return this.admit(ticket.objectKey, bytes, ticket.maxBytes, ticket.derivedFrom ?? null);
+  }
+
+  /**
+   * A imagem que a **API** baixou — o assistente a trouxe, por anexo ou URL (ADR 0029).
+   *
+   * Entra pelo mesmo caminho do envio do navegador: grava em `recebidos/`, confere e
+   * só então publica (regra 10). Sai sempre como original, que aparece no acervo.
+   */
+  async ingestBytes(bytes: Buffer): Promise<MediaSummary> {
+    const objectKey = `${RECEIVED_PREFIX}postagens/${randomBytes(16).toString("hex")}.jpg`;
+    await this.storage.putReceived(objectKey, bytes, IMAGE_UPLOAD_SPEC.mime);
+    return this.admit(objectKey, bytes, IMAGE_UPLOAD_SPEC.maxBytes, null);
+  }
+
+  /**
+   * O miolo do ingresso, com o arquivo já em `recebidos/`: conferir, registrar e
+   * publicar.
+   *
+   * **A ordem importa em dois lugares.** A `Midia` é gravada **antes** de o
+   * arquivo ir para `publicas/`: se a cópia falhasse depois de publicar,
+   * sobraria um objeto público sem registro — órfão invisível, que é justamente
+   * a fraqueza que o ADR 0012 veio corrigir. E `recebidos/` é limpo **em
+   * qualquer desfecho**, no `finally`, porque o arquivo recusado não pode ficar
+   * ocupando espaço nem esperando alguém achá-lo.
+   */
+  private async admit(
+    receivedKey: string,
+    bytes: Buffer,
+    maxBytes: number,
+    derivedFrom: string | null,
+  ): Promise<MediaSummary> {
+    const publicKey = receivedKey.replace(RECEIVED_PREFIX, PUBLIC_PREFIX);
+
     let apagarRecebido = true;
     try {
-      const bytes = await this.readReceived(ticket.objectKey);
-      const fatos = this.inspect(bytes, ticket.maxBytes);
+      const fatos = this.inspect(bytes, maxBytes);
 
       const midia = await this.prisma.db.media.create({
         data: {
@@ -137,12 +171,12 @@ export class MediaDomainService {
           sha256: createHash("sha256").update(bytes).digest("hex"),
           // Já nasce marcada: a origem veio assinada no comprovante, então não
           // existe instante em que a derivada apareça no acervo.
-          derivedFromId: ticket.derivedFrom ?? null,
+          derivedFromId: derivedFrom,
         },
       });
 
       try {
-        await this.storage.promoteToPublic(ticket.objectKey, publicKey);
+        await this.storage.promoteToPublic(receivedKey, publicKey);
       } catch (error) {
         // A linha existiria apontando para um objeto que não está em
         // `publicas/`: a tela mostraria uma imagem quebrada para sempre.
@@ -170,7 +204,7 @@ export class MediaDomainService {
       };
     } finally {
       if (apagarRecebido) {
-        await this.storage.removeReceived(ticket.objectKey).catch(() => undefined);
+        await this.storage.removeReceived(receivedKey).catch(() => undefined);
       }
     }
   }

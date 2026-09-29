@@ -6,8 +6,8 @@ precisa ser confirmado**. As decisões e o porquê estão no [ADR 0029](adr/0029
 no [Módulo K do 02](02-requisitos.md#módulo-k--assistente-mcp); a construção, na parte 1f do [12](12-roadmap.md).
 
 **Estado (29/09/2026): em construção na parte 1f.** Prontas a parte A — o servidor OAuth, o `/mcp` e a tela de
-permissão em `/oauth/autorizar` — e a B — compor rascunhos, com a marca na tela. Faltam imagem nova (C:
-`enviar_imagem`) e revogar (D).
+permissão em `/oauth/autorizar` —, a B — compor rascunhos, com a marca na tela — e a C — imagem nova por
+`enviar_imagem`. Falta revogar (D).
 
 ---
 
@@ -45,7 +45,7 @@ ou mexe em conta.
 | `listar_contas` | — | contas ativas: `@usuario`, nome, fuso | Todo logado vê todas as contas ([ADR 0002](adr/0002-single-tenant.md)) |
 | `ver_regras` | formato (opcional) | limites da legenda (2.200 caracteres, 30 hashtags, 20 menções), proporções aceitas, quantidade de imagens | As mesmas de `packages/shared` — o assistente não adivinha |
 | `listar_acervo` | — | imagens: id, medidas, formatos que aceitam sem ajuste, link de prévia, data | As 60 mais recentes, como a tela. Só as originais; recortes não aparecem ([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)) |
-| `enviar_imagem` | arquivo anexado no ChatGPT **ou** URL https | a imagem no acervo, ou o motivo da recusa | Só JPEG de até 8 MB, com 320 px de largura ou mais. A API baixa, com proteção contra SSRF |
+| `enviar_imagem` | `arquivo` anexado no ChatGPT (`_meta["openai/fileParams"]`, com `download_url` e `file_id`) **ou** `url` https — um dos dois | id, medidas, formatos que aceita, link de prévia — ou o motivo da recusa | Só JPEG de até 8 MB, com 320 px de largura ou mais. A API baixa pela busca segura — até 3 redirecionamentos, cada salto conferido de novo, 20 s — e a imagem entra pelo mesmo ingresso do envio da tela (`recebidos/` → conferência → `publicas/`), como original do acervo. PNG, WebP e HEIC: a recusa manda converter ou enviar pela tela, que converte. Uma linha de log por chamada, com a origem e o desfecho, nunca a URL |
 | `criar_rascunho` | conta (`@` opcional), formato (`FEED` ou `STORIES`), legenda, imagens com texto alternativo | o rascunho, a versão, **o que falta para a revisão** e o link da tela | Imagem fora da proporção **entra marcada para ajuste**. Conta, imagens e quantidade são conferidas **antes** de criar: recusa não deixa rascunho vazio |
 | `editar_rascunho` | id, **versão**, o que muda | o rascunho, a versão nova, o que falta | **Só rascunho que o assistente criou**, só o da própria pessoa, e **só em `RASCUNHO`**: depois de enviado, está com a pessoa, e editar o derrubaria de volta (I-2). Versão velha → a frase de conflito, pedindo para ler de novo (regra 20) |
 | `ver_rascunho` | id | o rascunho inteiro, com o que falta | Mesma restrição de `editar_rascunho` |

@@ -136,6 +136,11 @@ pessoa já usa. O PostIt só dá as ferramentas.
 - **Autorizar de novo o mesmo cliente substitui a autorização anterior**, em vez de acumular linhas no Perfil.
 - **SDK do MCP: `@modelcontextprotocol/server` (v2)**, sem estado, uma instância de servidor por chamada, presa ao dono
   do token. Atende o protocolo de 2026-07-28 (JSON) e o de 2025 (SSE de um evento só).
+- **Imagem nova (`enviar_imagem`)**: o anexo chega pelo `_meta["openai/fileParams"]`, com `download_url` e `file_id`
+  ([referência do Apps SDK](https://developers.openai.com/apps-sdk/reference), lida em 29/09/2026, que não diz se o
+  link redireciona). Por isso o download segue **até 3 redirecionamentos**, cada salto uma busca nova com todas as
+  travas; a ficha do CIMD continua sem seguir nenhum. A imagem entra pelo mesmo miolo do envio da tela
+  (`MediaDomainService.admit`).
 - **O super admin revoga pelo terminal** na 1f (`admin:assistants`); a tela vem com a Administração, na Fase 4.
   Cada pessoa revoga a própria no Perfil.
 - **Proporção que não serve não barra gravar postagem de origem `ASSISTENTE`** — nem pelo assistente, nem pela

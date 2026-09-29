@@ -29,8 +29,8 @@ export class MediaModule {
         MediaDomainService,
         MediaQueryService,
       ],
-      // O assistente por MCP lê o acervo por aqui (ADR 0029).
-      exports: [MediaQueryService],
+      // O assistente por MCP lê o acervo e traz imagem nova por aqui (ADR 0029).
+      exports: [MediaQueryService, MediaDomainService],
     };
   }
 }

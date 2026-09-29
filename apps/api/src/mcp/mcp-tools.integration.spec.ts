@@ -1,6 +1,10 @@
+import { SafeFetchError } from "../common/safe-fetch";
 import { callTool, connectAssistant, type ConnectedAssistant } from "../common/testing/assistant";
 import { createTestAccount, type TestAccount } from "../common/testing/factories";
-import { bootTestApp, type TestApp } from "../common/testing/test-app";
+import { jpegBytes, pngBytes } from "../common/testing/image-fixtures";
+import { bootTestApp, TEST_INTERNAL_KEY, type TestApp } from "../common/testing/test-app";
+import { PUBLIC_PREFIX, RECEIVED_PREFIX, StorageService } from "../storage/storage.service";
+import { ImageDownloader } from "./image-downloader";
 
 /**
  * As ferramentas do assistente (ADR 0029, docs/16), pelo `/mcp` e com o token do
@@ -202,6 +206,114 @@ describe("ferramentas do assistente", () => {
       expect(edicao.text).toMatch(/não encontrado/);
     }
     expect((await chamar("listar_meus_rascunhos")).data["rascunhos"]).toEqual([]);
+  });
+
+  /**
+   * Imagem nova (parte C): a busca é trocada por bytes prontos — a de verdade vai à
+   * internet, e a busca segura recusa o servidor falso local. O resto é de verdade:
+   * `recebidos/`, a conferência e `publicas/`, no MinIO.
+   */
+  describe("enviar_imagem", () => {
+    const ANEXO = { download_url: "https://files.oaiusercontent.com/f/abc?sig=segredo", file_id: "file-123" };
+
+    function baixar(bytes: Buffer | Error) {
+      const espiao = jest.spyOn(api.app.get(ImageDownloader), "download");
+      if (bytes instanceof Error) espiao.mockRejectedValue(bytes);
+      else espiao.mockResolvedValue(bytes);
+      return espiao;
+    }
+
+    afterEach(() => jest.restoreAllMocks());
+
+    /** A imagem publicada: o arquivo em `publicas/` lê, e nada ficou em `recebidos/`. */
+    async function conferePublicada(id: string): Promise<void> {
+      const linha = await api.db.media.findUniqueOrThrow({ where: { id } });
+      const storage = api.app.get(StorageService);
+      await expect(storage.getReceived(linha.objectKey.replace(PUBLIC_PREFIX, RECEIVED_PREFIX))).rejects.toThrow();
+      await storage.removePublic(linha.objectKey);
+    }
+
+    it("o anexo da conversa entra no acervo, e o acervo o mostra", async () => {
+      const espiao = baixar(jpegBytes({ width: 1080, height: 1350 }));
+      const resultado = await chamar("enviar_imagem", { arquivo: ANEXO });
+
+      expect(resultado.isError).toBe(false);
+      expect(espiao).toHaveBeenCalledWith(ANEXO.download_url);
+      expect(resultado.data).toMatchObject({ largura: 1080, altura: 1350, serveA: expect.arrayContaining(["FEED"]) });
+
+      const id = resultado.data["id"] as string;
+      const acervo = await chamar("listar_acervo");
+      expect((acervo.data["imagens"] as { id: string }[]).map((imagem) => imagem.id)).toContain(id);
+      await conferePublicada(id);
+    });
+
+    it("pela URL também, e a 9:16 entra no rascunho de Feed marcada para ajuste", async () => {
+      baixar(jpegBytes({ width: 1080, height: 1920 }));
+      const enviada = await chamar("enviar_imagem", { url: "https://exemplo.com/vitrine.jpg" });
+      const id = enviada.data["id"] as string;
+
+      const rascunho = await criar({ imagens: [{ id, textoAlternativo: "Vitrine" }] });
+      expect(rascunho.isError).toBe(false);
+      expect((rascunho.data["pendencias"] as string[])[0]).toMatch(/foto 1 não serve ao Feed/);
+      await conferePublicada(id);
+    });
+
+    it("PNG é recusado com o caminho da conversão, e nada entra", async () => {
+      baixar(pngBytes());
+      const resultado = await chamar("enviar_imagem", { arquivo: ANEXO });
+      expect(resultado).toMatchObject({ isError: true });
+      expect(resultado.text).toMatch(/^Só JPEG/);
+      expect(await api.db.media.count()).toBe(2);
+    });
+
+    it("estreita demais é recusada pela conferência do envio", async () => {
+      baixar(jpegBytes({ width: 200, height: 250 }));
+      const resultado = await chamar("enviar_imagem", { arquivo: ANEXO });
+      expect(resultado.text).toMatch(/largura mínima é 320/);
+      expect(await api.db.media.count()).toBe(2);
+    });
+
+    it("download que falha vira a frase, sem a URL", async () => {
+      baixar(new SafeFetchError("o endereço não é público"));
+      const resultado = await chamar("enviar_imagem", { arquivo: ANEXO });
+      expect(resultado.text).toMatch(/Não consegui baixar a imagem/);
+      expect(resultado.text).not.toMatch(/segredo|oaiusercontent/);
+
+      baixar(new SafeFetchError("maior que o limite"));
+      expect((await chamar("enviar_imagem", { arquivo: ANEXO })).text).toMatch(/limite de 8 MB/);
+    });
+
+    it("anexo vazio, nenhum dos dois ou os dois juntos são recusados sem baixar", async () => {
+      const espiao = baixar(jpegBytes({ width: 1080, height: 1350 }));
+      expect((await chamar("enviar_imagem", { arquivo: { ...ANEXO, download_url: "" } })).text).toMatch(
+        /não chegou/,
+      );
+      expect((await chamar("enviar_imagem", {})).isError).toBe(true);
+      expect((await chamar("enviar_imagem", { arquivo: ANEXO, url: "https://exemplo.com/a.jpg" })).isError).toBe(
+        true,
+      );
+      expect(espiao).not.toHaveBeenCalled();
+    });
+
+    it("a ferramenta declara o campo de arquivo para o ChatGPT", async () => {
+      const resposta = await api.app.inject({
+        method: "POST",
+        url: "/mcp",
+        headers: {
+          "x-internal-key": TEST_INTERNAL_KEY,
+          authorization: `Bearer ${assistente.accessToken}`,
+          accept: "application/json, text/event-stream",
+          "content-type": "application/json",
+        },
+        payload: { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
+      });
+      const dados = resposta.body.split("\n").find((linha) => linha.startsWith("data: "))!;
+      const ferramentas = (JSON.parse(dados.slice(6)) as { result: { tools: { name: string; _meta?: object }[] } })
+        .result.tools;
+      expect(ferramentas.find((tool) => tool.name === "enviar_imagem")?._meta).toEqual({
+        "openai/fileParams": ["arquivo"],
+      });
+    });
   });
 
   it("o acervo mostra os formatos que cada imagem aceita", async () => {

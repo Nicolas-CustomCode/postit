@@ -1,4 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
+import { ImageDownloader } from "./image-downloader";
 import { McpController } from "./mcp.controller";
 import { McpRateLimiter } from "./mcp-rate-limiter";
 import { McpToolsService } from "./mcp-tools.service";
@@ -22,7 +23,7 @@ export class McpModule {
       module: McpModule,
       imports: [modules.oauth, modules.accounts, modules.posts, modules.media],
       controllers: [McpController],
-      providers: [McpToolsService, McpRateLimiter],
+      providers: [McpToolsService, McpRateLimiter, ImageDownloader],
     };
   }
 }

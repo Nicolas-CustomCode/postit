@@ -14,7 +14,8 @@ import { BlockList, isIP, type LookupFunction } from "node:net";
  *  - o IP é conferido **no momento da conexão**, pelo `lookup` do próprio pedido: o
  *    DNS que responde um IP público na conferência e um privado na conexão (DNS
  *    rebinding) não passa, porque não há duas resoluções;
- *  - redirecionamento não é seguido — cada salto seria um endereço novo a conferir;
+ *  - redirecionamento só com `maxRedirects`, e cada salto é uma busca nova, com
+ *    todas estas travas de novo — o destino de um 302 é outro endereço de terceiro;
  *  - teto de tamanho e de tempo, contando o corpo enquanto chega.
  *
  * A mensagem de erro nunca traz a URL: a de download do ChatGPT carrega credencial
@@ -32,6 +33,12 @@ export interface SafeFetchOptions {
   readonly maxBytes: number;
   readonly timeoutMs: number;
   readonly accept?: string;
+  /**
+   * Quantos redirecionamentos seguir. Padrão 0: a ficha do CIMD não segue nenhum. O
+   * download de imagem segue poucos, porque link de download costuma levar a um
+   * armazenamento assinado.
+   */
+  readonly maxRedirects?: number;
 }
 
 export interface SafeFetchResult {
@@ -98,7 +105,43 @@ const publicOnlyLookup: LookupFunction = (hostname, options, callback) => {
   });
 };
 
-export function safeFetch(rawUrl: string, options: SafeFetchOptions): Promise<SafeFetchResult> {
+/**
+ * O endereço do próximo salto. Relativo resolve contra o atual; o resultado passa
+ * pelas mesmas travas do primeiro, na busca seguinte — aqui só se recusa o que já
+ * dá para recusar sem conectar.
+ */
+export function nextHop(current: string, location: string | null): string {
+  if (location === null || location.trim() === "") throw new SafeFetchError("redirecionamento sem destino");
+  let next: URL;
+  try {
+    next = new URL(location, current);
+  } catch {
+    throw new SafeFetchError("redirecionamento inválido");
+  }
+  if (next.protocol !== "https:") throw new SafeFetchError("só https");
+  return next.toString();
+}
+
+export async function safeFetch(rawUrl: string, options: SafeFetchOptions): Promise<SafeFetchResult> {
+  // Um prazo só para a corrente inteira: cada salto gasta do mesmo tempo.
+  const deadline = Date.now() + options.timeoutMs;
+  let current = rawUrl;
+
+  for (let saltos = 0; ; saltos += 1) {
+    const result = await fetchOnce(current, options, Math.max(1, deadline - Date.now()));
+    if (!("location" in result)) return result;
+    if (saltos >= (options.maxRedirects ?? 0)) {
+      throw new SafeFetchError(options.maxRedirects === undefined ? "redirecionamento não é seguido" : "redirecionamentos demais");
+    }
+    current = nextHop(current, result.location);
+  }
+}
+
+function fetchOnce(
+  rawUrl: string,
+  options: SafeFetchOptions,
+  timeoutMs: number,
+): Promise<SafeFetchResult | { location: string | null }> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -127,11 +170,16 @@ export function safeFetch(rawUrl: string, options: SafeFetchOptions): Promise<Sa
         method: "GET",
         lookup: publicOnlyLookup,
         headers: { accept: options.accept ?? "*/*", "user-agent": "PostIt" },
-        signal: AbortSignal.timeout(options.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       },
       (res) => {
         const status = res.statusCode ?? 0;
-        if (status >= 300 && status < 400) return fail(new SafeFetchError("redirecionamento não é seguido"));
+        if (status >= 300 && status < 400) {
+          // Quem decide se segue é o `safeFetch`; aqui só se fecha esta conexão.
+          const location = res.headers.location ?? null;
+          req.destroy();
+          return resolve({ location });
+        }
         if (status < 200 || status >= 300) return fail(new SafeFetchError(`o servidor respondeu ${status}`));
 
         const declared = Number(res.headers["content-length"]);

@@ -1,4 +1,4 @@
-import { isPublicAddress, safeFetch, SafeFetchError } from "./safe-fetch";
+import { isPublicAddress, nextHop, safeFetch, SafeFetchError } from "./safe-fetch";
 
 const OPCOES = { maxBytes: 1024, timeoutMs: 2000 };
 
@@ -45,6 +45,30 @@ describe("safe-fetch", () => {
     await expect(safeFetch("https://localhost:1/ficha.json", OPCOES)).rejects.toThrow(
       new SafeFetchError("o endereço não é público"),
     );
+  });
+
+  describe("o próximo salto", () => {
+    const ATUAL = "https://arquivos.exemplo.com/download/abc?sig=1";
+
+    it("relativo resolve contra o atual", () => {
+      expect(nextHop(ATUAL, "/blob/xyz")).toBe("https://arquivos.exemplo.com/blob/xyz");
+    });
+
+    it("absoluto em outro domínio segue — e passa pelas travas na busca seguinte", () => {
+      expect(nextHop(ATUAL, "https://cdn.exemplo.net/x.jpg")).toBe("https://cdn.exemplo.net/x.jpg");
+    });
+
+    it("http, sem destino ou lixo são recusados", () => {
+      expect(() => nextHop(ATUAL, "http://cdn.exemplo.net/x.jpg")).toThrow(new SafeFetchError("só https"));
+      expect(() => nextHop(ATUAL, null)).toThrow(new SafeFetchError("redirecionamento sem destino"));
+      expect(() => nextHop(ATUAL, "https://[::zz]/")).toThrow(new SafeFetchError("redirecionamento inválido"));
+    });
+
+    it("destino interno é recusado na busca do salto, antes de conectar", async () => {
+      await expect(safeFetch(nextHop(ATUAL, "https://10.0.0.5/segredo"), OPCOES)).rejects.toThrow(
+        new SafeFetchError("o endereço não é público"),
+      );
+    });
   });
 
   it("a mensagem de erro nunca traz a URL", async () => {

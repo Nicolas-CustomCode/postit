@@ -107,6 +107,18 @@ export class StorageService {
     };
   }
 
+  /**
+   * Grava em `recebidos/` o que a própria API baixou — a imagem que o assistente
+   * trouxe (ADR 0029). Entra pela mesma porta do envio do navegador: nada vai direto
+   * para `publicas/` sem a conferência (regra 10).
+   */
+  async putReceived(key: string, body: Buffer, contentType: string): Promise<void> {
+    assertReceived(key);
+    await this.client.putObject(this.config.bucket, key, body, body.length, {
+      "Content-Type": contentType,
+    });
+  }
+
   /** Lê o que foi enviado, para inspecionar. Só `recebidos/`. */
   async getReceived(key: string): Promise<Buffer> {
     assertReceived(key);
