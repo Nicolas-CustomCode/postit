@@ -26,6 +26,15 @@ export class MediaQueryService {
     @Inject(MEDIA_CONFIG) private readonly config: MediaConfig,
   ) {}
 
+  /**
+   * Quais destes ids existem. O assistente confere antes de criar o rascunho: sem
+   * isto, um id inventado deixaria um rascunho vazio para trás (ADR 0029).
+   */
+  async existing(ids: readonly string[]): Promise<Set<string>> {
+    const linhas = await this.prisma.db.media.findMany({ where: { id: { in: [...ids] } }, select: { id: true } });
+    return new Set(linhas.map((linha) => linha.id));
+  }
+
   async list(): Promise<MediaSummary[]> {
     const midias = await this.prisma.db.media.findMany({
       /*

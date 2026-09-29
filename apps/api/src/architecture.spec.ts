@@ -173,6 +173,20 @@ describe("arquitetura", () => {
   });
 
   /**
+   * O assistente compõe pelas mesmas portas da tela (ADR 0029): nenhum arquivo de
+   * `mcp/` fala com o Prisma. Uma escrita direta dali pularia a trava de versão, a
+   * I-2 e a conferência de conta — tudo o que os serviços de domínio garantem.
+   */
+  it("o assistente não fala com o banco, só com os serviços", () => {
+    const doMcp = alcancaveis.filter((file) => file.startsWith("mcp/") && !file.endsWith(".spec.ts"));
+    expect(doMcp).toContain("mcp/mcp-tools.service.ts");
+    const infratores = doMcp.filter((file) =>
+      /PrismaService|\bprisma\.|["']@repo\/database["']/.test(readFileSync(join(SRC, file), "utf8")),
+    );
+    expect(infratores).toEqual([]);
+  });
+
+  /**
    * Regra 13: toda escrita no Next é Server Action. A exceção é fechada (ADR 0029): as
    * rotas de máquina do assistente, que não leem cookie e só repassam à API. Rota nova
    * com método de escrita reprova aqui — e é para reprovar, até alguém escrever o ADR.

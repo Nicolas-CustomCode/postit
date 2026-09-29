@@ -28,6 +28,8 @@ export class AppModule {
     // chamada, e importar dois registraria as mesmas rotas duas vezes.
     const auth = AuthModule.forEnv(env);
     const accounts = AccountsModule.forEnv(env);
+    const media = MediaModule.forEnv(env);
+    const posts = PostsModule.forEnv(env);
     const oauth = OAuthModule.forEnv(env, auth);
 
     return {
@@ -40,11 +42,11 @@ export class AppModule {
         StorageModule.forEnv(env),
         auth,
         accounts,
-        MediaModule.forEnv(env),
-        PostsModule.forEnv(env),
+        media,
+        posts,
         NotificationsModule,
         oauth,
-        McpModule.with({ oauth, accounts }),
+        McpModule.with({ oauth, accounts, posts, media }),
       ],
       controllers: [HealthController],
       providers: [

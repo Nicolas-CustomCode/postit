@@ -1,6 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { createAccount, resetAccounts } from "./support/accounts-db";
 import { ESTADO_COMUM, ESTADO_EDITOR } from "./support/estado";
+import { criarMidia } from "./support/media-db";
+import { semearPostagem } from "./support/posts-db";
 
 /**
  * A tela de permissão do assistente (ADR 0029): o ChatGPT abre o link, a pessoa
@@ -78,6 +81,49 @@ test.describe("sem POSTAGEM_EDITAR", () => {
     await expect(page.getByText(/não tem a permissão de editar postagens/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Permitir" })).toBeHidden();
     await expect(page.getByRole("button", { name: "Recusar" })).toBeVisible();
+  });
+});
+
+/**
+ * O rascunho que o assistente compôs chega à tela marcado: a pessoa sabe que precisa
+ * conferir antes de enviar (ADR 0029).
+ */
+test.describe("rascunho do assistente", () => {
+  test.use({ storageState: ESTADO_EDITOR });
+  const CONTA = "loja.aurora";
+
+  test.beforeEach(async () => {
+    await resetAccounts();
+    await createAccount({ username: CONTA, name: "Loja Aurora" });
+  });
+
+  test("aparece marcado na lista e na composição", async ({ page }) => {
+    const midia = await criarMidia({ width: 1080, height: 1350 });
+    const doAssistente = await semearPostagem({
+      status: "RASCUNHO",
+      origin: "ASSISTENTE",
+      author: "e2e-setup-editor",
+      caption: "Composta na conversa",
+      media: [{ id: midia.id, altText: "Vestido amarelo" }],
+    });
+    await semearPostagem({
+      status: "RASCUNHO",
+      author: "e2e-setup-editor",
+      caption: "Composta na tela",
+      media: [{ id: midia.id }],
+    });
+
+    await page.goto(`/c/${CONTA}/postagens`);
+    const lista = page.getByRole("main");
+    const itemDoAssistente = lista.getByRole("listitem").filter({ hasText: "Composta na conversa" });
+    await expect(itemDoAssistente.getByText("Composta pelo assistente")).toBeVisible();
+    const itemDaTela = lista.getByRole("listitem").filter({ hasText: "Composta na tela" });
+    await expect(itemDaTela.getByText("Composta pelo assistente")).toHaveCount(0);
+
+    await page.goto(`/c/${CONTA}/postagens/${doAssistente}`);
+    await expect(
+      page.locator(':text("Composta pelo assistente. Confira antes de enviar para revisão."):visible').first(),
+    ).toBeVisible();
   });
 });
 

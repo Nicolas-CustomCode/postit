@@ -12,10 +12,15 @@ import { McpToolsService } from "./mcp-tools.service";
  */
 @Module({})
 export class McpModule {
-  static with(modules: { oauth: DynamicModule; accounts: DynamicModule }): DynamicModule {
+  static with(modules: {
+    oauth: DynamicModule;
+    accounts: DynamicModule;
+    posts: DynamicModule;
+    media: DynamicModule;
+  }): DynamicModule {
     return {
       module: McpModule,
-      imports: [modules.oauth, modules.accounts],
+      imports: [modules.oauth, modules.accounts, modules.posts, modules.media],
       controllers: [McpController],
       providers: [McpToolsService, McpRateLimiter],
     };

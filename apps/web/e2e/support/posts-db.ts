@@ -59,6 +59,8 @@ export interface PostagemSemeada {
    * `e2e-setup-super`. Sem isso, o primeiro usuário do banco.
    */
   readonly author?: string;
+  /** Quem compôs, como no banco: `TELA` (o padrão) ou `ASSISTENTE` (ADR 0029). */
+  readonly origin?: "TELA" | "ASSISTENTE";
   /** Linhas de `Aprovacao`, do autor, na ordem: `ENVIOU_REVISAO`, `APROVOU`… */
   readonly decisions?: readonly { readonly action: string; readonly reason?: string }[];
   /** Linhas de `EventoPublicacao`, na ordem. */
@@ -88,7 +90,7 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO "Postagem" (id, "contaId", formato, status, legenda, "publicarEm", tentativas, "ultimoErroCodigo",
                                "criadoPorId", "agendadoPorId", versao, "criadoEm", "atualizadoEm",
-                               "execucaoId", "execucaoExpiraEm")
+                               "execucaoId", "execucaoExpiraEm", origem)
        VALUES (
          gen_random_uuid(),
          (SELECT id FROM "Conta" ORDER BY "criadoEm" LIMIT 1),
@@ -99,7 +101,8 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
          $7::uuid,
          1, now(), now(),
          CASE WHEN $6 THEN gen_random_uuid() END,
-         CASE WHEN $6 THEN now() + interval '10 minutes' END
+         CASE WHEN $6 THEN now() + interval '10 minutes' END,
+         $8::"OrigemPostagem"
        )
        RETURNING id`,
       [
@@ -112,6 +115,7 @@ export async function semearPostagem(postagem: PostagemSemeada): Promise<string>
         postagem.failureCause ?? null,
         postagem.leased === true,
         autor,
+        postagem.origin ?? "TELA",
       ],
     );
     const id = rows[0]?.id as string;

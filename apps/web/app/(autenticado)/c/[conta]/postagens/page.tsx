@@ -1,4 +1,4 @@
-import { ImageOff, Plus } from "lucide-react";
+import { Bot, ImageOff, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -101,6 +101,13 @@ export default async function PostagensPage({
                       </>
                     )}
                   </span>
+                  {/* ADR 0029: quem compôs foi o assistente — a pessoa confere antes de enviar. */}
+                  {post.origin === "ASSISTANT" && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Bot className="size-3.5" aria-hidden />
+                      Composta pelo assistente
+                    </span>
+                  )}
                   {/* ADR 0007: a que falhou aparece destacada, com a causa, até alguém decidir. */}
                   {post.status === "FAILED" && post.failureCause !== null && (
                     <span className="line-clamp-1 text-xs text-destructive">

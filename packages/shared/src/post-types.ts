@@ -1,4 +1,4 @@
-import type { PostFormat, PostStatus } from "./domain";
+import type { PostFormat, PostOrigin, PostStatus } from "./domain";
 import type { PublishFailureCause } from "./publish-failures";
 
 /**
@@ -37,6 +37,8 @@ export interface PostSummary {
   readonly updatedAt: string;
   /** Por que não saiu, ou por que está esperando — a lista destaca a falha com ela. */
   readonly failureCause: PublishFailureCause | null;
+  /** A do assistente leva a marca "Composta pelo assistente" (ADR 0029). */
+  readonly origin: PostOrigin;
 }
 
 /** A postagem aberta na composição. */
@@ -45,6 +47,8 @@ export interface PostDetail {
   readonly format: PostFormat;
   readonly status: PostStatus;
   readonly caption: string | null;
+  /** A do assistente leva a marca "Composta pelo assistente" (ADR 0029). */
+  readonly origin: PostOrigin;
   /**
    * A versão que a tela carregou. Volta no salvamento e é o que faz a API
    * recusar com 409 quando outra pessoa salvou antes (RF-C12).

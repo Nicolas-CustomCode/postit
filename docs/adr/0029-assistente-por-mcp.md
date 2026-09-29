@@ -138,5 +138,9 @@ pessoa já usa. O PostIt só dá as ferramentas.
   do token. Atende o protocolo de 2026-07-28 (JSON) e o de 2025 (SSE de um evento só).
 - **O super admin revoga pelo terminal** na 1f (`admin:assistants`); a tela vem com a Administração, na Fase 4.
   Cada pessoa revoga a própria no Perfil.
-- **Proporção que não serve não barra rascunho de origem `ASSISTENTE`** na API — hoje `setMedia` e `setFormat`
-  recusam com `MEDIA_RATIO_UNSUPPORTED`. A prontidão continua barrando a revisão (parte B).
+- **Proporção que não serve não barra gravar postagem de origem `ASSISTENTE`** — nem pelo assistente, nem pela
+  pessoa na tela (`blocksSaving`, em `domain/post/post-readiness.ts`). Se a folga valesse só para quem chama, a
+  pessoa não conseguiria reordenar nem recortar o rascunho com a foto ainda fora da proporção. A prontidão continua
+  barrando a revisão.
+- **O assistente só edita em `RASCUNHO`.** Depois que a pessoa envia para revisão, o rascunho é dela: editar o
+  derrubaria de volta (I-2) e desfaria a decisão. A ferramenta explica e não muda nada.

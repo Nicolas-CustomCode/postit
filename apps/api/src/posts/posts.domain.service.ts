@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { Prisma, PostFormat, PostStatus } from "@repo/database";
+import type { Prisma, PostFormat, PostOrigin, PostStatus } from "@repo/database";
 import {
   isImageFormat,
   selfApprovalRefused,
@@ -19,7 +19,7 @@ import {
   ScheduleTimeDoesNotExistError,
   SelfApprovalForbiddenError,
 } from "../common/errors";
-import { postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
+import { blocksSaving, postReadinessProblem, type PostProblem } from "../domain/post/post-readiness";
 import {
   canApproveAndSchedule,
   canReopen,
@@ -62,12 +62,16 @@ export class PostsDomainService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Uma postagem nasce em `RASCUNHO`, vazia. Nenhuma chamada à Meta acontece. */
+  /**
+   * Uma postagem nasce em `RASCUNHO`, vazia. Nenhuma chamada à Meta acontece.
+   * `origin` diz se foi a tela ou o assistente (ADR 0029), e não muda depois.
+   */
   async create(input: {
     accountId: string;
     userId: string;
     format: ComposableFormat;
     caption: string | null;
+    origin?: PostOrigin;
   }): Promise<{ id: string }> {
     const post = await this.prisma.db.post.create({
       data: {
@@ -75,6 +79,7 @@ export class PostsDomainService {
         format: input.format,
         caption: input.caption,
         createdById: input.userId,
+        origin: input.origin ?? "SCREEN",
       },
       select: { id: true },
     });
@@ -132,8 +137,9 @@ export class PostsDomainService {
       }),
     });
     // Lista vazia não impede salvar: é "tirei todas". A falta de imagem é
-    // problema de **ficar pronta** — a mesma ressalva que `setFormat` faz.
-    if (problema !== null && problema !== "POST_MEDIA_REQUIRED") throw readinessError(problema);
+    // problema de **ficar pronta** — a mesma ressalva que `setFormat` faz. Na
+    // postagem do assistente, a proporção também não (ADR 0029).
+    if (problema !== null && blocksSaving(problema, post.origin)) throw readinessError(problema);
 
     return this.applyContentChange(input, {}, async (tx) => {
       // ⚠️ Apagar e recriar, e não um diff. A unicidade de `(postagemId, ordem)`
@@ -181,8 +187,9 @@ export class PostsDomainService {
       })),
     });
     // Sem imagem ainda não é impedimento para escolher o formato — a falta dela
-    // é problema de "ficar pronta", não de "qual formato".
-    if (problema !== null && problema !== "POST_MEDIA_REQUIRED") throw readinessError(problema);
+    // é problema de "ficar pronta", não de "qual formato". Na postagem do
+    // assistente, a proporção também não (ADR 0029).
+    if (problema !== null && blocksSaving(problema, post.origin)) throw readinessError(problema);
 
     return this.applyContentChange(input, { format: input.format });
   }

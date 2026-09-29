@@ -34,6 +34,8 @@ export class PostsModule {
         PostsDomainService,
         PostCommentsDomainService,
       ],
+      // O assistente por MCP compõe pelos mesmos serviços, com as mesmas regras (ADR 0029).
+      exports: [PostsDomainService, PostsQueryService],
     };
   }
 }

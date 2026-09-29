@@ -5,6 +5,7 @@ import {
   type PostDetail,
   type PostDecision,
   type PostHistoryEntry,
+  type PostStatus,
   type PostSummary,
   type PostTimelineEntry,
   type PublishFailureCause,
@@ -54,6 +55,60 @@ export class PostsQueryService {
       scheduledAt: post.scheduledAt?.toISOString() ?? null,
       updatedAt: post.updatedAt.toISOString(),
       failureCause: causeOf(post.lastErrorCode),
+      origin: post.origin,
+    }));
+  }
+
+  /**
+   * O rascunho que o assistente desta pessoa pode alcançar (ADR 0029): criado **por
+   * ela**, **pelo assistente**, e não descartado. Qualquer outro caso é `null` — o
+   * rascunho da tela, o de outra pessoa e o inexistente respondem igual.
+   *
+   * Devolve a conta, que o assistente não informa: é por ela que as escritas passam a
+   * conferência da regra 24.
+   */
+  async findAssistantDraft(
+    userId: string,
+    postId: string,
+  ): Promise<{ accountId: string; username: string; status: PostStatus } | null> {
+    const post = await this.prisma.db.post.findFirst({
+      where: { id: postId, createdById: userId, origin: "ASSISTANT", status: { not: "CANCELED" } },
+      select: { accountId: true, status: true, account: { select: { username: true } } },
+    });
+    return post === null ? null : { accountId: post.accountId, username: post.account.username, status: post.status };
+  }
+
+  /** Os rascunhos que o assistente compôs para esta pessoa, com o status de cada um. */
+  async listAssistantDrafts(
+    userId: string,
+    accountId: string | null,
+  ): Promise<(PostSummary & { accountUsername: string })[]> {
+    const posts = await this.prisma.db.post.findMany({
+      where: {
+        createdById: userId,
+        origin: "ASSISTANT",
+        status: { not: "CANCELED" },
+        ...(accountId === null ? {} : { accountId }),
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      include: {
+        account: { select: { username: true } },
+        media: { orderBy: { position: "asc" }, take: 1, include: { media: true } },
+      },
+    });
+
+    return posts.map((post) => ({
+      id: post.id,
+      format: post.format,
+      status: post.status,
+      excerpt: excerptOf(post.caption),
+      thumbnailUrl: post.media[0] === undefined ? null : this.urlFor(post.media[0].media.objectKey),
+      scheduledAt: post.scheduledAt?.toISOString() ?? null,
+      updatedAt: post.updatedAt.toISOString(),
+      failureCause: causeOf(post.lastErrorCode),
+      origin: post.origin,
+      accountUsername: post.account.username,
     }));
   }
 
@@ -83,6 +138,7 @@ export class PostsQueryService {
       format: post.format,
       status: post.status,
       caption: post.caption,
+      origin: post.origin,
       version: post.version,
       media: post.media.map((item) => ({
         mediaId: item.mediaId,

@@ -1,5 +1,5 @@
 import { IMAGE_MIME, POST_STATUSES, selfApprovalRefused, type PostStatus } from "@repo/shared";
-import { postReadinessProblem } from "./post-readiness";
+import { blocksSaving, postProblems, postReadinessProblem } from "./post-readiness";
 import { trailActionFor } from "./post-trail";
 import { canCancel, resolveSchedule, scheduleMoveFor } from "./schedule";
 import {
@@ -492,6 +492,49 @@ describe("prontidão da postagem", () => {
         media: [imagemDeFeed, imagemDeFeed, imagemDeStories],
       }),
     ).toBe("MEDIA_RATIO_UNSUPPORTED");
+  });
+
+  it("a lista completa aponta cada foto, e começa pelo que a prontidão devolveria", () => {
+    const post = {
+      format: "STORIES" as const,
+      caption: "#a ".repeat(31),
+      media: [imagemDeStories, { ...imagemDeStories, width: 200, height: 356 }],
+    };
+    const problemas = postProblems(post);
+    expect(problemas).toEqual([
+      { problem: "POST_FORMAT_SINGLE_MEDIA", imageIndex: null },
+      { problem: "MEDIA_TOO_NARROW", imageIndex: 1 },
+      { problem: "POST_TOO_MANY_HASHTAGS", imageIndex: null },
+    ]);
+    expect(problemas[0]!.problem).toBe(postReadinessProblem(post));
+  });
+
+  it("pronta, a lista vem vazia", () => {
+    expect(postProblems({ format: "FEED", caption: "oi", media: [imagemDeFeed] })).toEqual([]);
+  });
+});
+
+/**
+ * O que barra **gravar** a composição, e não só a revisão (ADR 0029): a proporção
+ * não barra a postagem do assistente — a foto entra marcada para ajuste.
+ */
+describe("o que barra gravar", () => {
+  it("sem problema e sem imagem nunca barram", () => {
+    expect(blocksSaving(null, "SCREEN")).toBe(false);
+    expect(blocksSaving("POST_MEDIA_REQUIRED", "SCREEN")).toBe(false);
+  });
+
+  it("proporção barra a da tela e não a do assistente", () => {
+    expect(blocksSaving("MEDIA_RATIO_UNSUPPORTED", "SCREEN")).toBe(true);
+    expect(blocksSaving("MEDIA_RATIO_UNSUPPORTED", "ASSISTANT")).toBe(false);
+  });
+
+  it("quantidade e arquivo barram as duas", () => {
+    for (const origem of ["SCREEN", "ASSISTANT"] as const) {
+      expect(blocksSaving("POST_FORMAT_SINGLE_MEDIA", origem)).toBe(true);
+      expect(blocksSaving("POST_TOO_MANY_MEDIA", origem)).toBe(true);
+      expect(blocksSaving("MEDIA_TOO_NARROW", origem)).toBe(true);
+    }
   });
 });
 

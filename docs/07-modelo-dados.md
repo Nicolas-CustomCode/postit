@@ -697,7 +697,7 @@ O [ADR 0029](adr/0029-assistente-por-mcp.md) com servidor OAuth mínimo próprio
 | `AutorizacaoOAuth` | O que a pessoa concedeu a um cliente: usuário, cliente, `escopo` (`postagens:compor`), `expiraEm` (criação + 30 dias, nunca estendido), `ultimoUsoEm` (7 dias sem uso vencem), `revogadaEm` e `motivoRevogacao` (`PELA_PESSOA`, `PELO_SUPER_ADMIN`, `RENOVACAO_REUSADA`). Autorizar de novo o mesmo cliente revoga a anterior. É a linha que o Perfil mostra em "Aplicativos conectados" |
 | `CodigoOAuth` | O código temporário do fluxo: `codigoHash`, `desafioPkce`, `enderecoRetorno`, `recurso`, `expiraEm` (1 minuto), `usadoEm`. Uso único |
 | `TokenOAuth` | `tipo` `ACESSO` (1 h) ou `RENOVACAO` (até o `expiraEm` da autorização). **Só o `tokenHash`**, como a `Sessao`. `usadoEm` marca a renovação trocada; ela aparecer de novo derruba a autorização |
-| `Postagem.origem` | `TELA` ou `ASSISTENTE` (parte B). Decide a marca "Composta pelo assistente" e que o assistente edita só o que criou |
+| `Postagem.origem` | Enum `OrigemPostagem`: `TELA` (padrão) ou `ASSISTENTE`; migração `20260929180000_postagem_origem`. Não muda depois de criada. Decide a marca "Composta pelo assistente", que o assistente alcança só o que criou, e que a proporção fora do formato não barra gravar — só a revisão |
 
 Conceder e revogar gravam `EventoAuditoria`, sem token nem código.
 

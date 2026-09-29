@@ -44,6 +44,16 @@ enum PostFormat {
   @@map("FormatoPostagem")
 }
 
+// De onde a postagem veio (ADR 0029). A do assistente ganha a marca "Composta pelo
+// assistente", é a única que ele alcança, e proporção fora do formato não barra
+// gravá-la — só a revisão.
+enum PostOrigin {
+  SCREEN    @map("TELA")
+  ASSISTANT @map("ASSISTENTE")
+
+  @@map("OrigemPostagem")
+}
+
 enum PostStatus {
   DRAFT      @map("RASCUNHO")
   IN_REVIEW  @map("EM_REVISAO")
@@ -520,6 +530,8 @@ model Post {
   coverOffsetMs    Int?       @map("capaOffsetMs")
   coverMediaId     String?    @map("capaMidiaId") @db.Uuid
   aiGenerated      Boolean    @default(false) @map("geradoPorIA")
+  // Quem compôs: a tela ou o assistente por MCP (ADR 0029). Não muda depois.
+  origin           PostOrigin @default(SCREEN) @map("origem")
   // Edição simultânea (RF-C12): sobe a cada alteração feita por usuário. O worker não mexe.
   version          Int        @default(1) @map("versao")
   attempts         Int        @default(0) @map("tentativas")

@@ -48,3 +48,50 @@ export function postReadinessProblem(post: PostReadiness): PostProblem | null {
 
   return post.caption === null ? null : captionProblem(post.caption);
 }
+
+/** Um problema da postagem, com a imagem a que se refere (a partir de 0), quando é de imagem. */
+export interface PostProblemAt {
+  readonly problem: PostProblem;
+  readonly imageIndex: number | null;
+}
+
+/**
+ * **Todos** os problemas de uma vez, cada um apontando a imagem — o que o assistente
+ * precisa para dizer à pessoa o que falta (`conferir_rascunho`, docs/16).
+ *
+ * Mesmas regras e mesma ordem de `postReadinessProblem`, que para no primeiro: o
+ * primeiro desta lista é sempre o que ela devolveria.
+ */
+export function postProblems(post: PostReadiness): PostProblemAt[] {
+  const problemas: PostProblemAt[] = [];
+
+  const quantidade = postMediaCountProblem(post.format, post.media.length);
+  if (quantidade !== null) problemas.push({ problem: quantidade, imageIndex: null });
+
+  post.media.forEach((imagem, indice) => {
+    const problema = validateImageFormat(imagem, post.format);
+    if (problema !== null) problemas.push({ problem: problema, imageIndex: indice });
+  });
+
+  const legenda = post.caption === null ? null : captionProblem(post.caption);
+  if (legenda !== null) problemas.push({ problem: legenda, imageIndex: null });
+
+  return problemas;
+}
+
+/**
+ * O problema impede **gravar** a composição, ou só impede a revisão?
+ *
+ * Postagem sem imagem ainda é rascunho em montagem: nunca barra gravar. A proporção
+ * fora do formato **não barra** a postagem que o assistente compôs (ADR 0029): a
+ * foto entra marcada para ajuste, e recortar é decisão de quem vê a foto, na tela.
+ * Vale pela **origem da postagem**, e não por quem grava — senão a pessoa não
+ * conseguiria reordenar na tela o rascunho que o assistente montou.
+ *
+ * Em tudo, a prontidão continua barrando a revisão.
+ */
+export function blocksSaving(problem: PostProblem | null, origin: "SCREEN" | "ASSISTANT"): boolean {
+  if (problem === null || problem === "POST_MEDIA_REQUIRED") return false;
+  if (problem === "MEDIA_RATIO_UNSUPPORTED" && origin === "ASSISTANT") return false;
+  return true;
+}

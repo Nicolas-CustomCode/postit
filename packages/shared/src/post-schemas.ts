@@ -19,7 +19,7 @@ import { POST_MEDIA_MAX } from "./post-formats";
  */
 
 /** Bem acima dos 2200 da Meta: aqui só se impede abuso, não se valida regra. */
-const CAPTION_SANITY_LIMIT = 8000;
+export const CAPTION_SANITY_LIMIT = 8000;
 
 /**
  * A versão que a tela carregou, devolvida em toda escrita (RF-C12). É ela que

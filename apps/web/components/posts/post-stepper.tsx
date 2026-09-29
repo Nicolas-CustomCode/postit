@@ -132,8 +132,10 @@ function StepDot({ state, number }: { readonly state: PostStepState; readonly nu
 function stateSentence(post: PostDetail, timeZone: string): ReactNode {
   switch (post.status) {
     case "DRAFT":
-      return post.lastDecision?.action === "REJECTED"
-        ? "Voltou da revisão com um pedido de ajuste."
+      if (post.lastDecision?.action === "REJECTED") return "Voltou da revisão com um pedido de ajuste.";
+      // ADR 0029: o assistente compõe, e uma pessoa confere antes de enviar.
+      return post.origin === "ASSISTANT"
+        ? "Composta pelo assistente. Confira antes de enviar para revisão."
         : "Em montagem. Ninguém revisou ainda.";
     case "IN_REVIEW":
       return "Esperando aprovação.";

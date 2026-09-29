@@ -27,6 +27,10 @@ export type SocialNetwork = (typeof SOCIAL_NETWORKS)[number];
 export const POST_FORMATS = ["FEED", "REELS", "STORIES"] as const;
 export type PostFormat = (typeof POST_FORMATS)[number];
 
+/** Quem compôs: a tela ou o assistente por MCP (ADR 0029). No banco, `TELA` e `ASSISTENTE`. */
+export const POST_ORIGINS = ["SCREEN", "ASSISTANT"] as const;
+export type PostOrigin = (typeof POST_ORIGINS)[number];
+
 export const POST_STATUSES = [
   "DRAFT",
   "IN_REVIEW",

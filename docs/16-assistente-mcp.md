@@ -5,9 +5,9 @@ valida pela tela. Este documento diz **o que** o assistente pode fazer, **como**
 precisa ser confirmado**. As decisões e o porquê estão no [ADR 0029](adr/0029-assistente-por-mcp.md); os requisitos,
 no [Módulo K do 02](02-requisitos.md#módulo-k--assistente-mcp); a construção, na parte 1f do [12](12-roadmap.md).
 
-**Estado (29/09/2026): em construção na parte 1f.** A parte A está pronta — o servidor OAuth, o `/mcp` com
-`listar_contas` e `ver_regras`, e a tela de permissão em `/oauth/autorizar`. Faltam compor (B), imagem nova (C) e
-revogar (D).
+**Estado (29/09/2026): em construção na parte 1f.** Prontas a parte A — o servidor OAuth, o `/mcp` e a tela de
+permissão em `/oauth/autorizar` — e a B — compor rascunhos, com a marca na tela. Faltam imagem nova (C:
+`enviar_imagem`) e revogar (D).
 
 ---
 
@@ -44,13 +44,16 @@ ou mexe em conta.
 |---|---|---|---|
 | `listar_contas` | — | contas ativas: `@usuario`, nome, fuso | Todo logado vê todas as contas ([ADR 0002](adr/0002-single-tenant.md)) |
 | `ver_regras` | formato (opcional) | limites da legenda (2.200 caracteres, 30 hashtags, 20 menções), proporções aceitas, quantidade de imagens | As mesmas de `packages/shared` — o assistente não adivinha |
-| `listar_acervo` | busca por data, paginação | imagens: id, medidas, formatos que aceitam, link de prévia | Só as originais; recortes não aparecem ([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)) |
+| `listar_acervo` | — | imagens: id, medidas, formatos que aceitam sem ajuste, link de prévia, data | As 60 mais recentes, como a tela. Só as originais; recortes não aparecem ([ADR 0025](adr/0025-ajustar-imagem-ao-formato.md)) |
 | `enviar_imagem` | arquivo anexado no ChatGPT **ou** URL https | a imagem no acervo, ou o motivo da recusa | Só JPEG de até 8 MB, com 320 px de largura ou mais. A API baixa, com proteção contra SSRF |
-| `criar_rascunho` | conta, formato (`FEED` ou `STORIES`), legenda, imagens com texto alternativo | id, versão, **o que falta para a revisão** | Imagem fora da proporção **entra marcada para ajuste** |
-| `editar_rascunho` | id, **versão**, o que muda | nova versão, o que falta | **Só rascunho que o assistente criou**, e só o da própria pessoa. Versão velha → conflito (regra 20) |
+| `criar_rascunho` | conta (`@` opcional), formato (`FEED` ou `STORIES`), legenda, imagens com texto alternativo | o rascunho, a versão, **o que falta para a revisão** e o link da tela | Imagem fora da proporção **entra marcada para ajuste**. Conta, imagens e quantidade são conferidas **antes** de criar: recusa não deixa rascunho vazio |
+| `editar_rascunho` | id, **versão**, o que muda | o rascunho, a versão nova, o que falta | **Só rascunho que o assistente criou**, só o da própria pessoa, e **só em `RASCUNHO`**: depois de enviado, está com a pessoa, e editar o derrubaria de volta (I-2). Versão velha → a frase de conflito, pedindo para ler de novo (regra 20) |
 | `ver_rascunho` | id | o rascunho inteiro, com o que falta | Mesma restrição de `editar_rascunho` |
-| `listar_meus_rascunhos` | conta (opcional) | os rascunhos que o assistente compôs para esta pessoa | Os da tela não aparecem |
-| `conferir_rascunho` | id | a lista do que impede ir para a revisão, com a mensagem de cada item | `postReadinessProblem`, `validateImageFormat`, `postMediaCountProblem` — as regras da tela |
+| `listar_meus_rascunhos` | conta (opcional) | os que o assistente compôs para esta pessoa, **com o status** de cada um | Os da tela não aparecem; os descartados também não |
+| `conferir_rascunho` | id | **todos** os itens que impedem a revisão, cada um com a foto a que se refere, e o aviso de foto sem texto alternativo | `postProblems`, ao lado de `postReadinessProblem`: as regras da tela, sem parar no primeiro |
+
+Recusas — conta desconhecida, rascunho alheio, conflito de versão — voltam como **resultado** da ferramenta, com a
+frase em português que o assistente repassa, e não como erro de protocolo.
 
 Reels fica de fora até a Fase 2, junto com vídeo.
 
@@ -60,6 +63,10 @@ Uma arte 9:16 num rascunho de Feed **não é recusada**: entra no rascunho, e a 
 — Ajustar". A ferramenta responde isso ao assistente ("a foto 2 precisa de ajuste na tela, entre 4:5 e 1.91:1"),
 para ele avisar a pessoa. **Recortar é decisão de quem vê a foto** (AGENTS.md, regra 10), e a conferência de
 prontidão barra o envio para revisão até lá.
+
+A folga vale pela **origem da postagem** (`Postagem.origem = ASSISTENTE`), e não por quem grava: na tela, a pessoa
+reordena e recorta o rascunho do assistente mesmo com a foto ainda fora da proporção. Quantidade, tipo, tamanho e
+largura continuam barrando a gravação, dos dois lados.
 
 ---
 
