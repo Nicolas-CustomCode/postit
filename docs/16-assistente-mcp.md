@@ -113,7 +113,7 @@ confirma na prática — e o resultado entra aqui, com a data, como o [08](08-in
 |---|---|---|
 | **M-1** | Que planos do ChatGPT permitem conector MCP próprio **com ações de escrita** (modo desenvolvedor), e a conta do usuário tem acesso? | **Confirmado em 29/09/2026:** a conta do usuário cria o conector e usa ferramenta de escrita — o ChatGPT compôs um carrossel de 3 imagens do acervo com `criar_rascunho` |
 | **M-2** | O ChatGPT completa o OAuth com o PostIt pelo túnel local, por CIMD ou por registro dinâmico? | **Confirmado em 29/09/2026, pelo túnel: por CIMD.** Detalhes logo abaixo |
-| **M-3** | Com que frequência o `openai/fileParams` chega vazio, no computador e no celular? | Se for frequente, a URL vira o caminho principal |
+| **M-3** | Com que frequência o `openai/fileParams` chega vazio, no computador e no celular? | **Computador, 29/09/2026: 4 anexos, 4 chegaram** — nenhum vazio, nenhum download falho. Celular ainda não conferido. Se lá for frequente, a URL vira o caminho principal |
 | **M-4** | `oidc-provider` ou um servidor mínimo próprio? | **Decidido em 29/09/2026: servidor mínimo próprio** — o `oidc-provider` não convive com o login do PostIt sem repassar cookies pelo Next. O porquê está no acréscimo do [ADR 0029](adr/0029-assistente-por-mcp.md) |
 
 ### O que o spike mostrou — 29/09/2026
@@ -133,6 +133,12 @@ conversa. Três achados, todos já corrigidos e com teste:
   descoberta. O repasse tira o tipo do corpo vazio, e a sondagem recebe o 401 em vez de um 415.
 
 Ele também procura `/.well-known/openid-configuration` (404) e segue sem ele.
+
+**Imagem nova, no mesmo dia (parte C, no computador):** o ChatGPT gerou as imagens e as mandou por `enviar_imagem`.
+Com as regras de imagem nas descrições das ferramentas, **converteu para JPEG sozinho** — o único PNG que chegou foi
+recusado, e a versão JPEG veio 27 s depois. A primeira imagem para o Feed veio 1536×2048 (3:4, fora da faixa); a
+seguinte, 1536×1920 (4:5), serviu. Pelo assistente saíram de verdade um Stories (941×1672) e um Feed — o primeiro
+Stories publicado pelo PostIt.
 
 ---
 

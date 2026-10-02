@@ -378,7 +378,8 @@ O **12** e o **13** estão conferidos desde 18/09 (acima).
 corrigidos no caminho — o recorte um pixel fora de 4:5 (item 5) e os ícones do tema escuro nos campos de data e hora
 —, e um comportamento da Meta ficou registrado como V-31 (item 18).
 
-**Fora do roteiro**, falta conferir uma publicação real de **Stories** e o push no iPhone instalado (V-21). Os
+**Fora do roteiro**, a publicação real de **Stories** foi conferida em 29/09/2026 — composta pelo assistente da parte
+1f, com imagem gerada no ChatGPT ([16](16-assistente-mcp.md)). Falta o push no iPhone instalado (V-21). Os
 scripts dos testes 6 e 8 foram temporários, fora do repositório.
 
 ### 1f — Assistente por MCP
@@ -389,6 +390,10 @@ Decisão em [ADR 0029](adr/0029-assistente-por-mcp.md); ferramentas, fluxo e via
 
 **Objetivo:** um assistente de IA — o ChatGPT, primeiro — compõe rascunhos no PostIt, e uma pessoa os valida pelo
 fluxo de sempre. **Só compor**: nada de enviar para revisão, aprovar, agendar ou publicar pelo assistente.
+
+**Estado (02/10/2026):** as partes A (OAuth, `/mcp`, tela de permissão), B (compor) e C (imagem nova) estão prontas
+e conferidas pelo ChatGPT de verdade, em 29/09/2026: M-1, M-2 e M-4 fechados, M-3 conferido no computador. Falta a
+parte D — "Aplicativos conectados" no Perfil e `admin:assistants` — e, com ela, a revogação do marco.
 
 | Entrega | Requisitos |
 |---|---|
