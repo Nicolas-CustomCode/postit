@@ -8,7 +8,14 @@ import { AUTH_CONFIG, type AuthConfig } from "../auth/auth.config";
 import { readApiEnv } from "../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { CliModule } from "./cli.module";
-import { createUser, promoteUser, resetPassword, resetTwoFactor } from "./commands";
+import {
+  createUser,
+  listAssistants,
+  promoteUser,
+  resetPassword,
+  resetTwoFactor,
+  revokeAssistants,
+} from "./commands";
 
 /**
  * Os comandos admin:* (marco 4 da Fase 0).
@@ -136,5 +143,67 @@ describe("comandos admin:*", () => {
 
   it("recusa e-mail inexistente com mensagem clara", async () => {
     await expect(promoteUser(app, "ninguem@exemplo.com")).rejects.toThrow("Não há usuário");
+  });
+
+  describe("admin:assistants", () => {
+    /** Uma autorização viva, como o "Permitir" da tela de permissão a deixaria. */
+    async function autorizacao(email: string): Promise<string> {
+      const user = await createTestUser(db, config.encryptionKey, { email });
+      const cliente = await db.oAuthClient.upsert({
+        where: { clientId: "https://chatgpt.com/oauth/client.json" },
+        create: {
+          clientId: "https://chatgpt.com/oauth/client.json",
+          source: "CIMD",
+          name: "ChatGPT",
+          redirectUris: ["https://chatgpt.com/connector_platform_oauth_redirect"],
+          fetchedAt: new Date(),
+        },
+        update: {},
+      });
+      const grant = await db.oAuthGrant.create({
+        data: {
+          userId: user.id,
+          clientId: cliente.id,
+          scope: "postagens:compor",
+          expiresAt: new Date(Date.now() + 30 * 86_400_000),
+          lastUsedAt: new Date(),
+        },
+      });
+      return grant.id;
+    }
+
+    it("lista as autorizações vivas, com o e-mail da pessoa", async () => {
+      const id = await autorizacao("ana@exemplo.com");
+      await autorizacao("bia@exemplo.com");
+
+      expect((await listAssistants(app)).lines).toHaveLength(2);
+      const daAna = await listAssistants(app, "Ana@Exemplo.com");
+      expect(daAna.lines).toEqual([expect.stringContaining(`${id}  ana@exemplo.com  ChatGPT`)]);
+    });
+
+    it("revoga pelo id, com auditoria de origem CLI", async () => {
+      const id = await autorizacao("ana@exemplo.com");
+      expect((await revokeAssistants(app, { id })).lines).toEqual(["Autorizações revogadas: 1"]);
+
+      expect(await db.oAuthGrant.findUniqueOrThrow({ where: { id } })).toMatchObject({
+        revocationReason: "BY_ADMIN",
+      });
+      expect(await db.auditEvent.findFirstOrThrow({ where: { action: "ASSISTANT_REVOKED" } })).toMatchObject({
+        origin: "CLI",
+        authorId: null,
+        targetId: id,
+        details: { cliente: "ChatGPT" },
+      });
+      expect((await listAssistants(app)).lines).toEqual(["Nenhum assistente conectado."]);
+    });
+
+    it("revoga todas de uma pessoa pelo e-mail, e só as dela", async () => {
+      await autorizacao("ana@exemplo.com");
+      const daBia = await autorizacao("bia@exemplo.com");
+
+      expect((await revokeAssistants(app, { email: "ANA@exemplo.com" })).lines).toEqual(["Autorizações revogadas: 1"]);
+      expect((await listAssistants(app)).lines).toEqual([expect.stringContaining(daBia)]);
+      await expect(revokeAssistants(app, { email: "ninguem@exemplo.com" })).rejects.toThrow("Não há usuário");
+    });
   });
 });

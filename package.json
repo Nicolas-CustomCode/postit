@@ -1,6 +1,6 @@
 {
   "name": "postit",
-  "version": "0.1.130",
+  "version": "0.1.131",
   "//version": "Versão única do projeto. scripts/version.mjs propaga para os pacotes e para packages/shared/src/version.ts. O pre-commit sobe o patch; minor e major são manuais. Ver docs/15.",
   "private": true,
   "workspaces": [
@@ -34,6 +34,7 @@
     "admin:reset-2fa": "npm run admin:reset-2fa -w @repo/api --",
     "admin:refresh-tokens": "npm run admin:refresh-tokens -w @repo/api",
     "admin:collect-metrics": "npm run admin:collect-metrics -w @repo/api",
+    "admin:assistants": "npm run admin:assistants -w @repo/api --",
     "tunnel": "node scripts/tunnel.cjs",
     "media:setup": "docker compose run --rm media-init",
     "version:patch": "node scripts/version.mjs patch",

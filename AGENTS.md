@@ -22,8 +22,8 @@ nenhuma interface genérica de "publicador" antes de a segunda rede existir.
 **Estado atual (02/10/2026): Fase 1 no fechamento** ([docs/12-roadmap.md](docs/12-roadmap.md)). Publicar imagem,
 carrossel e Stories funciona de ponta a ponta, conferido publicando de verdade, com revisão e aprovação, sino e push;
 o roteiro de fogo está conferido. Antes da estreia em produção entra a **parte 1f, o assistente por MCP**
-([docs/16-assistente-mcp.md](docs/16-assistente-mcp.md)): as partes A, B e C estão prontas — o ChatGPT compõe
-rascunhos e traz imagem nova —, falta a D (revogar). Toda a arquitetura está em `docs/` e deve ser lida antes de
+([docs/16-assistente-mcp.md](docs/16-assistente-mcp.md)): as quatro partes estão construídas — o ChatGPT compõe
+rascunhos e traz imagem nova, e a pessoa revoga no Perfil (o super admin, por `admin:assistants`). Toda a arquitetura está em `docs/` e deve ser lida antes de
 mexer no código.
 
 ## Estrutura
@@ -141,7 +141,7 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
    `@AnyAuthenticated`, `@RequirePermission(...)` ou `@SuperAdmin`. Rota sem declaração é recusada, e o teste
    de política de rotas falha. Leitura é `@AnyAuthenticated`; **toda ação** exige `@RequirePermission` do
    catálogo — exceto uma lista fechada, conferida por teste: as do próprio perfil (sessão, senha, códigos de
-   recuperação), marcar os próprios avisos do sino como lidos, o próprio push (inscrever o
+   recuperação, revogar o próprio assistente conectado — [ADR 0029](docs/adr/0029-assistente-por-mcp.md)), marcar os próprios avisos do sino como lidos, o próprio push (inscrever o
    aparelho, desativar, pedir teste, escolher os tipos), comentar postagem e excluir o próprio comentário nos primeiros 5 minutos ([ADR 0026](docs/adr/0026-postagem-em-duas-etapas.md)). No Next, toda página e Server Action chama `requireSession()` — nunca confie só no `proxy.ts`.
 6. **Contrato em `packages/shared`.** Entradas validadas com os schemas zod de lá; respostas tipadas
    com os tipos de lá, **nunca** com tipos gerados pelo Prisma.
@@ -253,6 +253,8 @@ npm run db:seed          # dados de exemplo; nunca cria super admin nem conta do
 npm run admin:create -- --email voce@exemplo.com --name "Você" --super-admin   # primeiro usuário
 npm run admin:refresh-tokens   # força a renovação que o worker faz às 3h UTC
 npm run admin:collect-metrics  # força a coleta de métricas que o worker faz às 6h UTC
+npm run admin:assistants -- list [--email x]                  # os assistentes conectados (ADR 0029)
+npm run admin:assistants -- revoke --id <autorização> | --email x   # revoga na hora, com auditoria CLI
 # Produção — só por tag; versão com migration: dump manual antes (docs/10-infra-deploy.md#dump-e-restauração)
 git push --force origin "v1.4.0^{commit}:refs/heads/producao"   # etapa 1: Easypanel; deploy api → worker → web
 scripts/deploy.sh v1.4.0                                         # etapa 2: PM2 e Apache, depois da aprovação

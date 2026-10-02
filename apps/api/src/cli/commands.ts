@@ -6,6 +6,7 @@ import { SessionService } from "../auth/session.service";
 import { TotpService } from "../auth/totp.service";
 import { InstagramAccountMetricsService } from "../instagram/account-metrics.service";
 import { InstagramTokenRefreshService } from "../instagram/token-refresh.service";
+import { OAuthService } from "../oauth/oauth.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UsersService } from "../users/users.service";
 
@@ -217,6 +218,43 @@ export async function collectMetrics(app: INestApplicationContext): Promise<Comm
       `Dias gravados: ${resultado.days}`,
       `A repetir (a Meta não respondeu): ${resultado.recoverable}`,
       `Sem recuperação: ${resultado.fatal}`,
+    ],
+  };
+}
+
+/**
+ * Os assistentes conectados de todos — ou de uma pessoa (ADR 0029). É a visão do super
+ * admin enquanto a Administração não chega (Fase 4).
+ */
+export async function listAssistants(app: INestApplicationContext, email?: string): Promise<CommandResult> {
+  const grants = await app.get(OAuthService).listAllActive(new Date(), email === undefined ? undefined : normalizeEmail(email));
+  if (grants.length === 0) return { lines: ["Nenhum assistente conectado."] };
+
+  return {
+    lines: grants.map(
+      (grant) =>
+        `${grant.id}  ${grant.email}  ${grant.clientName}  desde ${grant.createdAt}  último uso ${grant.lastUsedAt}`,
+    ),
+  };
+}
+
+/**
+ * Revoga pelo terminal: uma autorização pelo id, ou todas de uma pessoa pelo e-mail —
+ * o caso do acesso vazado (docs/11). O acesso e a renovação caem na hora.
+ */
+export async function revokeAssistants(
+  app: INestApplicationContext,
+  target: { id: string } | { email: string },
+): Promise<CommandResult> {
+  const alvo = "email" in target ? { email: normalizeEmail(target.email) } : target;
+  if ("email" in alvo) await requireUser(app, alvo.email);
+
+  const revogadas = await app.get(OAuthService).revokeByAdmin(alvo, new Date());
+  return {
+    lines: [
+      revogadas === 0
+        ? "Nada a revogar: nenhuma autorização viva com esse alvo."
+        : `Autorizações revogadas: ${revogadas}`,
     ],
   };
 }

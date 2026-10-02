@@ -64,7 +64,8 @@ Definido no código, num enum `Permissao`. Não é configurável pela tela — s
 
 **Sem permissão nenhuma**, todo usuário autenticado **vê** calendário, postagens, acervo, métricas, contas
 conectadas e painel de saúde, **comenta postagens** e gerencia o próprio perfil — senha, códigos de recuperação,
-sessões.
+sessões e, desde a parte 1f, o assistente que ela mesma conectou ([ADR 0029](0029-assistente-por-mcp.md)): revogá-lo é
+do próprio perfil, como encerrar uma sessão.
 
 > **Emendado pelo [ADR 0026](0026-postagem-em-duas-etapas.md) em 23/09/2026:** comentar saiu de `POSTAGEM_EDITAR`
 > e passou a ser de qualquer usuário logado; voltar uma postagem em revisão, aprovada ou agendada para a

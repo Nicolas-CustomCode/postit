@@ -721,8 +721,9 @@ conexão de conta, publicação — não pode retornar nada. É um teste que se 
 
 (parte 1f) Alguém obteve o token do assistente, ou a conta do ChatGPT de uma pessoa foi comprometida.
 
-1. **Revogar** em "Aplicativos conectados", no Perfil da pessoa, ou pela Administração. O acesso cai na hora, e a
-   renovação junto
+1. **Revogar** em "Aplicativos conectados", no Perfil da pessoa, ou pelo terminal do servidor com
+   `npm run admin:assistants -- revoke --email <pessoa>` (a tela de Administração vem na Fase 4). O acesso cai na
+   hora, e a renovação junto
 2. **Conferir os rascunhos "Compostos pelo assistente"** daquela pessoa e descartar os que ela não reconhecer. O
    estrago para aí: nenhum rascunho sai sem uma pessoa enviar para revisão
 3. **Auditar** — conceder e revogar ficam em `EventoAuditoria`

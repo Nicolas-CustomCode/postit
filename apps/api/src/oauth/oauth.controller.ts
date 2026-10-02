@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Header, HttpCode, Post, Query, Req, UseFilters } from "@nestjs/common";
+import { Body, Controller, Get, Header, HttpCode, Param, Post, Query, Req, UseFilters } from "@nestjs/common";
 import {
+  connectedAppIdSchema,
   oauthAuthorizeSchema,
+  type ConnectedApp,
   type OAuthApproval,
   type OAuthAuthorizeInput,
   type OAuthRequestDescription,
@@ -45,6 +47,28 @@ export class OAuthController {
     @Body(new ZodValidationPipe(oauthAuthorizeSchema)) body: OAuthAuthorizeInput,
   ): Promise<OAuthApproval> {
     return this.oauth.approve(body, auth.userId, clientIp(request), new Date());
+  }
+
+  /** Os assistentes que a própria pessoa autorizou — o cartão do Perfil. */
+  @AnyAuthenticated()
+  @Get("grants")
+  listGrants(@Auth() auth: AuthContext): Promise<ConnectedApp[]> {
+    return this.oauth.listConnected(auth.userId, new Date());
+  }
+
+  /**
+   * Revoga a **própria** autorização: está na lista fechada da regra 5, como encerrar a
+   * própria sessão. A de outra pessoa responde igual e não muda nada.
+   */
+  @AnyAuthenticated()
+  @Post("grants/:grantId/revoke")
+  @HttpCode(204)
+  revokeGrant(
+    @Auth() auth: AuthContext,
+    @Req() request: FastifyRequest,
+    @Param("grantId", new ZodValidationPipe(connectedAppIdSchema)) grantId: string,
+  ): Promise<void> {
+    return this.oauth.revokeOwn(auth.userId, grantId, clientIp(request), new Date());
   }
 
   /** RFC 6749, seção 3.2. O corpo chega como formulário, como o protocolo manda. */

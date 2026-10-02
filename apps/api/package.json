@@ -1,6 +1,6 @@
 {
   "name": "@repo/api",
-  "version": "0.1.130",
+  "version": "0.1.131",
   "private": true,
   "//": "NestJS 11 com Fastify. Um código, dois processos: main.ts (HTTP, só o Next alcança) e worker.ts (filas, sem HTTP). Só o worker publica. Ver docs/05 e docs/adr/0010.",
   "scripts": {
@@ -18,7 +18,8 @@
     "admin:reset-password": "node dist/cli/main.js reset-password",
     "admin:reset-2fa": "node dist/cli/main.js reset-2fa",
     "admin:refresh-tokens": "node dist/cli/main.js refresh-tokens",
-    "admin:collect-metrics": "node dist/cli/main.js collect-metrics"
+    "admin:collect-metrics": "node dist/cli/main.js collect-metrics",
+    "admin:assistants": "node dist/cli/main.js assistants"
   },
   "//scripts": "O dev usa a CLI do Nest, e não tsx: a injeção de dependência depende dos metadados de decorator, que o esbuild não emite. fake-meta sobe a Meta falsa dos testes de tela, e só com NODE_ENV=test.",
   "dependencies": {

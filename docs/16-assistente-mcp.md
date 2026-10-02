@@ -5,9 +5,13 @@ valida pela tela. Este documento diz **o que** o assistente pode fazer, **como**
 precisa ser confirmado**. As decisões e o porquê estão no [ADR 0029](adr/0029-assistente-por-mcp.md); os requisitos,
 no [Módulo K do 02](02-requisitos.md#módulo-k--assistente-mcp); a construção, na parte 1f do [12](12-roadmap.md).
 
-**Estado (29/09/2026): em construção na parte 1f.** Prontas a parte A — o servidor OAuth, o `/mcp` e a tela de
-permissão em `/oauth/autorizar` —, a B — compor rascunhos, com a marca na tela — e a C — imagem nova por
-`enviar_imagem`. Falta revogar (D).
+**Estado (29/09/2026): em construção na parte 1f.** As quatro partes estão construídas:
+- A — o servidor OAuth, o `/mcp` e a tela de permissão em `/oauth/autorizar`;
+- B — compor rascunhos, com a marca na tela;
+- C — imagem nova por `enviar_imagem`;
+- D — revogar, no Perfil e pelo terminal.
+
+Fica em aberto o M-3 no celular.
 
 ---
 
@@ -86,8 +90,15 @@ O ChatGPT age em nome da pessoa sem nunca ver a senha dela. O PostIt é o **serv
 6. Cada chamada leva o token. A API confere que ele vale, que é para o PostIt (indicador de recurso), de quem é e se
    a pessoa ainda tem `POSTAGEM_EDITAR`.
 
-**Revogar** é imediato: no Perfil, cartão **"Aplicativos conectados"** (o que está conectado, desde quando, último
-uso); na Administração, o super admin vê e revoga os de todos. Desativar a pessoa derruba os acessos dela.
+**Revogar** é imediato — o acesso e a renovação caem juntos:
+- **a pessoa**, no Perfil, cartão **"Aplicativos conectados"** (o que está conectado, desde quando, último uso, e
+  "Revogar"). Sem nenhum conectado, o cartão mostra o endereço do conector (`<app>/mcp`);
+- **o super admin**, pelo terminal do servidor: `npm run admin:assistants -- list [--email]` e
+  `revoke --id <autorização> | --email <pessoa>`, com auditoria de origem `CLI`. A tela na Administração vem com a
+  Fase 4.
+
+Desativar a pessoa derruba os acessos dela na chamada seguinte. Revogar grava `EventoAuditoria` com o nome do
+cliente, nunca token.
 
 ---
 

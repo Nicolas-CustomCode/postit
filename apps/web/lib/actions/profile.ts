@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { changePasswordSchema, confirmCodeSchema, sessionIdSchema } from "@repo/shared";
+import { changePasswordSchema, confirmCodeSchema, connectedAppIdSchema, sessionIdSchema } from "@repo/shared";
 import { apiFetch } from "../api/client";
 import { SESSION_COOKIE } from "../auth/cookies";
 import { requireSession } from "../auth/session";
@@ -91,6 +91,20 @@ export async function revokeSessionAction(_previous: unknown, form: FormData): P
 
   try {
     await apiFetch<void>({ method: "POST", path: `/auth/sessions/${id.data}/revoke`, token: await sessionToken() });
+    revalidatePath("/perfil");
+    return success(null);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Revoga um assistente conectado (ADR 0029). O acesso e a renovação dele caem na hora. */
+export async function revokeConnectedAppAction(_previous: unknown, form: FormData): Promise<ActionResult<null>> {
+  const id = connectedAppIdSchema.safeParse(form.get("grantId"));
+  if (!id.success) return { ok: false, code: "VALIDATION_FAILED", message: "Aplicativo inválido" };
+
+  try {
+    await apiFetch<void>({ method: "POST", path: `/oauth/grants/${id.data}/revoke`, token: await sessionToken() });
     revalidatePath("/perfil");
     return success(null);
   } catch (error) {

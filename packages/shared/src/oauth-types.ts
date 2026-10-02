@@ -51,3 +51,17 @@ export type OAuthRequestDescription =
 export interface OAuthApproval {
   readonly redirectTo: string;
 }
+
+/** Um assistente que a pessoa autorizou, no cartão "Aplicativos conectados" do Perfil. */
+export interface ConnectedApp {
+  readonly id: string;
+  readonly clientName: string;
+  readonly createdAt: string;
+  readonly lastUsedAt: string;
+}
+
+/**
+ * O id que vem no caminho de `POST /oauth/grants/:id/revoke`. A coluna é `@db.Uuid`:
+ * fora do formato, o Prisma estouraria e a rota responderia 500 no lugar de 400.
+ */
+export const connectedAppIdSchema = z.string().uuid();

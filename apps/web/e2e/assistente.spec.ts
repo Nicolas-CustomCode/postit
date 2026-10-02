@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { createAccount, resetAccounts } from "./support/accounts-db";
 import { ESTADO_COMUM, ESTADO_EDITOR } from "./support/estado";
 import { criarMidia } from "./support/media-db";
+import { semearAutorizacao } from "./support/oauth-db";
 import { semearPostagem } from "./support/posts-db";
 
 /**
@@ -124,6 +125,23 @@ test.describe("rascunho do assistente", () => {
     await expect(
       page.locator(':text("Composta pelo assistente. Confira antes de enviar para revisão."):visible').first(),
     ).toBeVisible();
+  });
+});
+
+/** O cartão "Aplicativos conectados" do Perfil (parte D): ver e revogar o assistente. */
+test.describe("aplicativos conectados", () => {
+  test.use({ storageState: ESTADO_EDITOR });
+
+  test("mostra o assistente conectado, e Revogar o tira da lista", async ({ page }) => {
+    await semearAutorizacao("e2e-setup-editor");
+    await page.goto("/perfil");
+
+    const cartao = page.getByRole("region", { name: "Aplicativos conectados" });
+    await expect(cartao.getByText("ChatGPT", { exact: true })).toBeVisible();
+    await cartao.getByRole("button", { name: "Revogar" }).click();
+
+    await expect(cartao.getByText("Nenhum assistente conectado.")).toBeVisible();
+    await expect(cartao.getByText(/\/mcp$/)).toBeVisible();
   });
 });
 

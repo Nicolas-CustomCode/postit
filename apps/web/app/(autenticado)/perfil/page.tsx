@@ -7,10 +7,12 @@ import { PageHeader } from "@/components/nav/page-header";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/lib/actions/auth";
 import { listPushPreferences } from "@/lib/data/notifications";
+import { listConnectedApps } from "@/lib/data/oauth";
 import { getSecurityOverview } from "@/lib/data/security";
 import { readWebEnv } from "@/lib/env";
 import { listActiveSessions } from "@/lib/data/sessions";
 import { requireSession } from "@/lib/auth/session";
+import { ConnectedAppsCard } from "./connected-apps-card";
 import { DevicesCard } from "./devices-card";
 import { IdentityCard, PermissionsCard } from "./identity-card";
 import { InstallCard, NotificationsCard } from "./notifications-card";
@@ -30,13 +32,17 @@ export const metadata: Metadata = { title: "Perfil" };
  */
 export default async function PerfilPage(): Promise<ReactNode> {
   const { user } = await requireSession();
-  const [sessions, security, preferences] = await Promise.all([
+  const [sessions, security, preferences, connectedApps] = await Promise.all([
     listActiveSessions(),
     getSecurityOverview(),
     listPushPreferences(),
+    listConnectedApps(),
   ]);
+  const env = readWebEnv();
   // A chave pública do push chega ao navegador como prop, e não por NEXT_PUBLIC_ (ADR 0017).
-  const vapidPublicKey = readWebEnv().VAPID_PUBLIC_KEY ?? null;
+  const vapidPublicKey = env.VAPID_PUBLIC_KEY ?? null;
+  // O endereço do conector do assistente (ADR 0029): o `/mcp` do endereço público.
+  const connectorUrl = `${env.APP_URL.replace(/\/+$/, "")}/mcp`;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 pb-8 md:px-10 md:py-7">
@@ -62,6 +68,7 @@ export default async function PerfilPage(): Promise<ReactNode> {
         <div className="flex flex-col gap-5">
           <SecurityCard security={security} />
           <DevicesCard sessions={sessions} />
+          <ConnectedAppsCard apps={connectedApps} connectorUrl={connectorUrl} />
           <NotificationsCard vapidPublicKey={vapidPublicKey} preferences={preferences} />
           <InstallCard />
         </div>

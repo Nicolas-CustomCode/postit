@@ -345,10 +345,66 @@ describe("OAuth do assistente", () => {
     it("7 dias sem uso vencem a autorização", async () => {
       const { clientId, refresh } = await conectar();
       const grant = await api.db.oAuthGrant.findFirstOrThrow();
-      await ageColumn(api.db, "AutorizacaoOAuth", "ultimoUsoEm", grant.id, "7 days");
+      // Um minuto além dos 7 dias: o `now()` do Postgres e o relógio do Node podem divergir
+      // por alguns milissegundos (o do Docker escorrega depois que o computador dorme). A
+      // borda exata tem teste puro, em domain/auth.
+      await ageColumn(api.db, "AutorizacaoOAuth", "ultimoUsoEm", grant.id, "7 days 1 minute");
 
       const resposta = await trocar({ grant_type: "refresh_token", refresh_token: refresh, client_id: clientId });
       expect(resposta.body["error"]).toBe("invalid_grant");
+    });
+  });
+
+  /** O cartão "Aplicativos conectados" do Perfil (parte D). */
+  describe("revogar", () => {
+    const listar = (sessao: string) => api.request({ method: "GET", url: "/oauth/grants", token: sessao });
+    const revogar = (sessao: string, id: string) =>
+      api.request({ method: "POST", url: `/oauth/grants/${id}/revoke`, token: sessao, ip: IP });
+
+    it("a pessoa vê a própria autorização, e não a dos outros", async () => {
+      const primeira = await conectar();
+      const outra = await conectar();
+
+      const lista = await listar(primeira.pessoa.token);
+      expect(lista.statusCode).toBe(200);
+      expect(lista.body).toEqual([
+        { id: expect.any(String), clientName: "ChatGPT", createdAt: expect.any(String), lastUsedAt: expect.any(String) },
+      ]);
+      expect((await listar(outra.pessoa.token)).body).toHaveLength(1);
+    });
+
+    it("revogar derruba o acesso e a renovação na hora, e grava a auditoria", async () => {
+      const { pessoa, clientId, access, refresh } = await conectar();
+      const [grant] = (await listar(pessoa.token)).body as unknown as { id: string }[];
+
+      expect((await revogar(pessoa.token, grant!.id)).statusCode).toBe(204);
+
+      expect((await chamarMcp(access, LISTAR_CONTAS)).statusCode).toBe(401);
+      const renovacao = await trocar({ grant_type: "refresh_token", refresh_token: refresh, client_id: clientId });
+      expect(renovacao.body["error"]).toBe("invalid_grant");
+      expect((await listar(pessoa.token)).body).toEqual([]);
+
+      const evento = await api.db.auditEvent.findFirstOrThrow({ where: { action: "ASSISTANT_REVOKED" } });
+      expect(evento).toMatchObject({ authorId: pessoa.userId, origin: "WEB", targetId: grant!.id, ip: IP });
+      expect((await api.db.oAuthGrant.findUniqueOrThrow({ where: { id: grant!.id } })).revocationReason).toBe(
+        "BY_USER",
+      );
+    });
+
+    it("a autorização de outra pessoa responde igual e continua valendo", async () => {
+      const dona = await conectar();
+      const intrusa = await conectar();
+      const [grant] = (await listar(dona.pessoa.token)).body as unknown as { id: string }[];
+
+      expect((await revogar(intrusa.pessoa.token, grant!.id)).statusCode).toBe(204);
+      expect((await chamarMcp(dona.access, LISTAR_CONTAS)).statusCode).toBe(200);
+      expect(await api.db.auditEvent.count({ where: { action: "ASSISTANT_REVOKED" } })).toBe(0);
+    });
+
+    it("id malformado é 400, e sem sessão é 401", async () => {
+      const { pessoa } = await conectar();
+      expect((await revogar(pessoa.token, "nao-e-uuid")).statusCode).toBe(400);
+      expect((await api.request({ method: "GET", url: "/oauth/grants" })).statusCode).toBe(401);
     });
   });
 

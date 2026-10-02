@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import type { ApiEnv } from "../config/env";
 import { InstagramModule } from "../instagram/instagram.module";
+import { OAuthModule } from "../oauth/oauth.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { StorageModule } from "../storage/storage.module";
 
@@ -19,13 +20,18 @@ import { StorageModule } from "../storage/storage.module";
 @Module({})
 export class CliModule {
   static forEnv(env: ApiEnv): DynamicModule {
+    // Uma referência só do módulo de autenticação: o OAuth o importa pela auditoria, e
+    // dois `forEnv` seriam dois módulos (o mesmo cuidado do `AppModule`).
+    const auth = AuthModule.forEnv(env);
     return {
       module: CliModule,
       imports: [
         PrismaModule.forUrl(env.DATABASE_URL),
         StorageModule.forEnv(env),
-        AuthModule.forEnv(env),
+        auth,
         InstagramModule.forEnv(env),
+        // O `admin:assistants` (ADR 0029).
+        OAuthModule.forEnv(env, auth),
       ],
     };
   }

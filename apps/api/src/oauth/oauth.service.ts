@@ -3,6 +3,7 @@ import type { OAuthClient, OAuthRevocationReason, Prisma } from "@repo/database"
 import {
   can,
   OAUTH_SCOPE,
+  type ConnectedApp,
   type OAuthApproval,
   type OAuthAuthorizeInput,
   type OAuthRequestDescription,
@@ -294,6 +295,104 @@ export class OAuthService {
       superAdmin: row.grant.user.superAdmin,
       permissions: row.grant.user.permissions.map((p) => p.permission),
     };
+  }
+
+  /** As autorizações vivas da pessoa, para o cartão "Aplicativos conectados" do Perfil. */
+  async listConnected(userId: string, now: Date): Promise<ConnectedApp[]> {
+    const grants = await this.prisma.db.oAuthGrant.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+      include: { client: { select: { name: true } }, user: { select: { deactivatedAt: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return grants
+      .filter((grant) => this.grantUsable(grant, now))
+      .map((grant) => ({
+        id: grant.id,
+        clientName: grant.client.name,
+        createdAt: grant.createdAt.toISOString(),
+        lastUsedAt: grant.lastUsedAt.toISOString(),
+      }));
+  }
+
+  /**
+   * A pessoa revoga a **própria** autorização. O dono vai no `where`: a de outra
+   * pessoa, a inexistente e a já revogada dão no mesmo, e quem chama não sabe qual
+   * foi — o mesmo cuidado do `SessionService.revokeOwn`.
+   */
+  async revokeOwn(userId: string, grantId: string, ip: string | null, now: Date): Promise<void> {
+    const grant = await this.prisma.db.oAuthGrant.findFirst({
+      where: { id: grantId, userId, revokedAt: null },
+      include: { client: { select: { name: true } } },
+    });
+    if (grant === null) return;
+
+    const revoked = await this.prisma.db.$transaction((tx) => this.revokeInTx(tx, grant.id, "BY_USER", now));
+    if (!revoked) return;
+    await this.audit.record({
+      authorId: userId,
+      origin: "WEB",
+      action: "ASSISTANT_REVOKED",
+      targetType: "AutorizacaoOAuth",
+      targetId: grant.id,
+      details: { cliente: grant.client.name },
+      ip,
+    });
+  }
+
+  /** As autorizações vivas de todos, para o `admin:assistants -- list` (ADR 0029). */
+  async listAllActive(
+    now: Date,
+    email?: string,
+  ): Promise<(ConnectedApp & { readonly email: string })[]> {
+    const grants = await this.prisma.db.oAuthGrant.findMany({
+      where: {
+        revokedAt: null,
+        expiresAt: { gt: now },
+        ...(email === undefined ? {} : { user: { email: email.toLowerCase() } }),
+      },
+      include: { client: { select: { name: true } }, user: { select: { email: true, deactivatedAt: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return grants
+      .filter((grant) => this.grantUsable(grant, now))
+      .map((grant) => ({
+        id: grant.id,
+        email: grant.user.email,
+        clientName: grant.client.name,
+        createdAt: grant.createdAt.toISOString(),
+        lastUsedAt: grant.lastUsedAt.toISOString(),
+      }));
+  }
+
+  /**
+   * O super admin revoga pelo terminal (`admin:assistants -- revoke`): uma autorização
+   * pelo id, ou todas de uma pessoa pelo e-mail — o caso do acesso vazado (docs/11).
+   * Devolve quantas caíram. A auditoria leva o nome do cliente, nunca token.
+   */
+  async revokeByAdmin(target: { id: string } | { email: string }, now: Date): Promise<number> {
+    const grants = await this.prisma.db.oAuthGrant.findMany({
+      where: {
+        revokedAt: null,
+        ...("id" in target ? { id: target.id } : { user: { email: target.email.toLowerCase() } }),
+      },
+      include: { client: { select: { name: true } } },
+    });
+
+    let count = 0;
+    for (const grant of grants) {
+      const revoked = await this.prisma.db.$transaction((tx) => this.revokeInTx(tx, grant.id, "BY_ADMIN", now));
+      if (!revoked) continue;
+      count += 1;
+      await this.audit.record({
+        authorId: null,
+        origin: "CLI",
+        action: "ASSISTANT_REVOKED",
+        targetType: "AutorizacaoOAuth",
+        targetId: grant.id,
+        details: { cliente: grant.client.name },
+      });
+    }
+    return count;
   }
 
   /** Cliente pelo `client_id`: ficha do CIMD (com cache curto) ou registrado aqui. */

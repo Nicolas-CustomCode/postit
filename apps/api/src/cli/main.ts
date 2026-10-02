@@ -3,7 +3,16 @@ import { NestFactory } from "@nestjs/core";
 import { parseArgs } from "node:util";
 import { readApiEnv } from "../config/env";
 import { CliModule } from "./cli.module";
-import { collectMetrics, createUser, promoteUser, refreshTokens, resetPassword, resetTwoFactor } from "./commands";
+import {
+  collectMetrics,
+  createUser,
+  listAssistants,
+  promoteUser,
+  refreshTokens,
+  resetPassword,
+  resetTwoFactor,
+  revokeAssistants,
+} from "./commands";
 
 /**
  * Os comandos de administração, pelo terminal do servidor:
@@ -14,17 +23,22 @@ import { collectMetrics, createUser, promoteUser, refreshTokens, resetPassword, 
  *   npm run admin:reset-2fa -- --email voce@exemplo.com
  *   npm run admin:refresh-tokens
  *   npm run admin:collect-metrics
+ *   npm run admin:assistants -- list [--email voce@exemplo.com]
+ *   npm run admin:assistants -- revoke --id <autorização> | --email voce@exemplo.com
  *
  * Sem HTTP e sem tela: é o caminho que existe justamente para quando ninguém
  * consegue entrar. Todos gravam auditoria com origem CLI.
  */
 async function main(): Promise<void> {
   const [command] = process.argv.slice(2);
+  // `assistants` tem subcomando (`list` ou `revoke`) antes das opções.
+  const subcommand = command === "assistants" ? process.argv[3] : undefined;
   const { values } = parseArgs({
-    args: process.argv.slice(3),
+    args: process.argv.slice(subcommand === undefined ? 3 : 4),
     options: {
       email: { type: "string" },
       name: { type: "string" },
+      id: { type: "string" },
       "super-admin": { type: "boolean", default: false },
     },
     allowPositionals: false,
@@ -55,6 +69,14 @@ async function main(): Promise<void> {
           return refreshTokens(app);
         case "collect-metrics":
           return collectMetrics(app);
+        case "assistants":
+          if (subcommand === "list") return listAssistants(app, values.email);
+          if (subcommand === "revoke") {
+            if (values.id !== undefined) return revokeAssistants(app, { id: values.id });
+            if (values.email !== undefined) return revokeAssistants(app, { email: values.email });
+            throw new Error("Faltou --id ou --email");
+          }
+          throw new Error(`Use: admin:assistants -- list | revoke (recebido: ${subcommand ?? "nada"})`);
         default:
           throw new Error(`Comando desconhecido: ${command ?? "(nenhum)"}`);
       }
