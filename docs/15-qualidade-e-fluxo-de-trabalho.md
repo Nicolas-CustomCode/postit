@@ -61,8 +61,9 @@ Padrão do `nossobuncker`:
 - **Hook de pre-commit** sobe o PATCH automaticamente; pular com `SKIP_BUMP=1`. Instalado por `core.hooksPath`
   no `postinstall`, como no `hotclone`
 - **MINOR e MAJOR** só manualmente: `npm run version:minor`, `npm run version:major`
-- **Liberar para produção** é marcar uma tag: `git tag -a v1.4.0 && git push --tags`. Depois, na etapa 1, apontar a
-  branch `producao` para a tag e fazer o deploy no Easypanel; na etapa 2, `scripts/deploy.sh v1.4.0`
+- **Liberar para produção** é marcar uma tag: `git tag -a v1.4.0 && git push origin v1.4.0`. A tag dispara o
+  `release.yml`, que publica a imagem no GHCR; depois, `POSTIT_TAG=v1.4.0` no serviço Compose do Easypanel e Deploy
+  ([ADR 0030](adr/0030-compose-de-producao.md), [10](10-infra-deploy.md#etapa-1-easypanel-pelo-compose))
   ([10](10-infra-deploy.md#deploy))
 
 Decidido em 24/09/2026, antes da primeira tag:

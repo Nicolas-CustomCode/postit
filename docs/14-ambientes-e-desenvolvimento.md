@@ -116,7 +116,7 @@ telas e permissões. **O seed nunca cria super admin nem conta do Instagram**: s
 ## Produção
 
 - Recebe só versões marcadas. A `main` não vai para lá sozinha
-  - **Etapa 1, na validação:** Easypanel, com a branch `producao` apontada para a tag
+  - **Etapa 1, na validação:** Easypanel, com o `deploy/compose.yml` e a imagem da tag publicada no GHCR ([ADR 0030](adr/0030-compose-de-producao.md))
   - **Etapa 2, depois da aprovação:** PM2 e Apache, com `scripts/deploy.sh v1.4.0`
   - Ver [ADR 0020](adr/0020-easypanel-na-validacao.md)
 - **Versão com migration:** faça o dump do banco **manualmente** antes do deploy. Nenhum deploy faz dump, e voltar
