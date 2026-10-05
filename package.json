@@ -45,12 +45,12 @@
   "//scripts": "db:deploy é o único comando de banco para produção: nunca db:push nem reset lá. tunnel abre os dois túneis rápidos do desenvolvimento (docs/adr/0022). postinstall liga os hooks de .githooks quando a pasta é um repositório git. Nomes de comando em inglês (docs/adr/0023).",
   "devDependencies": {
     "@eslint/js": "9.39.5",
-    "@types/node": "22.20.4",
+    "@types/node": "22.20.5",
     "eslint": "9.39.5",
-    "globals": "17.12.0",
-    "turbo": "2.11.4",
+    "globals": "17.13.0",
+    "turbo": "2.11.6",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.70.1"
+    "typescript-eslint": "8.71.0"
   },
   "//devDependencies": "TypeScript fica na 5.x: a 7.x (compilador nativo) ainda não é suportada por ts-jest e pela CLI do Nest. Versões exatas, sem ^, para a CI instalar sempre o mesmo.",
   "overrides": {
