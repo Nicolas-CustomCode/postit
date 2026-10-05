@@ -393,8 +393,8 @@ fluxo de sempre. **Só compor**: nada de enviar para revisão, aprovar, agendar 
 
 **Estado (02/10/2026):** as partes A (OAuth, `/mcp`, tela de permissão), B (compor) e C (imagem nova) estão prontas
 e conferidas pelo ChatGPT de verdade, em 29/09/2026: M-1, M-2 e M-4 fechados, M-3 conferido no computador. A parte D
-— "Aplicativos conectados" no Perfil e `admin:assistants` no terminal — está construída; falta conferir a revogação
-do marco com o ChatGPT de verdade. Em aberto: o M-3 no celular.
+— "Aplicativos conectados" no Perfil e `admin:assistants` no terminal — está construída, e **o marco foi conferido em
+05/10/2026**: revogado no Perfil, o ChatGPT perdeu o acesso. **A 1f está entregue.** Em aberto: o M-3 no celular.
 
 | Entrega | Requisitos |
 |---|---|

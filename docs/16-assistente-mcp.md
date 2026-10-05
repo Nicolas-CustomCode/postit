@@ -11,7 +11,8 @@ no [Módulo K do 02](02-requisitos.md#módulo-k--assistente-mcp); a construção
 - C — imagem nova por `enviar_imagem`;
 - D — revogar, no Perfil e pelo terminal.
 
-Fica em aberto o M-3 no celular.
+O marco da 1f foi conferido em 05/10/2026: revogado no Perfil, o ChatGPT perdeu o acesso. Fica em aberto o M-3 no
+celular.
 
 ---
 

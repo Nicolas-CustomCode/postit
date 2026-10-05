@@ -19,11 +19,12 @@ diretas. Não construa nada disso agora, mas respeite a preparação descrita em
 onde o conceito é genérico (`Account`, `network`, `externalId` no código; `Conta`, `rede`, `idExterno` no banco), módulos e filas separados por rede, e
 nenhuma interface genérica de "publicador" antes de a segunda rede existir.
 
-**Estado atual (02/10/2026): Fase 1 no fechamento** ([docs/12-roadmap.md](docs/12-roadmap.md)). Publicar imagem,
+**Estado atual (05/10/2026): Fase 1 no fechamento** ([docs/12-roadmap.md](docs/12-roadmap.md)). Publicar imagem,
 carrossel e Stories funciona de ponta a ponta, conferido publicando de verdade, com revisão e aprovação, sino e push;
 o roteiro de fogo está conferido. Antes da estreia em produção entra a **parte 1f, o assistente por MCP**
-([docs/16-assistente-mcp.md](docs/16-assistente-mcp.md)): as quatro partes estão construídas — o ChatGPT compõe
-rascunhos e traz imagem nova, e a pessoa revoga no Perfil (o super admin, por `admin:assistants`). Toda a arquitetura está em `docs/` e deve ser lida antes de
+([docs/16-assistente-mcp.md](docs/16-assistente-mcp.md)), **entregue e conferida com o ChatGPT de verdade** — ele
+compõe rascunhos e traz imagem nova, e a pessoa revoga no Perfil (o super admin, por `admin:assistants`). Depois dela,
+a estreia em produção. Toda a arquitetura está em `docs/` e deve ser lida antes de
 mexer no código.
 
 ## Estrutura
