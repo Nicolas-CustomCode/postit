@@ -157,6 +157,16 @@ propósito**, até o `minio` publicar versão com as dependências atualizadas �
 | [GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr) | `minio` → `query-string` 7 → `decode-uri-component` 0.2.2 | Travar o processo decodificando um texto percent-encoded malformado |
 | [GHSA-528h-pc64-c93x](https://github.com/advisories/GHSA-528h-pc64-c93x) | `minio` → `stream-json` 1.9 | Travar o processo com um JSON muito aninhado |
 
+**Em desenvolvimento, desde 05/10/2026**, o `npm audit` completo mostra também um aviso **alto** que a CI não vê — ela
+audita só produção (`--omit=dev`):
+
+| Aviso | Caminho | O que permite |
+|---|---|---|
+| [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) | `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` → `braces` | Estourar a pilha com um padrão de glob muito aninhado |
+
+O aviso marca **todas** as versões do `braces`, e o `--force` rebaixaria o `eslint-config-next` para a 14. Só roda no
+lint, sobre os padrões de arquivo do próprio projeto: não há entrada de terceiro por onde chegar.
+
 **Por que não se corrige agora:**
 
 - **`npm audit fix --force` rebaixa o `minio` para a 7.1.3** — versão antiga, com quebra de API, justamente no envio e
