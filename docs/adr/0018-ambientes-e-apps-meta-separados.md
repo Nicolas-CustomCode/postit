@@ -1,6 +1,11 @@
 # ADR 0018 — Três ambientes, túnel no desenvolvimento e apps da Meta separados
 
 **Data:** 2026-09-15 · **Status:** parcialmente substituído pelo [ADR 0019](0019-sem-homologacao.md) em 2026-09-15
+e pelo [ADR 0031](0031-um-app-da-meta-por-enquanto.md) em 2026-10-05
+
+> **Por enquanto, um app só** ([ADR 0031](0031-um-app-da-meta-por-enquanto.md)): o mesmo app da Meta no local e na
+> produção, com as duas URIs de retorno. Os tokens das contas reais continuam só na produção; o segredo do app, não
+> mais. A seção 3 volta a valer quando o app de produção for criado.
 
 > **A homologação foi retirada.** A seção 1 (três ambientes) e todas as menções à homologação deixam de valer:
 > agora são só **local e produção**, e o PostIt Dev é usado só no local. Continuam valendo o túnel (agora o rápido, pelo [ADR 0022](0022-tunel-rapido-no-desenvolvimento.md)),

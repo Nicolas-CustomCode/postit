@@ -1,0 +1,53 @@
+# Publica a imagem de produção no GHCR a cada tag de versão (ADR 0030; docs/10).
+#
+#   git tag v1.0.0 && git push origin v1.0.0
+#
+# A imagem sai como ghcr.io/nicolas-customcode/postit:v1.0.0, privada — ela carrega o
+# código. Na VPS, o compose de produção a baixa pela tag em POSTIT_TAG.
+#
+# Só tag: produção nunca recebe a main solta (docs/15). E sem segredo nenhum na
+# construção: as variáveis chegam só quando o container sobe.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # O token automático do próprio workflow publica; o da VPS só lê (read:packages).
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          # O nome no GHCR precisa ser minúsculo.
+          tags: ghcr.io/nicolas-customcode/postit:${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          # O cache das camadas fica no próprio GitHub: a próxima tag só refaz o que mudou.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

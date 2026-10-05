@@ -94,6 +94,8 @@ qualquer uso externo.
   depois que a MinIO tirou as imagens gratuitas do ar
 - [ADR 0029](adr/0029-assistente-por-mcp.md) — O assistente compõe rascunhos por MCP, com OAuth, e uma pessoa
   valida
+- [ADR 0030](adr/0030-compose-de-producao.md) — Compose de produção, com a imagem publicada no GHCR por tag
+- [ADR 0031](adr/0031-um-app-da-meta-por-enquanto.md) — Um app da Meta só, por enquanto, nos dois ambientes
 
 ---
 

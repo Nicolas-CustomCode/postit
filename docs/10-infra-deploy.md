@@ -62,20 +62,35 @@ pela Cloudflare, que no plano gratuito recusa envios acima de 100 MB — e um Re
 Referência: o guia do `openreply`, que já roda assim. Documentação do painel em
 [easypanel.io/docs](https://easypanel.io/docs).
 
-### Serviços
+### Serviços — um serviço Compose ([ADR 0030](adr/0030-compose-de-producao.md))
 
-Um projeto `postit` no Easypanel, com cinco serviços:
+Um projeto `postit` no Easypanel com **um serviço do tipo Compose**, apontado para `deploy/compose.yml` do repositório.
+O arquivo tem as seis peças:
 
-| Serviço | Tipo | Domínio | Observações |
-|---|---|---|---|
-| `postgres` | Postgres | Nenhum | PostgreSQL 16. Nome interno mostrado na página do serviço |
-| `minio` | App, imagem `pgsty/minio`, com a mesma versão fixa do `docker-compose.yml` ([ADR 0028](adr/0028-minio-pela-build-da-comunidade.md)) | `midia.seudominio` → porta 9000 | Volume persistente em `/data`. Console de administração **sem domínio** |
-| `api` | App, `Dockerfile` do repositório, comando `api` | **Nenhum** | `API_HOST=0.0.0.0`. Aplica as migrations ao iniciar. Réplicas: 1 |
-| `worker` | App, mesmo `Dockerfile`, comando `worker` | **Nenhum** | Sem porta, sem verificação de saúde. **Réplicas: 1** |
-| `web` | App, mesmo `Dockerfile`, comando `web` | `app.seudominio` → porta 3010 | HTTPS ligado |
+| Serviço do compose | O quê | Domínio no Easypanel |
+|---|---|---|
+| `postgres` | PostgreSQL 16, volume `postgres-dados` | Nenhum |
+| `minio` | `pgsty/minio` com versão fixa ([ADR 0028](adr/0028-minio-pela-build-da-comunidade.md)), volume `minio-dados`, console sem domínio | `postit-media.kwlyqm.easypanel.host` → porta 9000 |
+| `bucket-init` | Roda a cada subida e sai: bucket, leitura só em `publicas/`, ciclo de vida de `recebidos/` | Nenhum |
+| `api` | Imagem do PostIt, comando `api`: aplica as migrations e sobe | **Nenhum** |
+| `worker` | Mesma imagem, comando `worker`. **Uma réplica só** | Nenhum |
+| `web` | Mesma imagem, comando `web` | `postit-app.kwlyqm.easypanel.host` → porta 3010 |
 
-Os três Apps apontam para o **mesmo repositório, a mesma branch `producao` e o mesmo `Dockerfile`**. O que muda é só
-o comando, que o ponto de entrada da imagem despacha:
+A imagem é `ghcr.io/nicolas-customcode/postit:<tag>`, publicada pela CI a cada tag de versão (`release.yml`), e o
+compose baixa a que estiver em `POSTIT_TAG`. A VPS não compila nada.
+
+**Plano B**, se o serviço Compose não servir: um serviço App por processo, todos com a mesma imagem e só o comando
+diferente, mais Postgres e MinIO como serviços do painel — o desenho original do [ADR 0020](adr/0020-easypanel-na-validacao.md).
+
+**Testar o compose no computador**, antes de ir para a VPS: com um arquivo de variáveis próprio (nunca o `.env` do
+desenvolvimento) e o `deploy/compose.local.yml`, que só acrescenta as portas 3020 (app) e 9020 (mídia):
+
+```bash
+docker build -t ghcr.io/nicolas-customcode/postit:local .
+docker compose -f deploy/compose.yml -f deploy/compose.local.yml --env-file <arquivo> -p postit-local up -d
+```
+
+O ponto de entrada da imagem despacha o comando:
 
 | Comando | Executa |
 |---|---|
@@ -97,7 +112,7 @@ manual continua antes ([ADR 0021](adr/0021-dump-manual-e-sem-monitoramento-exter
 - Continua exigindo a **chave interna**: a rede interna do Easypanel pode ser compartilhada com outros projetos do
   mesmo servidor
 
-`INTERNAL_API_URL` do `web` usa o nome interno do serviço `api`, mostrado no painel.
+No compose, o `web` alcança a api por `http://api:3011`, o nome do serviço na rede interna dele.
 
 ### O painel do Easypanel
 
@@ -109,19 +124,21 @@ manual continua antes ([ADR 0021](adr/0021-dump-manual-e-sem-monitoramento-exter
 
 ### Variáveis
 
-Preenchidas na aba **Environment** de cada serviço, com os mesmos nomes de [Variáveis de ambiente](#variáveis-de-ambiente).
-`DATABASE_URL`, `ENCRYPTION_KEY` e `INTERNAL_API_KEY` precisam ser **idênticas** onde aparecem — com
-`ENCRYPTION_KEY` diferente, o worker não decifra os tokens e toda publicação falha.
+Preenchidas **uma vez**, na aba **Environment** do serviço Compose, com **"Create .env file"** ligado. A lista, sem
+valores, está em `deploy/.env.example`. O compose distribui a cada processo só o que ele usa, e monta sozinho os
+endereços internos (`DATABASE_URL`, `MINIO_ENDPOINT`, `INTERNAL_API_URL`) e a `IG_REDIRECT_URI`.
+
+Por estarem num lugar só, `ENCRYPTION_KEY` e `INTERNAL_API_KEY` não têm como divergir entre api e worker — que era o
+risco dos serviços separados.
 
 ### MinIO
 
 - **Política do bucket:** leitura anônima **só** em `publicas/*`. É ela que impede ler `recebidos/`
 - **CORS:** pela variável **`MINIO_API_CORS_ALLOW_ORIGIN`**, com a origem exata do app
 - **Regra de ciclo de vida** para apagar envios abandonados em `recebidos/`
-- Política e ciclo de vida são aplicados pelo script de preparação do bucket, rodado pelo terminal do
-  serviço `api`. O CORS não: é variável de ambiente do serviço `minio`. ⚠️ **O script ainda não existe** —
-  pendência da estreia registrada no [12](12-roadmap.md) em 24/09/2026; no local, quem faz isso é o `media-init` do
-  `docker-compose.yml`
+- Política e ciclo de vida são aplicados pelo serviço `bucket-init` do `deploy/compose.yml`, a cada subida — o
+  mesmo que o `media-init` do `docker-compose.yml` faz no computador. O CORS não: é variável de ambiente do serviço
+  `minio`, montada da `APP_URL`
 
 **Sobre o CORS, três coisas que custaram tempo e é melhor já saber** (verificado em 18/09/2026):
 
@@ -526,25 +543,35 @@ git diff --name-only v1.3.9 v1.4.0 -- packages/database/prisma/migrations
 **Quando o erro aparece dias depois**, restaurar o dump perde esses dias. Nesse caso, costuma ser melhor
 **corrigir para frente**: uma nova versão com a correção, sem voltar o banco.
 
-### Etapa 1: Easypanel
+### Etapa 1: Easypanel, pelo compose
 
 ```bash
 # No seu computador
-git tag -a v1.4.0 && git push --tags     # anotada, com o que entrou (docs/15, "Versões")
-git push --force origin "v1.4.0^{commit}:refs/heads/producao"   # aponta a branch producao para a tag
+git tag -a v1.4.0 && git push origin v1.4.0   # anotada, com o que entrou (docs/15, "Versões")
 ```
 
-Depois, no painel, **Deploy nesta ordem**:
+A tag dispara o workflow `release.yml`, que publica `ghcr.io/nicolas-customcode/postit:v1.4.0` (uns minutos; conferir
+em Actions). Depois, no painel:
 
-1. **`api`** — constrói a imagem, aplica as migrations e sobe
-2. **`worker`** — só depois de a API estar de pé, para nunca rodar código novo com banco velho
-3. **`web`**
+1. **Environment** do serviço Compose: `POSTIT_TAG=v1.4.0`
+2. **Deploy**
 
-Deploy automático a cada push fica **desligado** nos três, para a ordem ser respeitada. Voltar para uma versão
-anterior é o mesmo caminho, com a tag anterior.
+O compose sobe na ordem certa sozinho: banco e bucket, depois a **api** (que aplica as migrations), e só com ela
+saudável o **worker** e o **web** — nunca código novo com banco velho. Deploy automático fica **desligado**. Voltar
+para uma versão anterior é o mesmo caminho, com a tag anterior (e o dump, se houve migration).
 
-Conferir no fim: a tela de login abre por `https://app.seudominio/entrar`, a CSP aparece na resposta, e a versão
-nova aparece no rodapé.
+Conferir no fim: a tela de login abre por `https://postit-app.kwlyqm.easypanel.host/entrar`, a CSP aparece na
+resposta, e a versão nova aparece no rodapé do Perfil.
+
+**Login no GHCR, uma vez só na VPS** — a imagem é privada. Token clássico do GitHub, só com `read:packages`
+(Settings → Developer settings → Personal access tokens → Tokens (classic)):
+
+```bash
+docker login ghcr.io -u Nicolas-CustomCode   # a senha é o token
+```
+
+⚠️ **A conferir no primeiro deploy:** se o serviço Compose do Easypanel usa esse login. A documentação dele não fala
+de registro privado. Se não usar, o plano B do [ADR 0030](adr/0030-compose-de-producao.md).
 
 ### Etapa 2: `scripts/deploy.sh`
 
@@ -599,17 +626,18 @@ abre. Se falhar, o deploy para com erro visível — em vez de terminar "com suc
 
 ### Primeira instalação
 
-**Etapa 1:** criar o projeto e os cinco serviços no Easypanel, preencher as variáveis, rodar o script de preparação
-do bucket pelo terminal do serviço `api` e fazer o primeiro deploy na ordem acima.
+**Etapa 1:** login no GHCR na VPS; no Easypanel, criar o projeto e o serviço Compose apontado para
+`deploy/compose.yml`, preencher o Environment (a partir de `deploy/.env.example`), ligar os dois domínios — app →
+`web:3010`, mídia → `minio:9000` — e fazer o Deploy. O bucket é preparado sozinho pelo `bucket-init`.
 
 **Etapa 2:** o mesmo script de deploy, precedido de `.env` preenchido, `docker compose up -d` e o script de
 preparação do bucket; e `pm2 start ecosystem.config.cjs` + `pm2 startup` no lugar do reload.
 
-**Depois de tudo de pé**, criar o primeiro usuário — pelo terminal do serviço `api` (etapa 1) ou em `/opt/postit`
-(etapa 2):
+**Depois de tudo de pé**, criar o primeiro usuário — pelo terminal do container `api` (etapa 1; no Easypanel, o
+console do serviço Compose, ou `docker exec` no container da api) ou em `/opt/postit` (etapa 2):
 
 ```bash
-npm run admin:create -- --email voce@exemplo.com --nome "Seu Nome" --super-admin
+npm run admin:create -- --email voce@exemplo.com --name "Seu Nome" --super-admin
 # imprime um link de cadastro válido por 7 dias
 ```
 
@@ -626,7 +654,7 @@ isso pela tela; os comandos existem para o primeiro usuário e para quando não 
 
 | Comando | Para quê |
 |---|---|
-| `npm run admin:create -- --email --nome [--super-admin]` | Novo usuário; imprime link de cadastro (7 dias). `--super-admin` para o primeiro |
+| `npm run admin:create -- --email --name [--super-admin]` | Novo usuário; imprime link de cadastro (7 dias). `--super-admin` para o primeiro |
 | `npm run admin:promote -- --email` | Tornar alguém super admin quando todos os super admins perderam acesso |
 | `npm run admin:reset-password -- --email` | Senha esquecida; imprime link (24 h); ao usar, encerra todas as sessões |
 | `npm run admin:reset-2fa -- --email` | Celular e códigos perdidos; encerra todas as sessões |

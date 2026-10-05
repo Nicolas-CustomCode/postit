@@ -39,15 +39,18 @@ apps/api          NestJS + Fastify — dois pontos de entrada:
   src/worker.ts     processo sem HTTP, com as filas pg-boss               (postit-worker)
 packages/shared   schemas zod, tipos de resposta, enums, especificações de mídia
 packages/database schema Prisma, migrations, seed
-.github/workflows CI (a cada push na main), CodeQL
+.github/workflows CI (a cada push na main), CodeQL, release (imagem no GHCR a cada tag)
 scripts/          version.mjs, tunnel.cjs; deploy.sh só na etapa 2
-Dockerfile        uma imagem, comandos web | api | worker — produção na etapa 1 (Easypanel)
+Dockerfile        uma imagem, comandos web | api | worker
+deploy/           compose.yml de produção (as seis peças), .env.example, compose.local.yml para testar
+docker-compose.yml Postgres e MinIO do computador local — não é o de produção
 ```
 
-**Infraestrutura em duas etapas** ([docs/adr/0020-easypanel-na-validacao.md](docs/adr/0020-easypanel-na-validacao.md)):
-Easypanel durante a validação; PM2, Docker Compose e Apache depois da aprovação. O código não pode depender de
-qual etapa está rodando — endereço da API por variável, cabeçalhos no Next, nada de caminho fixo do servidor.
-Não escreva `ecosystem.config.cjs`, configuração do Apache nem `deploy.sh` antes da mudança.
+**Infraestrutura** ([ADR 0020](docs/adr/0020-easypanel-na-validacao.md), [ADR 0030](docs/adr/0030-compose-de-producao.md)):
+na validação, o `deploy/compose.yml` roda como serviço Compose do Easypanel, com a imagem do GHCR na tag da versão;
+depois, o mesmo compose pode ir para outra máquina, com Apache na frente. O código não pode depender de onde está
+rodando — endereço da API por variável, cabeçalhos no Next, nada de caminho fixo do servidor. Não escreva
+`ecosystem.config.cjs`, configuração do Apache nem `deploy.sh` antes da mudança.
 
 ## Leitura obrigatória antes de codar
 
@@ -198,7 +201,9 @@ Estas vêm de decisões registradas. Quebrar uma delas é bug, não estilo.
     a API atualiza com `where id + versao` e responde 409 se nada mudou. O worker **não** mexe em `versao`.
     Ver [docs/05-arquitetura.md](docs/05-arquitetura.md#8-edição-simultânea).
 21. **Nenhum ambiente além da produção tem credencial de conta real.** Só existem local e produção
-    ([ADR 0019](docs/adr/0019-sem-homologacao.md)); o local usa o app **PostIt Dev** e a conta de testes. Nunca copie token, banco ou `.env` de produção para outro ambiente.
+    ([ADR 0019](docs/adr/0019-sem-homologacao.md)); o local conecta só a conta de testes. Nunca copie token, banco ou `.env` de produção para outro ambiente.
+    **Por enquanto o app da Meta é um só nos dois ambientes** ([ADR 0031](docs/adr/0031-um-app-da-meta-por-enquanto.md)):
+    o segredo do app está nos dois `.env`, mas os tokens das contas reais só no banco de produção — nunca conecte uma conta real pelo local.
 22. **Push não carrega dado sensível.** Só título genérico e link — nada de nome de conta, legenda, e-mail ou
     motivo de erro. O detalhe aparece depois de abrir o sistema logado. O service worker **não guarda em cache**
     página autenticada nem resposta com dado pessoal (`NetworkOnly`).

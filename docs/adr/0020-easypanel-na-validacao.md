@@ -1,7 +1,12 @@
 # ADR 0020 — Easypanel na validação; PM2 e Apache depois da aprovação
 
-**Data:** 2026-09-15 · **Status:** aceito · **Substitui parcialmente:** [ADR 0003](0003-vps-docker-pm2.md) e
+**Data:** 2026-09-15 · **Status:** aceito, parcialmente substituído pelo [ADR 0030](0030-compose-de-producao.md) em
+2026-10-05 · **Substitui parcialmente:** [ADR 0003](0003-vps-docker-pm2.md) e
 [ADR 0019](0019-sem-homologacao.md) · **Complementa:** [ADR 0014](0014-csp-e-cabecalhos-de-seguranca.md)
+
+> **A etapa 1 sobe por um compose** ([ADR 0030](0030-compose-de-producao.md)): `deploy/compose.yml`, como serviço
+> Compose do Easypanel, com a imagem publicada no GHCR por tag. Os três serviços App ficam como plano B. Continua
+> valendo tudo o que este ADR decide sobre o código.
 
 ## Contexto
 

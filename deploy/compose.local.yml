@@ -1,0 +1,19 @@
+# deploy/compose.local.yml — só para testar o compose de produção no computador.
+#
+# O compose.yml não publica portas (o Easypanel é quem expõe). Este arquivo acrescenta
+# as duas que fazem o papel dos domínios, em 127.0.0.1 e longe das do desenvolvimento
+# (3010, 3011, 9002), para os dois rodarem lado a lado:
+#
+#   docker compose -f deploy/compose.yml -f deploy/compose.local.yml \
+#     --env-file <arquivo> -p postit-local up -d
+#
+# Com APP_URL=http://localhost:3020 e MINIO_PUBLIC_URL=http://localhost:9020 no arquivo
+# de variáveis. Nunca vai para a VPS.
+
+services:
+  web:
+    ports:
+      - "127.0.0.1:3020:3010"
+  minio:
+    ports:
+      - "127.0.0.1:9020:9000"
