@@ -456,6 +456,7 @@ sobrevive ao proxy. Falta só repetir no proxy de verdade, na estreia.
 | Sinalização de conteúdo gerado por IA | RF-C09 |
 | Prévia por formato, com o recorte correto | RF-C10 |
 | Reaproveitamento de mídia | RF-B04 |
+| **Retenção de mídia** — antecipada da Fase 5 em 06/10/2026: uma tarefa diária no worker, no molde da limpeza das recortadas órfãs, apaga o **arquivo** das mídias de postagens publicadas há mais de 12 meses que nenhuma outra postagem viva usa; a linha, as métricas e o histórico ficam. Prazo configurável. Entra aqui porque o vídeo é o que faz o disco crescer de verdade | RNF-12 |
 
 **Marco verificável:**
 1. Publicar um carrossel de 3 imagens, com a ordem correta no perfil
@@ -564,7 +565,7 @@ de ele quebrar.
 | Reprocessamento manual pelo painel oficial do pg-boss | RF-H03 |
 | Dump e restauração testados (feito na estreia em produção) | RNF-11 |
 | Exibição de cota restante por conta | RF-A07 |
-| Tarefa `manutencao` com a política de retenção | RNF-12 |
+| ~~Tarefa `manutencao` com a política de retenção~~ — **antecipada para a Fase 2** (06/10/2026), junto do vídeo | RNF-12 |
 | Tela de evolução da conta, com métricas indisponíveis explicadas | RF-G07 |
 | Demais tipos de notificação: `TOKEN_EXPIRANDO`, `PROCESSAMENTO_TRAVADO` (`CONTA_SEM_ACESSO` antecipada para a Fase 1, parte G) | RF-J03 |
 
@@ -622,10 +623,10 @@ Para comentários existe a alternativa de consultar periodicamente; para mensage
 |---|---|
 | 0 | RF-A01 a RF-A04, RF-A06, RF-A08, RF-A09, RF-G06, RF-H01, RF-H04, RF-H05, RF-H06, RF-H07, RF-I01, RF-J05, RNF-05, RNF-06, RNF-13, RNF-14, RNF-15, RNF-16 (infraestrutura de RF-I04 e RF-I09) |
 | 1 | RF-B01 a RF-B05, RF-B06 (imagem), RF-B07, RF-C01 a RF-C04, RF-C11, RF-C12, RF-D01, RF-D03 a RF-D05, RF-D09, RF-E01 a RF-E05, RF-F01 a RF-F09, RF-F11, RF-J01 a RF-J04, RF-K01 a RF-K06 (parte 1f), RNF-01 a RNF-04, RNF-07, RNF-08, RNF-09, RNF-10 — as antecipações estão anotadas nas notas da fase |
-| 2 | RF-C05 a RF-C10, RF-F10 (e o que falta de RF-C02: Reels) |
+| 2 | RF-C05 a RF-C10, RF-F10 (e o que falta de RF-C02: Reels), RNF-12 (antecipado da 5) |
 | 3 | RF-D02, RF-D06 a RF-D08 |
 | 4 | RF-E06, RF-I02 a RF-I09 (RF-E01 a RF-E05 antecipados na 1e) |
-| 5 | RF-A05, RF-A07, RF-G01 a RF-G04, RF-G07, RF-H02, RF-H03, RNF-11, RNF-12 |
+| 5 | RF-A05, RF-A07, RF-G01 a RF-G04, RF-G07, RF-H02, RF-H03, RNF-11 |
 | Depois | RF-B06 (vídeo), RF-D10, RF-G05, RF-K07 |
 
 Todos os requisitos do MVP estão cobertos. Conferido contra [02](02-requisitos.md).
