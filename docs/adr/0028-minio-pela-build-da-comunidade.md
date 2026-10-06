@@ -96,4 +96,5 @@ o [ADR 0012](0012-upload-direto-minio.md) exige, e a API não mudaria — ela fa
 
 **Os avisos aceitos do docs/15 não somem com a troca de servidor**: eles vêm da biblioteca `minio` do Node, que a API
 usa. A saída deles é trocar a biblioteca pelo `@aws-sdk/client-s3` — o que vale para MinIO ou RustFS, e está no
-[12](../12-roadmap.md) como etapa própria.
+[12](../12-roadmap.md) como etapa própria. **Feita no mesmo dia** ([06](../06-stack.md#minio-para-as-mídias)): a API já
+fala S3 puro, e a reavaliação do RustFS não depende mais da biblioteca.

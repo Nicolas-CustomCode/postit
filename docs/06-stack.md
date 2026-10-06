@@ -185,14 +185,20 @@ migração para S3 ou Cloudflare R2, se um dia fizer sentido, vira troca de vari
 O navegador envia direto ao MinIO com permissão assinada pela API, num prefixo privado; só depois de
 validado o arquivo vai para o prefixo público. Ver [ADR 0012](adr/0012-upload-direto-minio.md).
 
-**A biblioteca é o [`minio`](https://www.npmjs.com/package/minio)**, o SDK oficial do próprio MinIO,
-decidido em 17/09/2026. Um pacote só, e já traz o `presignedPostPolicy` que o envio direto do ADR
-0012 vai precisar — com o `@aws-sdk/client-s3` seriam dois pacotes para o mesmo resultado.
+**A biblioteca é o [`@aws-sdk/client-s3`](https://www.npmjs.com/package/@aws-sdk/client-s3)**, com o
+[`@aws-sdk/s3-presigned-post`](https://www.npmjs.com/package/@aws-sdk/s3-presigned-post) para a permissão assinada
+do envio direto do ADR 0012, desde 06/10/2026. Fala S3 puro: o mesmo código serve a MinIO, RustFS
+([ADR 0028](adr/0028-minio-pela-build-da-comunidade.md)), S3 ou R2, e a frase acima volta a valer também no código.
+`apps/api/src/storage/` continua sendo a única parte do projeto que importa a biblioteca.
 
-**O custo, registrado de propósito:** a API dele é própria do MinIO. A frase acima — "migrar vira
-troca de variável de ambiente" — deixa de valer na parte do código: migrar para S3 ou R2 significa
-reescrever `apps/api/src/storage/`. É por isso que aquilo é um módulo pequeno, com o envio assinado e o
-movimento entre prefixos, e é a única parte do projeto que importa `minio`.
+**Antes, de 17/09 a 06/10/2026, era o [`minio`](https://www.npmjs.com/package/minio)**, o SDK do próprio MinIO —
+escolhido por ser um pacote só, com o `presignedPostPolicy` embutido. Saiu porque as dependências dele traziam quatro
+avisos de segurança sem correção possível ([15](15-qualidade-e-fluxo-de-trabalho.md#avisos-conhecidos-e-aceitos)), e
+porque a API dele é própria do MinIO.
+
+**O que muda para quem lê a configuração:** o cliente assina para a região `us-east-1`, usa caminho
+(`/bucket/chave`) em vez de subdomínio e só manda checksum quando a operação exige — os três ajustes que um
+armazenamento compatível com S3 fora da AWS pede.
 
 ### `image-size` para as dimensões da imagem
 
