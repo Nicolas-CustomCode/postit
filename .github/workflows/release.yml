@@ -1,9 +1,10 @@
 # Publica a imagem de produção no GHCR a cada tag de versão (ADR 0030; docs/10).
 #
-#   git tag v1.0.0 && git push origin v1.0.0
+#   gh release create v1.0.0 --target main --generate-notes
 #
-# A imagem sai como ghcr.io/nicolas-customcode/postit:v1.0.0, privada — ela carrega o
-# código. Na VPS, o compose de produção a baixa pela tag em POSTIT_TAG.
+# A imagem sai como ghcr.io/nicolas-customcode/postit:v1.0.0, pública desde 06/10/2026,
+# como o repositório (acréscimo do ADR 0030). Na VPS, o compose de produção a baixa pela
+# tag em POSTIT_TAG, sem login.
 #
 # Só tag: produção nunca recebe a main solta (docs/15). E sem segredo nenhum na
 # construção: as variáveis chegam só quando o container sobe.

@@ -266,7 +266,7 @@ npm run admin:collect-metrics  # força a coleta de métricas que o worker faz �
 npm run admin:assistants -- list [--email x]                  # os assistentes conectados (ADR 0029)
 npm run admin:assistants -- revoke --id <autorização> | --email x   # revoga na hora, com auditoria CLI
 # Produção — só por tag; versão com migration: dump manual antes (docs/10-infra-deploy.md#dump-e-restauração)
-git tag -a v1.4.0 && git push origin v1.4.0   # a CI publica a imagem no GHCR; no Easypanel, POSTIT_TAG=v1.4.0 e Deploy (ADR 0030)
+gh release create v1.4.0 --target main --generate-notes   # cria a tag; a CI publica a imagem no GHCR; no Easypanel, POSTIT_TAG=v1.4.0 e Deploy (ADR 0030)
 scripts/deploy.sh v1.4.0                                         # etapa 2: PM2 e Apache, depois da aprovação
 ```
 
