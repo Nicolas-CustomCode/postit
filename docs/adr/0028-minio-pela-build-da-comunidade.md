@@ -61,4 +61,39 @@ de distribuição de imagem, não de software.
   de dados.
 - **Correção de segurança não chega sozinha**: com a versão fixa, alguém precisa olhar as releases do `pgsty/minio`
   de tempos em tempos. O Dependabot não acompanha imagem de `docker run` na CI.
-- **Produção**: o App `minio` do Easypanel usa a mesma imagem e a mesma tag do compose (docs/10).
+- **Produção**: o serviço `minio` do `deploy/compose.yml` usa a mesma imagem e a mesma tag do compose local
+  ([ADR 0030](0030-compose-de-producao.md)).
+
+## Acréscimo de 06/10/2026 — alternativa avaliada: RustFS
+
+O usuário perguntou pelo **RustFS** (Apache 2.0, escrito em Rust), que chegou à 1.0 em 16/09/2026
+([anúncio](https://rustfs.com/blog/announcing-rustfs-1-0-0-ga/)). Ao contrário de SeaweedFS e Garage, ele cobre o que
+o [ADR 0012](0012-upload-direto-minio.md) exige, e a API não mudaria — ela fala S3 puro pelo `StorageService`:
+
+| O PostIt precisa de | No RustFS 1.0 |
+|---|---|
+| Gravar, ler, copiar, apagar | Estável ([análise do que está pronto](https://dev.to/ethan-carter/rustfs-10-is-ga-after-25-years-whats-actually-production-ready-and-what-isnt-15go)) |
+| Envio pelo navegador com política assinada | Existe; envio anônimo com política corrigido em julho e o teto de tamanho em agosto de 2026 ([#4845](https://github.com/rustfs/rustfs/issues/4845), [#6647](https://github.com/rustfs/rustfs/issues/6647)) |
+| Leitura anônima só em `publicas/` | Por política de bucket ([#1874](https://github.com/rustfs/rustfs/issues/1874)) |
+| Ciclo de vida apagando `recebidos/` | Funciona; os contadores do painel não descem, mas o espaço volta ([#8106](https://github.com/rustfs/rustfs/issues/8106)) |
+| CORS só para o app | Variável `RUSTFS_CORS_ALLOWED_ORIGINS` ([variáveis](https://github.com/orgs/rustfs/discussions/971)) |
+| `mc` e a biblioteca `minio` | Compatíveis, segundo a análise da 1.0 |
+
+**Decisão: não trocar agora; reavaliar na Fase 2**, quando o vídeo faz o armazenamento pesar
+([12](../12-roadmap.md)). Por quê:
+- a 1.0 tinha três semanas, e o PostIt estreou em produção em 06/10/2026 — dois riscos novos ao mesmo tempo;
+- há bug aberto de memória em envio multipart grande, que derruba a máquina
+  ([#8271](https://github.com/rustfs/rustfs/issues/8271)) — irrelevante para imagem de até 8 MB, relevante para vídeo;
+- menos material de operação e de ferramentas de backup que o conhecem.
+
+**O que conferir quando a troca for feita:**
+- o **console vem ligado**, com usuário e senha `rustfsadmin` e **CORS `*`** por padrão
+  (`RUSTFS_CONSOLE_ENABLE`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_CORS_ALLOWED_ORIGINS`) — a mesma armadilha
+  do CORS do MinIO;
+- a verificação de saúde passa a ser `/health` na porta 9000, no lugar do `mc ready local`;
+- a cópia dos arquivos da produção, com `mc mirror` (as chaves dos objetos não mudam, e o banco não é tocado);
+- a suíte de mídia da API e os e2e de envio rodando contra ele, antes de qualquer coisa ir para a VPS.
+
+**Os avisos aceitos do docs/15 não somem com a troca de servidor**: eles vêm da biblioteca `minio` do Node, que a API
+usa. A saída deles é trocar a biblioteca pelo `@aws-sdk/client-s3` — o que vale para MinIO ou RustFS, e está no
+[12](../12-roadmap.md) como etapa própria.

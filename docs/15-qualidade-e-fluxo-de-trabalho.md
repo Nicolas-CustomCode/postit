@@ -198,7 +198,13 @@ audita só produção (`--omit=dev`):
 O aviso marca **todas** as versões do `braces`, e o `--force` rebaixaria o `eslint-config-next` para a 14. Só roda no
 lint, sobre os padrões de arquivo do próprio projeto: não há entrada de terceiro por onde chegar.
 
-**Por que não se corrige agora:**
+**A saída decidida em 06/10/2026:** trocar a biblioteca `minio` pelo `@aws-sdk/client-s3`, numa etapa própria do
+[12](12-roadmap.md) (Fase 2, ou antes). Trocar o **servidor** — pelo RustFS, avaliado no
+[ADR 0028](adr/0028-minio-pela-build-da-comunidade.md) — não resolveria: os avisos vêm da biblioteca do Node. Até lá,
+os alertas do Dependabot ficam **abertos de propósito**, como lembrete, e as tentativas semanais dele de corrigi-los
+falham com `security_update_not_possible` — esperado.
+
+**Por que não se corrige de outro jeito:**
 
 - **`npm audit fix --force` rebaixa o `minio` para a 7.1.3** — versão antiga, com quebra de API, justamente no envio e
   na publicação de mídia.
