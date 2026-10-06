@@ -96,6 +96,8 @@ qualquer uso externo.
   valida
 - [ADR 0030](adr/0030-compose-de-producao.md) — Compose de produção, com a imagem publicada no GHCR por tag
 - [ADR 0031](adr/0031-um-app-da-meta-por-enquanto.md) — Um app da Meta só, por enquanto, nos dois ambientes
+- [ADR 0032](adr/0032-main-protegida-e-fluxo-por-pull-request.md) — `main` protegida, tudo por pull request, e o
+  repositório público endurecido
 
 ---
 
@@ -133,7 +135,7 @@ passarem, o projeto está de pé.
 | Como crescer para outras redes | Nomes genéricos e código por rede, sem abstração antecipada | [ADR 0009](adr/0009-preparacao-multi-rede.md) |
 | Como avisa | Sino no sistema + push no navegador e no celular, por responsabilidade, sem dado sensível | [ADR 0017](adr/0017-pwa-e-notificacoes-push.md) |
 | Onde se testa | Tudo no computador local, com túnel e conta de testes; produção só por tag, com dump manual antes de migration | [ADR 0018](adr/0018-ambientes-e-apps-meta-separados.md), [ADR 0019](adr/0019-sem-homologacao.md) |
-| Como se trabalha no código | Direto na `main`, CI avisa quando quebra, Playwright com Meta falsa | [15](15-qualidade-e-fluxo-de-trabalho.md) |
+| Como se trabalha no código | Tudo por pull request, que só entra com a CI verde; Playwright com Meta falsa | [15](15-qualidade-e-fluxo-de-trabalho.md), [ADR 0032](adr/0032-main-protegida-e-fluxo-por-pull-request.md) |
 | Duas pessoas na mesma postagem | Controle por versão: quem salva depois é avisado e não perde o que digitou | [05](05-arquitetura.md#8-edição-simultânea) |
 | Como se chama | PostIt, provisório; nunca "Insta" ou "gram" no nome | [ADR 0016](adr/0016-nome-do-produto.md) |
 | Onde entra a IA | O PostIt não gera texto; um assistente externo (ChatGPT) compõe rascunhos por MCP, autorizado por OAuth, e uma pessoa valida | [ADR 0029](adr/0029-assistente-por-mcp.md) |

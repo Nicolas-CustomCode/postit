@@ -121,9 +121,11 @@ zod por cada app no boot; client do Prisma gerado fora do git; comentários expl
 `package.json` com campos `"//chave"`, e comentários com a razão da decisão em `docker-compose.yml`,
 `ecosystem.config.cjs` e `turbo.json` — mesmo padrão de `nossobuncker`.
 
-**Git:** direto na `main`; a CI roda a cada push e avisa quando quebra — **conserte antes de seguir**.
-Commits `tipo(escopo): resumo` em pt-BR, com corpo explicando o porquê. O pre-commit sobe a versão (patch);
-produção só recebe tag `vX.Y.Z`. Detalhes em [docs/15-qualidade-e-fluxo-de-trabalho.md](docs/15-qualidade-e-fluxo-de-trabalho.md).
+**Git:** **tudo por pull request** ([ADR 0032](docs/adr/0032-main-protegida-e-fluxo-por-pull-request.md)) — a `main`
+recusa push direto, inclusive do admin. Cada trabalho num branch; o PR só entra com o `verify` da CI verde e o
+branch atualizado, por squash, e **o merge é decisão do usuário**. Um PR aberto por vez (o número da versão
+conflita). O título do PR segue `tipo(escopo): resumo` em pt-BR e a descrição explica o porquê — eles viram o commit.
+O pre-commit sobe a versão (patch); produção só recebe tag `vX.Y.Z`, que só o admin cria e ninguém move. Detalhes em [docs/15-qualidade-e-fluxo-de-trabalho.md](docs/15-qualidade-e-fluxo-de-trabalho.md).
 
 ## Regras que não se negociam
 
