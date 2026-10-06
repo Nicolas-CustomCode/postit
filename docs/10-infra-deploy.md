@@ -563,15 +563,10 @@ para uma versão anterior é o mesmo caminho, com a tag anterior (e o dump, se h
 Conferir no fim: a tela de login abre por `https://postit-app.kwlyqm.easypanel.host/entrar`, a CSP aparece na
 resposta, e a versão nova aparece no rodapé do Perfil.
 
-**Login no GHCR, uma vez só na VPS** — a imagem é privada. Token clássico do GitHub, só com `read:packages`
-(Settings → Developer settings → Personal access tokens → Tokens (classic)):
-
-```bash
-docker login ghcr.io -u Nicolas-CustomCode   # a senha é o token
-```
-
-⚠️ **A conferir no primeiro deploy:** se o serviço Compose do Easypanel usa esse login. A documentação dele não fala
-de registro privado. Se não usar, o plano B do [ADR 0030](adr/0030-compose-de-producao.md).
+**A imagem no GHCR é pública** desde 06/10/2026 ([ADR 0030](adr/0030-compose-de-producao.md#acréscimo-de-06102026--a-imagem-é-pública)):
+a VPS baixa sem login nem token. Se ela voltar a ser privada, é preciso `docker login ghcr.io -u Nicolas-CustomCode`
+na VPS, com um token clássico só de `read:packages` — o serviço Compose do Easypanel usa esse login, conferido na
+estreia.
 
 ### Etapa 2: `scripts/deploy.sh`
 
@@ -626,7 +621,7 @@ abre. Se falhar, o deploy para com erro visível — em vez de terminar "com suc
 
 ### Primeira instalação
 
-**Etapa 1:** login no GHCR na VPS; no Easypanel, criar o projeto e o serviço Compose apontado para
+**Etapa 1:** no Easypanel, criar o projeto e o serviço Compose apontado para
 `deploy/compose.yml`, preencher o Environment (a partir de `deploy/.env.example`), ligar os dois domínios — app →
 `web:3010`, mídia → `minio:9000` — e fazer o Deploy. O bucket é preparado sozinho pelo `bucket-init`.
 
