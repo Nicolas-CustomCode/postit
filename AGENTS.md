@@ -19,7 +19,8 @@ diretas. Não construa nada disso agora, mas respeite a preparação descrita em
 onde o conceito é genérico (`Account`, `network`, `externalId` no código; `Conta`, `rede`, `idExterno` no banco), módulos e filas separados por rede, e
 nenhuma interface genérica de "publicador" antes de a segunda rede existir.
 
-**Estado atual (05/10/2026): Fase 1 no fechamento** ([docs/12-roadmap.md](docs/12-roadmap.md)). Publicar imagem,
+**Estado atual (06/10/2026): v1.0.0 em produção** — a estreia da Fase 1 ([docs/12-roadmap.md](docs/12-roadmap.md)),
+com o roteiro de estreia do [docs/10](docs/10-infra-deploy.md#estreia-em-produção) em andamento. Publicar imagem,
 carrossel e Stories funciona de ponta a ponta, conferido publicando de verdade, com revisão e aprovação, sino e push;
 o roteiro de fogo está conferido. Antes da estreia em produção entra a **parte 1f, o assistente por MCP**
 ([docs/16-assistente-mcp.md](docs/16-assistente-mcp.md)), **entregue e conferida com o ChatGPT de verdade** — ele

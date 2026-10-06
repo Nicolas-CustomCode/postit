@@ -71,6 +71,7 @@ portas nem use `container_name`.
 - O ADR 0020 continua valendo no que decide sobre o **código** — cabeçalhos no Next, endereço da API por variável,
   `X-Real-IP` vindo do proxy, CORS no MinIO. Muda só **onde** e **como** a etapa 1 sobe.
 - O `docker-compose.yml` da raiz continua sendo **só do computador local**.
-- Fica a conferir na estreia: se o Traefik entrega o IP real em `X-Real-IP` (V-23 do [08](../08-integracao-instagram.md)),
-  e se o serviço Compose do Easypanel usa o login do GHCR feito na VPS.
+- **Confirmado na estreia (06/10/2026):** o serviço Compose do Easypanel usa o `docker login ghcr.io` feito na VPS — o
+  plano B não foi preciso. O `.env` que ele cria vai para o Build path, que precisa ser `/deploy`.
+- Fica a conferir: se o Traefik entrega o IP real em `X-Real-IP` (V-23 do [08](../08-integracao-instagram.md)).
 - O roteiro está no [10](../10-infra-deploy.md).

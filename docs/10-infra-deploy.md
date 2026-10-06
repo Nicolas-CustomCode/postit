@@ -801,7 +801,24 @@ computador local já testa https, cookie `__Host-` e origem, mas não a configur
 | 8 | Dump e restauração | Fazer um dump, restaurá-lo e conferir que usuários, conta e postagem continuam lá. Cumpre o RNF-11 |
 
 Se qualquer item falhar, corrigir antes de conectar as demais contas. O resultado dos itens V-15, V-16 e V-23 é
-registrado em [08](08-integracao-instagram.md) com a data. **Na mudança para a etapa 2**, os itens 1 a 4 são
+registrado em [08](08-integracao-instagram.md) com a data.
+
+**A estreia: v1.0.0 no ar em 06/10/2026**, pelo compose no Easypanel ([ADR 0030](adr/0030-compose-de-producao.md)),
+em `postit-app.kwlyqm.easypanel.host` e `postit-media.kwlyqm.easypanel.host`. O serviço Compose baixou a imagem
+privada do GHCR com o `docker login` feito na VPS. Conferido no mesmo dia, pelos domínios públicos:
+
+- **Item 1 ✓** — CSP com nonce, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` e `Permissions-Policy`;
+- a mídia chega ao MinIO (`/minio/health/live` 200) e `recebidos/` responde 403 a quem não está autorizado;
+- o `/mcp` responde 401 sem token, e a descoberta do OAuth anuncia o endereço de produção.
+
+**Faltam os itens 2 a 8.** Três lições do primeiro deploy, que valem para os próximos:
+
+- **O `.env` do Easypanel vai para o Build path.** Com o compose em `deploy/`, o Build path é `/deploy` e o arquivo é
+  `compose.yml`; com o Build path na raiz, o compose não acha o `.env` e recusa subir por falta de `POSTIT_TAG`.
+- **Os comandos `admin:*` rodam no container da `api`**, não no do `web` — o terminal do Easypanel oferece os dois.
+  No container errado, a validação acusa falta de `DATABASE_URL` e das variáveis do MinIO.
+- **No terminal do Easypanel, o `npm` pode responder "Permission denied".** Chame o comando direto:
+  `node /app/apps/api/dist/cli/main.js create --email … --name "…" --super-admin` (e assim os demais `admin:*`). **Na mudança para a etapa 2**, os itens 1 a 4 são
 refeitos com o Apache.
 
 ---
