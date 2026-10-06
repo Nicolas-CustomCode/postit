@@ -25,6 +25,8 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
+  # As actions são fixadas por hash de commit, com a versão em comentário (ADR 0032): o
+  # Dependabot atualiza os dois juntos.
   - package-ecosystem: github-actions
     directory: /
     schedule:

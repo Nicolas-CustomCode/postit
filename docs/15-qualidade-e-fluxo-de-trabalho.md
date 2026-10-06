@@ -6,19 +6,46 @@ Como o código chega do computador à produção: git, versões, integração co
 
 ## Git
 
-### Fluxo: direto na `main`
+### Fluxo: tudo por pull request, desde 06/10/2026
 
-- Commits vão **direto na `main`**, como no `hotclone`
-- A **integração contínua roda a cada push** e avisa por e-mail do GitHub quando algo quebra. Ela alerta; não
-  impede o commit de entrar
-- Antes de enviar, rodar localmente `npm run typecheck`, `npm run lint` e `npm run test`
-- Branches são opcionais, para experimentos longos
+Com a v1.0.0 em produção, a `main` passou a ser protegida ([ADR 0032](adr/0032-main-protegida-e-fluxo-por-pull-request.md)).
+Até lá, os commits iam direto nela.
 
-**Consequência aceita:** um erro pode chegar à `main` antes de a CI apontar. A proteção vem depois: a `main` não
-vai para lugar nenhum sozinha; produção só recebe **versões marcadas**, depois de a CI passar e do roteiro manual
-de publicação rodar no computador local, com a conta de testes. Não há homologação
-([ADR 0019](adr/0019-sem-homologacao.md)). Versão com migration pede **dump manual** do banco antes do deploy
-([10](10-infra-deploy.md#antes-de-uma-versão-com-migration-dump-manual)).
+- **Cada trabalho num branch** — `feat/…`, `fix/…`, `docs/…`, `chore/…` — e um **pull request** para a `main`
+- **O PR só entra com o `verify` da CI verde** — typecheck, lint, testes, build, e2e e auditoria — e com o branch
+  atualizado com a `main` (o botão "Update branch" faz isso)
+- **Merge só por squash**: o **título do PR** vira o commit na `main`, então ele segue o padrão de mensagem abaixo, e a
+  **descrição** vira o corpo — o porquê. O branch é apagado depois do merge
+- **Sem aprovação obrigatória**: o projeto tem uma pessoa só, e o GitHub não deixa o autor aprovar o próprio PR. O
+  portão é a CI
+- **Ninguém envia direto à `main`**, nem o admin; push forçado e apagar a `main` são recusados. Numa emergência, o
+  admin desliga a regra no painel, corrige e liga de novo — e isso fica no log de auditoria do GitHub
+- **Um PR aberto por vez**: o pre-commit sobe a versão a cada commit, e dois PRs abertos juntos conflitam no número.
+  O segundo resolve com "Update branch" e um commit novo
+- Antes de abrir o PR, rodar localmente `npm run typecheck`, `npm run lint` e `npm run test`
+
+**Os PRs do Dependabot passam pelo mesmo portão**: só entram com a CI verde, por squash.
+
+Produção continua recebendo **só versões marcadas**, depois do merge: a tag é criada na `main` atualizada. Não há
+homologação ([ADR 0019](adr/0019-sem-homologacao.md)). Versão com migration pede **dump manual** do banco antes do
+deploy ([10](10-infra-deploy.md#antes-de-uma-versão-com-migration-dump-manual)).
+
+### Proteções do repositório
+
+O repositório é **público**, decisão de 06/10/2026: as proteções abaixo são gratuitas assim. Nenhum segredo entra
+no git — o `.env` nunca, e a CI usa valores falsos.
+
+| Proteção | O que faz |
+|---|---|
+| Ruleset da `main` | Só por PR, com o `verify` verde e o branch atualizado; histórico linear; sem push forçado nem apagar |
+| Ruleset "só o admin cria" tags `v*` | Tag de versão publica a imagem de produção ([ADR 0030](adr/0030-compose-de-producao.md)): só o admin a cria |
+| Ruleset "ninguém move nem apaga" tags `v*` | Uma tag publicada aponta para sempre para o mesmo commit — sem exceção, nem para o admin |
+| Varredura de segredos e bloqueio de push | O GitHub recusa o push que contenha token ou chave conhecida, e varre o histórico |
+| Dependabot: alertas e correções de segurança | Além das atualizações semanais, PR de correção quando sai uma vulnerabilidade conhecida |
+| Relato privado de vulnerabilidade | Quem achar falha relata pela aba Security, sem expor publicamente — ver o `SECURITY.md` |
+| Actions restritas | Só as do GitHub, as de criadores verificados e `docker/*`; fixadas por **hash de commit**, com a versão em comentário, e o Dependabot atualiza o hash |
+| PR vindo de fork | A CI só roda depois da aprovação do admin |
+| Permissão padrão das Actions | Só leitura; cada workflow pede o que precisa (`release.yml`: `packages: write`) |
 
 ### Mensagens de commit
 
@@ -61,10 +88,13 @@ Padrão do `nossobuncker`:
 - **Hook de pre-commit** sobe o PATCH automaticamente; pular com `SKIP_BUMP=1`. Instalado por `core.hooksPath`
   no `postinstall`, como no `hotclone`
 - **MINOR e MAJOR** só manualmente: `npm run version:minor`, `npm run version:major`
-- **Liberar para produção** é marcar uma tag: `git tag -a v1.4.0 && git push origin v1.4.0`. A tag dispara o
-  `release.yml`, que publica a imagem no GHCR; depois, `POSTIT_TAG=v1.4.0` no serviço Compose do Easypanel e Deploy
-  ([ADR 0030](adr/0030-compose-de-producao.md), [10](10-infra-deploy.md#etapa-1-easypanel-pelo-compose))
-  ([10](10-infra-deploy.md#deploy))
+- **Liberar para produção** é marcar uma tag na `main` atualizada, depois do merge:
+  `git switch main && git pull && git tag -a v1.4.0 && git push origin v1.4.0`. Só o admin cria tag `v*`, e ela não
+  se move depois. A tag dispara o `release.yml`, que publica a imagem no GHCR; depois, `POSTIT_TAG=v1.4.0` no serviço
+  Compose do Easypanel e Deploy ([ADR 0030](adr/0030-compose-de-producao.md),
+  [10](10-infra-deploy.md#etapa-1-easypanel-pelo-compose))
+- **Subir MINOR ou MAJOR** é um PR como outro qualquer, com o commit do `npm run version:minor` feito com
+  `SKIP_BUMP=1`
 
 Decidido em 24/09/2026, antes da primeira tag:
 
@@ -81,7 +111,7 @@ Decidido em 24/09/2026, antes da primeira tag:
 
 ## Integração contínua
 
-GitHub Actions, rodando a cada push na `main`. Referências: `security.yml` do `alivio-crm`, `concurrency` do
+GitHub Actions, rodando em cada pull request e a cada push na `main` (que só chega por merge). Referências: `security.yml` do `alivio-crm`, `concurrency` do
 `hotclone`.
 
 ```mermaid
