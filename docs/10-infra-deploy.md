@@ -814,7 +814,15 @@ privada do GHCR com o `docker login` feito na VPS. Conferido no mesmo dia, pelos
 - **Item 2 ✓** — o IP real chega: o IP da sessão no Perfil é o IP público de quem entrou (V-23);
 - **Item 4 ✓** — Server Action de outro domínio recusada antes de rodar, e o login legítimo funcionando (V-16).
 
-**Faltam os itens 3, 5, 6, 7 e 8.** Três lições do primeiro deploy, que valem para os próximos:
+- **Itens 3, 5, 6 e 7 ✓** — envio de imagem ao Acervo direto ao MinIO de produção (V-15 no proxy de verdade), login
+  com as duas etapas, push no celular com as chaves VAPID de produção, e **a primeira publicação acompanhada**, numa
+  conta real, que prova que a Meta baixa a mídia pelo domínio de mídia.
+
+**Item 8 adiado** por decisão do usuário: o dump e a restauração ainda não foram testados na produção. Até lá, **não há
+cópia do banco fora da VPS** — risco aceito por enquanto, e o primeiro dump é obrigatório antes de qualquer versão com
+migration ([Antes de uma versão com migration](#antes-de-uma-versão-com-migration-dump-manual)).
+
+Três lições do primeiro deploy, que valem para os próximos:
 
 - **O `.env` do Easypanel vai para o Build path.** Com o compose em `deploy/`, o Build path é `/deploy` e o arquivo é
   `compose.yml`; com o Build path na raiz, o compose não acha o `.env` e recusa subir por falta de `POSTIT_TAG`.

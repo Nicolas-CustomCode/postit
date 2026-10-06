@@ -418,9 +418,9 @@ e o servidor serve primeiro ao Claude, que também usa OAuth.
 seguir a [estreia em produção](10-infra-deploy.md#estreia-em-produção) — cabeçalhos, `X-Real-IP`, V-15, V-16,
 login, push, a primeira publicação acompanhada e o teste de dump e restauração — **antes** de conectar as demais contas reais.
 
-**A estreia aconteceu em 06/10/2026: a v1.0.0 está no ar** — conferidos os cabeçalhos, a mídia e o assistente pelos
-domínios públicos; faltam os itens 2 a 8 do roteiro do [10](10-infra-deploy.md#estreia-em-produção), entre eles a
-primeira publicação acompanhada e o teste de dump. Ela sobe pelo compose de produção
+**A estreia aconteceu em 06/10/2026: a v1.0.0 está no ar, e a Fase 1 está entregue.** O roteiro do
+[10](10-infra-deploy.md#estreia-em-produção) foi conferido — cabeçalhos, IP real, envio de mídia, CSRF, login, push e
+a primeira publicação numa conta real —, menos o teste de dump e restauração, adiado por decisão do usuário. Ela sobe pelo compose de produção
 ([ADR 0030](adr/0030-compose-de-producao.md), 05/10/2026):
 `deploy/compose.yml` como serviço Compose do Easypanel, com a imagem publicada no GHCR pela tag. O serviço
 `bucket-init` dele é a preparação do bucket que faltava (pendência de 24/09/2026, fechada). Por enquanto, com o mesmo
