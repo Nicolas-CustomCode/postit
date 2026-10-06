@@ -177,18 +177,18 @@ paralelo um arquivo mudaria os dados de outro no meio do teste.
 motivo de cada uma no comentário ao lado, e retiradas quando a dependência de origem publicar a correção. Nada de
 `npm audit fix --force`, que troca versão principal do Prisma e do NestJS.
 
-#### Avisos conhecidos e aceitos — 25/09/2026
+#### Avisos conhecidos e aceitos
 
-O `npm audit` mostra **4 avisos moderados**, todos dentro do cliente `minio` 8.0.7 (a versão mais recente), que a
-API usa para falar com o armazenamento. A CI não quebra por eles (ela barra só alto e crítico), e eles ficam **de
-propósito**, até o `minio` publicar versão com as dependências atualizadas — o Dependabot traz o PR.
+**Em produção, nenhum** desde 06/10/2026: `npm audit --omit=dev` dá zero.
 
-| Aviso | Caminho | O que permite |
-|---|---|---|
-| [GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr) | `minio` → `query-string` 7 → `decode-uri-component` 0.2.2 | Travar o processo decodificando um texto percent-encoded malformado |
-| [GHSA-528h-pc64-c93x](https://github.com/advisories/GHSA-528h-pc64-c93x) | `minio` → `stream-json` 1.9 | Travar o processo com um JSON muito aninhado |
+De 25/09 a 06/10/2026 havia **4 avisos moderados**, todos dentro da biblioteca `minio` 8.0.7 do Node —
+[GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr) (`query-string` 7 → `decode-uri-component`
+0.2.2) e [GHSA-528h-pc64-c93x](https://github.com/advisories/GHSA-528h-pc64-c93x) (`stream-json` 1.9), só negação de
+serviço. `overrides` não serviam: a correção de cada um estava em outra versão principal, e forçar arriscaria quebrar o
+armazenamento. A saída foi **trocar a biblioteca pelo `@aws-sdk/client-s3`** ([06](06-stack.md#minio-para-as-mídias)),
+e os alertas do Dependabot fecharam com ela.
 
-**Em desenvolvimento, desde 05/10/2026**, o `npm audit` completo mostra também um aviso **alto** que a CI não vê — ela
+**Em desenvolvimento, desde 05/10/2026**, o `npm audit` completo mostra um aviso **alto** que a CI não vê — ela
 audita só produção (`--omit=dev`):
 
 | Aviso | Caminho | O que permite |
@@ -198,31 +198,8 @@ audita só produção (`--omit=dev`):
 O aviso marca **todas** as versões do `braces`, e o `--force` rebaixaria o `eslint-config-next` para a 14. Só roda no
 lint, sobre os padrões de arquivo do próprio projeto: não há entrada de terceiro por onde chegar.
 
-**A saída decidida em 06/10/2026:** trocar a biblioteca `minio` pelo `@aws-sdk/client-s3`, numa etapa própria do
-[12](12-roadmap.md) (Fase 2, ou antes). Trocar o **servidor** — pelo RustFS, avaliado no
-[ADR 0028](adr/0028-minio-pela-build-da-comunidade.md) — não resolveria: os avisos vêm da biblioteca do Node. Até lá,
-os alertas do Dependabot ficam **abertos de propósito**, como lembrete, e as tentativas semanais dele de corrigi-los
-falham com `security_update_not_possible` — esperado.
-
-**Por que não se corrige de outro jeito:**
-
-- **`npm audit fix --force` rebaixa o `minio` para a 7.1.3** — versão antiga, com quebra de API, justamente no envio e
-  na publicação de mídia.
-- **`overrides` não servem aqui**: a correção de cada uma está em outra versão principal. O `query-string` corrigido
-  (9.5) só existe como módulo ES, e o `minio` o carrega como CommonJS; o `stream-json` corrigido (3.5) está duas
-  versões principais acima da que o `minio` espera. Forçar arriscaria quebrar o armazenamento para fechar um risco
-  que, aqui, não tem por onde entrar.
-
-**Por que o risco é baixo:** as duas falhas são **só negação de serviço** — sem vazamento de dado nem execução de
-código — e exigem que o atacante controle o texto que o cliente `minio` lê. No PostIt ele só lê o que o próprio
-código monta (chaves de objeto geradas em hexadecimal, bucket fixo, nada vindo do usuário) e o que o **nosso** MinIO
-responde, que não tem nome público e só é alcançado pela API na rede interna. Para explorar, seria preciso controlar
-o armazenamento antes — e aí os arquivos já estariam expostos por outro caminho. O pior caso seria um processo
-travado até reiniciar: a tela sem responder, ou publicações atrasadas, que a trava dos 15 minutos manda para
-`FALHOU` com aviso em vez de publicar tarde.
-
-**Reavaliar se** o PostIt passar a ler do armazenamento algo vindo de fora — por exemplo, listar objetos cujos nomes
-o usuário escolhe —, ou se aparecer aviso **alto** em qualquer das duas.
+O Dependabot #6 (`sprintf-js`, via `jest` → `istanbul` → `js-yaml` → `argparse`) também é só de desenvolvimento e
+sem versão corrigida: dispensado no GitHub em 06/10/2026 como risco tolerável.
 
 ### Playwright
 

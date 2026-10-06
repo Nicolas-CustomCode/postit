@@ -139,7 +139,7 @@ describe("envio de mídia", () => {
       expect(permissao["url"]).toEqual(expect.any(String));
       expect(permissao["ticket"]).toEqual(expect.any(String));
       expect(Object.keys(permissao["fields"] as object)).toEqual(
-        expect.arrayContaining(["key", "policy", "x-amz-signature"]),
+        expect.arrayContaining(["key", "Policy", "X-Amz-Signature"]),
       );
       expect(new Date(permissao["expiresAt"] as string).getTime()).toBeGreaterThan(Date.now());
     });

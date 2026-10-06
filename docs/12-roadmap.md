@@ -456,7 +456,7 @@ sobrevive ao proxy. Falta só repetir no proxy de verdade, na estreia.
 | Sinalização de conteúdo gerado por IA | RF-C09 |
 | Prévia por formato, com o recorte correto | RF-C10 |
 | Reaproveitamento de mídia | RF-B04 |
-| **Trocar a biblioteca `minio` do Node pelo `@aws-sdk/client-s3`** (decidido em 06/10/2026). É dela que vêm os avisos de segurança aceitos no [15](15-qualidade-e-fluxo-de-trabalho.md) (`stream-json`, `decode-uri-component`), e os alertas do Dependabot ficam abertos de propósito até a troca. O `StorageService` é o único lugar que muda, e a troca vale para MinIO ou RustFS. Pode entrar antes da Fase 2 | — |
+| ~~Trocar a biblioteca `minio` do Node pelo `@aws-sdk/client-s3`~~ — **entregue antes da fase** (06/10/2026): só o `StorageService` mudou, e os avisos de segurança dela (`stream-json`, `decode-uri-component`) saíram com ela ([06](06-stack.md#minio-para-as-mídias)) | — |
 | **Reavaliar o RustFS no lugar do MinIO** ([ADR 0028](adr/0028-minio-pela-build-da-comunidade.md), acréscimo de 06/10/2026): testar no computador — suíte de mídia e e2e de envio — antes de decidir; o vídeo é o que pesa no armazenamento | — |
 | **Retenção de mídia** — antecipada da Fase 5 em 06/10/2026: uma tarefa diária no worker, no molde da limpeza das recortadas órfãs, apaga o **arquivo** das mídias de postagens publicadas há mais de 12 meses que nenhuma outra postagem viva usa; a linha, as métricas e o histórico ficam. Prazo configurável. Entra aqui porque o vídeo é o que faz o disco crescer de verdade | RNF-12 |
 

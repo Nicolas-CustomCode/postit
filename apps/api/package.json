@@ -1,6 +1,6 @@
 {
   "name": "@repo/api",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "//": "NestJS 11 com Fastify. Um código, dois processos: main.ts (HTTP, só o Next alcança) e worker.ts (filas, sem HTTP). Só o worker publica. Ver docs/05 e docs/adr/0010.",
   "scripts": {
@@ -23,6 +23,8 @@
   },
   "//scripts": "O dev usa a CLI do Nest, e não tsx: a injeção de dependência depende dos metadados de decorator, que o esbuild não emite. fake-meta sobe a Meta falsa dos testes de tela, e só com NODE_ENV=test.",
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1146.0",
+    "@aws-sdk/s3-presigned-post": "3.1146.0",
     "@fastify/helmet": "13.1.1",
     "@modelcontextprotocol/server": "2.3.0",
     "@nestjs/common": "11.2.7",
@@ -34,7 +36,6 @@
     "dotenv": "17.4.2",
     "fastify": "5.12.5",
     "image-size": "2.0.4",
-    "minio": "8.0.7",
     "otplib": "13.5.0",
     "pg-boss": "12.36.0",
     "qrcode": "1.5.4",
