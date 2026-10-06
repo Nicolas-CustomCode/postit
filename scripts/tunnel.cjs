@@ -42,15 +42,20 @@ function readEnv() {
   return values;
 }
 
-/** Porta é número; qualquer outra coisa cai no padrão, em vez de virar parte de um comando. */
+/**
+ * Porta é número; qualquer outra coisa cai no padrão, em vez de virar parte de um comando.
+ * Converter para número também separa a porta do texto lido do ambiente, que o CodeQL trata
+ * como sensível ao chegar num log.
+ */
 function port(value, fallback) {
-  return /^\d{1,5}$/.test(value ?? "") ? value : fallback;
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 && number < 65536 ? number : fallback;
 }
 
 const env = readEnv();
 const targets = [
-  { name: "app", port: port(env.WEB_PORT, "3010") },
-  { name: "mídia", port: port(env.MINIO_LOCAL_PORT, "9002") },
+  { name: "app", port: port(env.WEB_PORT, 3010) },
+  { name: "mídia", port: port(env.MINIO_LOCAL_PORT, 9002) },
 ];
 
 const found = {};
