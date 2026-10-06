@@ -16,6 +16,9 @@ describe("safeRedirect", () => {
     ["tabulação", "/\t/site-falso.com"],
     ["quebra de linha", "/\n/site-falso.com"],
     ["espaço", "/ /site-falso.com"],
+    ["caractere nulo", "/\u0000/site-falso.com"],
+    ["caractere de controle", "/\u001b/site-falso.com"],
+    ["DEL", "/\u007f/site-falso.com"],
     ["javascript", "javascript:alert(1)"],
     ["vazio", ""],
   ])("recusa %s e volta para a tela inicial", (_case, input) => {

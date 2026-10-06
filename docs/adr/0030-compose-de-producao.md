@@ -44,16 +44,15 @@ portas nem use `container_name`.
 ### 2. A imagem sai da CI, por tag, para o GHCR
 
 - O workflow `release.yml` constrói o `Dockerfile` a cada tag `vX.Y.Z` e publica
-  `ghcr.io/nicolas-customcode/postit:vX.Y.Z`, **privada** — ela carrega o código.
+  `ghcr.io/nicolas-customcode/postit:vX.Y.Z`, **pública** (ver o acréscimo de 06/10/2026, no fim).
 - O compose baixa a versão em `POSTIT_TAG`. Trocar de versão é mudar essa variável e fazer o deploy; a VPS não
   compila nada.
-- Para baixar, a VPS faz `docker login ghcr.io` uma vez, com um token clássico só de `read:packages`.
 
 ### 3. Onde roda
 
 - **VPS com Easypanel**, como serviço Compose, com os domínios `postit-app.kwlyqm.easypanel.host` (app) e
   `postit-media.kwlyqm.easypanel.host` (mídia).
-- **Plano B**, se o serviço Compose não servir (por exemplo, sem conseguir baixar imagem privada): um serviço App
+- **Plano B**, se o serviço Compose não servir: um serviço App
   por processo, como o ADR 0020 previa, com a mesma imagem.
 - **Depois**, o mesmo arquivo noutra máquina, com Apache ou outro proxy na frente — o que antes era a etapa 2 com
   PM2 deixa de ser a única saída.
@@ -75,3 +74,17 @@ portas nem use `container_name`.
   plano B não foi preciso. O `.env` que ele cria vai para o Build path, que precisa ser `/deploy`.
 - Fica a conferir: se o Traefik entrega o IP real em `X-Real-IP` (V-23 do [08](../08-integracao-instagram.md)).
 - O roteiro está no [10](../10-infra-deploy.md).
+
+## Acréscimo de 06/10/2026 — a imagem é pública
+
+A decisão original era imagem **privada**, com `docker login ghcr.io` na VPS e um token só de `read:packages` — e
+assim foi a estreia. No mesmo dia, o pacote no GHCR ficou **público**, e o usuário decidiu mantê-lo assim:
+
+- é coerente com o repositório, que é público ([ADR 0032](0032-main-protegida-e-fluxo-por-pull-request.md)) — a
+  imagem não carrega nada que o código já não mostre;
+- **segredo nenhum entra na imagem**: o `.dockerignore` deixa de fora `.env`, chaves e dumps, e toda credencial chega pelo Environment do
+  Easypanel na hora de subir;
+- a VPS deixa de precisar do token do GitHub — uma credencial a menos para guardar e renovar.
+
+O `docker login` feito na estreia pode continuar na VPS sem efeito; se a imagem voltar a ser privada, é ele que volta
+a valer.

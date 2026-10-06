@@ -19,21 +19,43 @@ const { spawn } = require("node:child_process");
 const path = require("node:path");
 const fs = require("node:fs");
 
-function readEnvFile() {
-  const file = path.join(__dirname, "..", ".env");
+/**
+ * Só as variáveis que o túnel usa — as duas portas e os dois endereços. O .env tem
+ * segredos, e eles nem chegam a ser lidos para a memória deste script: o que nunca
+ * é carregado não tem como acabar num log (alerta do CodeQL de 06/10/2026).
+ */
+const KEYS = ["WEB_PORT", "MINIO_LOCAL_PORT", "APP_URL", "MINIO_PUBLIC_URL"];
+
+function readEnv() {
   const values = {};
-  if (!fs.existsSync(file)) return values;
-  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (match) values[match[1]] = match[2].replace(/^["']|["']$/g, "");
+  const file = path.join(__dirname, "..", ".env");
+  if (fs.existsSync(file)) {
+    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+      if (match && KEYS.includes(match[1])) values[match[1]] = match[2].replace(/^["']|["']$/g, "");
+    }
+  }
+  // Variável já presente no processo vence o arquivo.
+  for (const key of KEYS) {
+    if (process.env[key] !== undefined) values[key] = process.env[key];
   }
   return values;
 }
 
-const env = { ...readEnvFile(), ...process.env };
+/**
+ * Porta é número; qualquer outra coisa cai no padrão, em vez de virar parte de um comando.
+ * Converter para número também separa a porta do texto lido do ambiente, que o CodeQL trata
+ * como sensível ao chegar num log.
+ */
+function port(value, fallback) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 && number < 65536 ? number : fallback;
+}
+
+const env = readEnv();
 const targets = [
-  { name: "app", port: env.WEB_PORT || "3010" },
-  { name: "mídia", port: env.MINIO_LOCAL_PORT || "9002" },
+  { name: "app", port: port(env.WEB_PORT, 3010) },
+  { name: "mídia", port: port(env.MINIO_LOCAL_PORT, 9002) },
 ];
 
 const found = {};
@@ -92,7 +114,8 @@ Túneis de pé. Deixe este terminal aberto.
        IG_REDIRECT_URI=${app}/contas/conectar/retorno
        MINIO_PUBLIC_URL=${media}
   2. Painel da Meta, app PostIt Dev: URI de retorno ${app}/contas/conectar/retorno
-  3. npm run media:setup   (reaplica o CORS do MinIO)
+  3. docker compose up -d --force-recreate minio media-init
+       (o CORS do MinIO sai do APP_URL e só é lido quando o container nasce)
   4. Reinicie o npm run dev
   5. Entre de novo no PostIt
   6. No celular: reinstale o app e reative as notificações

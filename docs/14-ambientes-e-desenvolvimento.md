@@ -78,7 +78,8 @@ para o túnel nunca apontar para o servidor errado. O Next aceita o endereço do
 
 1. No `.env`: `APP_URL`, `IG_REDIRECT_URI` e `MINIO_PUBLIC_URL`
 2. No painel da Meta, app **PostIt Dev**: a URI de retorno
-3. `npm run media:setup`, que reaplica o CORS do MinIO
+3. `docker compose up -d --force-recreate minio media-init`: o CORS do MinIO sai do `APP_URL` e só é lido quando o
+   container nasce. O `npm run media:setup` sozinho não basta — ele só refaz o bucket
 4. Reiniciar `npm run dev`
 5. Entrar de novo — o cookie de sessão é do endereço antigo
 6. No celular: reinstalar o app e reativar as notificações
