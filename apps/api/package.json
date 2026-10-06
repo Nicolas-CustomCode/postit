@@ -24,7 +24,7 @@
   "//scripts": "O dev usa a CLI do Nest, e não tsx: a injeção de dependência depende dos metadados de decorator, que o esbuild não emite. fake-meta sobe a Meta falsa dos testes de tela, e só com NODE_ENV=test.",
   "dependencies": {
     "@fastify/helmet": "13.1.1",
-    "@modelcontextprotocol/server": "2.2.0",
+    "@modelcontextprotocol/server": "2.3.0",
     "@nestjs/common": "11.2.7",
     "@nestjs/core": "11.2.7",
     "@nestjs/platform-fastify": "11.2.7",
@@ -36,7 +36,7 @@
     "image-size": "2.0.4",
     "minio": "8.0.7",
     "otplib": "13.5.0",
-    "pg-boss": "12.35.1",
+    "pg-boss": "12.36.0",
     "qrcode": "1.5.4",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
