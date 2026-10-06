@@ -811,7 +811,10 @@ privada do GHCR com o `docker login` feito na VPS. Conferido no mesmo dia, pelos
 - a mídia chega ao MinIO (`/minio/health/live` 200) e `recebidos/` responde 403 a quem não está autorizado;
 - o `/mcp` responde 401 sem token, e a descoberta do OAuth anuncia o endereço de produção.
 
-**Faltam os itens 2 a 8.** Três lições do primeiro deploy, que valem para os próximos:
+- **Item 2 ✓** — o IP real chega: o IP da sessão no Perfil é o IP público de quem entrou (V-23);
+- **Item 4 ✓** — Server Action de outro domínio recusada antes de rodar, e o login legítimo funcionando (V-16).
+
+**Faltam os itens 3, 5, 6, 7 e 8.** Três lições do primeiro deploy, que valem para os próximos:
 
 - **O `.env` do Easypanel vai para o Build path.** Com o compose em `deploy/`, o Build path é `/deploy` e o arquivo é
   `compose.yml`; com o Build path na raiz, o compose não acha o `.env` e recusa subir por falta de `POSTIT_TAG`.
