@@ -88,11 +88,15 @@ Padrão do `nossobuncker`:
 - **Hook de pre-commit** sobe o PATCH automaticamente; pular com `SKIP_BUMP=1`. Instalado por `core.hooksPath`
   no `postinstall`, como no `hotclone`
 - **MINOR e MAJOR** só manualmente: `npm run version:minor`, `npm run version:major`
-- **Liberar para produção** é marcar uma tag na `main` atualizada, depois do merge:
-  `git switch main && git pull && git tag -a v1.4.0 && git push origin v1.4.0`. Só o admin cria tag `v*`, e ela não
-  se move depois. A tag dispara o `release.yml`, que publica a imagem no GHCR; depois, `POSTIT_TAG=v1.4.0` no serviço
-  Compose do Easypanel e Deploy ([ADR 0030](adr/0030-compose-de-producao.md),
-  [10](10-infra-deploy.md#etapa-1-easypanel-pelo-compose))
+- **Liberar para produção** é criar uma release na `main`, depois do merge:
+  `gh release create v1.4.0 --target main --generate-notes`. A versão é a do `package.json` da `main` — confira antes
+  com `git switch main && git pull`. O comando cria a tag `v1.4.0` no GitHub, no topo da `main`, e a página da release
+  com a lista dos PRs desde a release anterior. Só o admin cria tag `v*`, e ela não se move depois. A tag dispara o
+  `release.yml`, que publica a imagem no GHCR; depois, `POSTIT_TAG=v1.4.0` no serviço Compose do Easypanel e Deploy
+  ([ADR 0030](adr/0030-compose-de-producao.md), [10](10-infra-deploy.md#etapa-1-easypanel-pelo-compose))
+- **Atenção ao número.** A tag criada por engano não sai sem desligar a regra "ninguém move nem apaga" — foi o que
+  aconteceu com a `v1.0.10` em 06/10/2026, criada antes de existir no `package.json`. A imagem dela ficou no GHCR, e a
+  release de verdade com esse número a sobrescreve
 - **Subir MINOR ou MAJOR** é um PR como outro qualquer, com o commit do `npm run version:minor` feito com
   `SKIP_BUMP=1`
 
@@ -100,12 +104,15 @@ Decidido em 24/09/2026, antes da primeira tag:
 
 - **A estreia em produção é a `v1.0.0`.** Até lá a versão fica em `0.x`, e o `npm run version:major` imediatamente
   antes da tag faz a passagem
-- **Tag anotada** (`git tag -a`), com a mensagem listando o que entrou — o resumo dos commits desde a tag
-  anterior, em português. A tag leve não guarda autor, data nem motivo
+- ~~**Tag anotada** (`git tag -a`), com a mensagem listando o que entrou~~ — **trocada em 06/10/2026 pela release do
+  GitHub**, a partir da `v1.0.9`. A tag que o `gh release create` cria é leve, mas autor, data e o que entrou ficam na
+  página da release, gerados dos títulos dos PRs — que já seguem o padrão dos commits. A `v1.0.0` é a única anotada, e
+  a primeira release precisou de `--notes-start-tag v1.0.0`; as seguintes partem da release anterior sozinhas. Uma
+  versão marcada por `git tag` puro, sem release, faria a release seguinte repetir os PRs dela
 - **O PATCH salta entre tags**, e é esperado: o pre-commit sobe a cada commit, então de `v1.0.0` a próxima pode ser
   `v1.0.37`. O número diz qual código está rodando, não quantas versões saíram
-- **Sem changelog à parte.** `git log v1.0.0..v1.0.37` é o registro, e o padrão das mensagens de commit, com
-  corpo explicando o porquê, é o que o torna legível
+- **Sem changelog à parte.** As páginas de release são o registro, e `git log v1.0.0..v1.0.37` o detalhe; o padrão
+  das mensagens de commit, com corpo explicando o porquê, é o que torna os dois legíveis
 
 ---
 

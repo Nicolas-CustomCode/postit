@@ -547,7 +547,8 @@ git diff --name-only v1.3.9 v1.4.0 -- packages/database/prisma/migrations
 
 ```bash
 # No seu computador
-git tag -a v1.4.0 && git push origin v1.4.0   # anotada, com o que entrou (docs/15, "Versões")
+git switch main && git pull                               # a versão é a do package.json da main
+gh release create v1.4.0 --target main --generate-notes   # tag e página da release (docs/15, "Versões")
 ```
 
 A tag dispara o workflow `release.yml`, que publica `ghcr.io/nicolas-customcode/postit:v1.4.0` (uns minutos; conferir
