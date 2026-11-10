@@ -21,11 +21,11 @@
   },
   "//scripts": "deploy (prisma migrate deploy) é o único que roda em produção. Nunca db push nem migrate reset lá — regra herdada do nossobuncker.",
   "dependencies": {
-    "@prisma/adapter-pg": "7.10.0",
-    "@prisma/client": "7.10.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "dotenv": "17.4.2",
     "pg": "8.23.1",
-    "prisma": "7.10.0"
+    "prisma": "7.10.1"
   },
   "//dependencies": "A CLI do prisma fica em dependencies, e não em devDependencies: a imagem Docker de produção descarta as de desenvolvimento, e a API roda prisma migrate deploy ao iniciar (docs/10, lição do openreply).",
   "devDependencies": {
